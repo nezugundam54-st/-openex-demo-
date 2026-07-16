@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <title>見積管理</title>
+<!-- CADから引用でIFCを直接読む場合に使用（ifc-extract.js経由でweb-ifcを動的import） -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "web-ifc": "https://unpkg.com/web-ifc@0.0.39/web-ifc-api.js",
+    "web-ifc-three/IFCLoader": "https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.js"
+  }
+}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{
@@ -1181,7 +1191,7 @@ async function openCadImport() {
 
   try {
     const r = await fetch(
-      `${SB}/property_files?property_id=eq.${propertyId}&name=ilike.*.json&order=created_at.desc&limit=100`,
+      `${SB}/property_files?property_id=eq.${propertyId}&or=(name.ilike.*.json,name.ilike.*.ifc)&order=created_at.desc&limit=100`,
       { headers: H }
     );
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1207,12 +1217,13 @@ async function openCadImport() {
 
 function renderFileSelect() {
   document.getElementById('cadTitle').textContent = 'CADから引用 — ファイル選択';
-  let html = '<div style="margin-bottom:10px;font-size:12px;color:#606266;">複数のJSONファイルが見つかりました。引用するファイルを選択してください。</div>';
+  let html = '<div style="margin-bottom:10px;font-size:12px;color:#606266;">複数のCADデータ(JSON/IFC)が見つかりました。引用するファイルを選択してください。</div>';
   _cadFiles.forEach((f, i) => {
     const date = f.created_at ? f.created_at.slice(0,16).replace('T',' ') : '';
     const size = f.size ? `${(f.size/1024).toFixed(1)} KB` : '';
+    const isIfc = (f.name || '').toLowerCase().endsWith('.ifc');
     html += `<div class="cad-file-item" onclick="loadCadFile(${i})">
-      <span style="font-size:22px;line-height:1;">📄</span>
+      <span style="font-size:22px;line-height:1;">${isIfc ? '🧊' : '📄'}</span>
       <div style="flex:1;">
         <div style="font-weight:bold;font-size:12px;">${escHtml(f.name)}</div>
         <div style="color:#999;font-size:11px;">${date}${size ? ' · ' + size : ''}</div>
@@ -1225,16 +1236,26 @@ function renderFileSelect() {
 
 async function loadCadFile(idx) {
   const f = _cadFiles[idx];
+  const isIfc = (f.name || '').toLowerCase().endsWith('.ifc');
   document.getElementById('cadTitle').textContent = 'CADから引用';
-  document.getElementById('cadBody').innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
+  document.getElementById('cadBody').innerHTML = isIfc
+    ? '<div style="padding:28px;text-align:center;color:#999;">IFCを解析中...（ファイルサイズによっては時間がかかります）</div>'
+    : '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
   document.getElementById('cadFooter').innerHTML = '';
   try {
     const r = await fetch(`${STORAGE_BASE}/${f.storage_path}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const text = await r.text();
-    const cleaned = text.replace(/,\s*([}\]])/g, '$1');
-    const data = JSON.parse(cleaned);
-    _cadItems = data.items || (Array.isArray(data) ? data : []);
+    if (isIfc) {
+      // JSONルートとは別に、IFCを直接読んで同じフラット配列(file/suuryo/kakaku/name/type/parameters)を得る
+      const buffer = await r.arrayBuffer();
+      const { extractIfcItems } = await import('./ifc-extract.js');
+      _cadItems = await extractIfcItems(buffer, f.name);
+    } else {
+      const text = await r.text();
+      const cleaned = text.replace(/,\s*([}\]])/g, '$1');
+      const data = JSON.parse(cleaned);
+      _cadItems = data.items || (Array.isArray(data) ? data : []);
+    }
     if (!_cadItems.length) throw new Error('データが空です');
     renderCadImportTable();
   } catch(e) {
