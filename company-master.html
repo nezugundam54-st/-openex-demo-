@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>会社名マスタ設定</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #e53935; color: #fff; font-size: 10px; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 1px;
+    }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right { display: flex; align-items: center; margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0; }
+
+    .page-body { margin-top: 76px; padding: 28px 24px 80px; max-width: 860px; margin-left: auto; margin-right: auto; }
+    .page-title { font-size: 18px; font-weight: 700; color: #1e2939; margin-bottom: 20px; }
+
+    .master-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 16px; }
+    .card-hint { font-size: 12px; color: #888; margin-bottom: 20px; }
+
+    .company-list { list-style: none; }
+
+    /* 各行 */
+    .company-item { border-bottom: 1px solid #f0f0f0; }
+    .company-item:last-child { border-bottom: none; }
+    .company-item.dragging { opacity: 0.4; }
+    .company-item.drag-over { background: #f0f7ff; }
+
+    .company-item-view {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 0; cursor: default;
+    }
+    .drag-handle { color: #ccc; cursor: grab; flex-shrink: 0; display: flex; align-items: center; padding: 0 4px; }
+    .drag-handle:active { cursor: grabbing; }
+    .drag-handle svg { width: 16px; height: 16px; }
+
+    .logo-display {
+      width: 52px; height: 52px; flex-shrink: 0;
+      border-radius: 4px; overflow: hidden;
+      background: #f5f5f5; border: 1px solid #e0e0e0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 9px; color: #bbb; line-height: 1.4; text-align: center;
+    }
+    .logo-display img { width: 100%; height: 100%; object-fit: cover; }
+
+    .company-info { flex: 1; }
+    .company-name-text { font-size: 14px; font-weight: 600; color: #1e2939; margin-bottom: 4px; }
+    .company-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #777; }
+    .company-meta span { display: flex; align-items: center; gap: 4px; }
+    .company-meta svg { width: 11px; height: 11px; flex-shrink: 0; }
+    .meta-address svg { color: #e53935; } .meta-tel svg { color: #e53935; } .meta-person svg { color: #1a6fc4; }
+
+    .item-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .item-action-btn {
+      background: none; border: none; cursor: pointer;
+      color: #bbb; padding: 6px; border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s, color 0.1s;
+    }
+    .item-action-btn svg { width: 16px; height: 16px; }
+    .item-action-btn.edit:hover { background: #e8f0fb; color: #1a6fc4; }
+    .item-action-btn.delete:hover { background: #fdecea; color: #e53935; }
+
+    /* インライン編集フォーム */
+    .company-item-edit { padding: 4px 0 20px 32px; display: none; }
+    .company-item-edit.open { display: block; }
+
+    /* ロゴアップロードエリア（共通） */
+    .logo-upload-area {
+      width: 88px; height: 88px; flex-shrink: 0;
+      border: 2px dashed #d0d0d0; border-radius: 6px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      background: #fafafa; position: relative; overflow: hidden;
+      font-size: 10px; color: #aaa; text-align: center; gap: 3px; line-height: 1.4;
+    }
+    .logo-upload-area:hover, .logo-upload-area.dragover { border-color: #1a6fc4; background: #f0f7ff; color: #1a6fc4; }
+    .logo-upload-area svg { width: 20px; height: 20px; opacity: 0.4; }
+    .logo-upload-area .logo-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+    .logo-upload-area.has-image .logo-preview-img { display: block; }
+    .logo-upload-area.has-image svg, .logo-upload-area.has-image .logo-hint { display: none; }
+    .logo-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .logo-remove-btn {
+      position: absolute; top: 3px; right: 3px; z-index: 10;
+      background: rgba(0,0,0,0.55); color: #fff; border: none;
+      border-radius: 50%; width: 18px; height: 18px; font-size: 12px; cursor: pointer;
+      display: none; align-items: center; justify-content: center; line-height: 1;
+    }
+    .logo-upload-area.has-image .logo-remove-btn { display: flex; }
+
+    .edit-layout { display: flex; gap: 16px; align-items: flex-start; }
+    .edit-fields { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .edit-field-full { grid-column: 1 / -1; }
+    .edit-label { font-size: 11px; font-weight: 600; color: #888; margin-bottom: 4px; display: block; }
+    .edit-label .req { color: #e53935; }
+    .edit-input {
+      width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 5px;
+      font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: #333; transition: border-color 0.15s;
+    }
+    .edit-input:focus { outline: none; border-color: #1a6fc4; }
+    .edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+    /* 追加フォームカード */
+    .add-form-card {
+      background: #f8fbff; border: 1px dashed #b3d1f0; border-radius: 8px;
+      padding: 20px; margin-top: 12px; display: none;
+    }
+    .add-form-card.open { display: block; }
+    .add-form-title { font-size: 13px; font-weight: 600; color: #1a6fc4; margin-bottom: 14px; }
+    .add-form-layout { display: flex; gap: 16px; align-items: flex-start; }
+    .add-form-fields { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .add-form-field-full { grid-column: 1 / -1; }
+    .add-form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
+    /* ボタン共通 */
+    .btn-primary {
+      background: #1a6fc4; color: #fff; border: none; border-radius: 5px;
+      padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #1558a0; }
+    .btn-secondary {
+      background: #fff; color: #666; border: 1px solid #ccc; border-radius: 5px;
+      padding: 7px 20px; font-size: 13px; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #f5f5f5; }
+
+    .add-btn {
+      display: flex; align-items: center; gap: 6px; margin-top: 16px;
+      background: none; border: 1px dashed #ccc; border-radius: 6px;
+      padding: 10px 16px; font-size: 13px; color: #888; cursor: pointer;
+      width: 100%; justify-content: center;
+      transition: border-color 0.15s, color 0.15s; font-family: 'Noto Sans JP', sans-serif;
+    }
+    .add-btn:hover { border-color: #1a6fc4; color: #1a6fc4; }
+    .add-btn svg { width: 15px; height: 15px; }
+
+    .btn-area { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 24px; }
+    .btn-save-order {
+      background: #1a6fc4; color: #fff; border: none; border-radius: 6px;
+      padding: 12px 48px; font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s; min-width: 180px;
+    }
+    .btn-save-order:hover { background: #1558a0; }
+    .btn-back {
+      background: #fff; color: #555; border: 1px solid #ccc; border-radius: 6px;
+      padding: 11px 48px; font-size: 14px; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s; min-width: 180px;
+    }
+    .btn-back:hover { background: #f5f5f5; }
+
+    .toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: #323232; color: #fff; padding: 12px 24px; border-radius: 6px;
+      font-size: 13px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #388e3c; }
+    .toast.error { background: #c62828; }
+
+    .loading-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.7);
+      z-index: 900; display: none; align-items: center; justify-content: center;
+    }
+    .loading-overlay.open { display: flex; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #e0e0e0; border-top-color: #1a6fc4; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state { text-align: center; padding: 36px 0 16px; color: #aaa; font-size: 13px; }
+    .empty-state svg { width: 36px; height: 36px; margin: 0 auto 8px; opacity: 0.3; display: block; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-main">
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>物件</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>顧客</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>ファイル検索</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>見積管理</a>
+    <a href="#" class="nav-item hacchukanri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>発注管理<span class="nav-badge">2</span></a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>受注管理</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>商談管理</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>スケジュール</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>チャット</a>
+    <a href="settings.html" class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定</a>
+  </div>
+  <div class="nav-right">
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>マニュアル</a>
+  </div>
+</nav>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+<div class="toast" id="toast"></div>
+
+<div class="page-body">
+  <div class="page-title">会社名マスタ設定</div>
+  <div class="master-card">
+    <p class="card-hint">ドラッグ＆ドロップで表示順を並び替えて、「並び順を保存」ボタンで確定できます。</p>
+    <ul class="company-list" id="companyList"></ul>
+
+    <!-- インライン追加フォーム -->
+    <div class="add-form-card" id="addFormCard">
+      <div class="add-form-title">＋ 新しい会社を追加</div>
+      <div class="add-form-layout">
+        <div class="logo-upload-area" id="addLogoArea">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span class="logo-hint">ロゴ画像<br>ドラッグまたは<br>クリック</span>
+          <img class="logo-preview-img" id="addLogoPreview" src="" alt="">
+          <button class="logo-remove-btn" id="addLogoRemove" type="button">×</button>
+          <input type="file" id="addLogoFile" accept="image/*">
+        </div>
+        <div class="add-form-fields">
+          <div class="add-form-field-full">
+            <label class="edit-label">会社名<span class="req">*</span></label>
+            <input type="text" class="edit-input" id="addName" placeholder="例：株式会社〇〇建設">
+          </div>
+          <div class="add-form-field-full">
+            <label class="edit-label">住所</label>
+            <input type="text" class="edit-input" id="addAddress" placeholder="例：東京都千代田区〇〇1-1-1">
+          </div>
+          <div>
+            <label class="edit-label">電話番号</label>
+            <input type="text" class="edit-input" id="addTel" placeholder="例：03-1234-5678">
+          </div>
+          <div>
+            <label class="edit-label">FAX番号</label>
+            <input type="text" class="edit-input" id="addFax" placeholder="例：03-1234-5679">
+          </div>
+          <div class="add-form-field-full">
+            <label class="edit-label">Emailアドレス</label>
+            <input type="email" class="edit-input" id="addEmail" placeholder="例：info@example.co.jp">
+          </div>
+          <div>
+            <label class="edit-label">役職名</label>
+            <input type="text" class="edit-input" id="addTitle" placeholder="例：代表取締役">
+          </div>
+          <div>
+            <label class="edit-label">代表者名</label>
+            <input type="text" class="edit-input" id="addPerson" placeholder="例：田中 一郎">
+          </div>
+        </div>
+      </div>
+      <div class="add-form-actions">
+        <button class="btn-secondary" id="addCancelBtn">キャンセル</button>
+        <button class="btn-primary" id="addSaveBtn">追加する</button>
+      </div>
+    </div>
+
+    <button class="add-btn" id="addBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      会社を追加する
+    </button>
+  </div>
+
+  <div class="btn-area">
+    <button class="btn-save-order" id="saveOrderBtn">並び順を保存</button>
+    <button class="btn-back" onclick="history.back()">戻る</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const API = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+let companies = [];
+let dragSrcIndex = null;
+let editingId = null;
+const editLogoValues = {};
+let addLogoValue = null;
+
+const $ = id => document.getElementById(id);
+function showLoading(v) { $('loadingOverlay').classList.toggle('open', v); }
+function showToast(msg, type = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ========== 画像処理 ==========
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.onerror = () => rej(new Error('読み込み失敗'));
+    reader.readAsDataURL(file);
+  });
+}
+function resizeImage(dataUrl, maxSize = 400) {
+  return new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      res(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ========== ロゴエリア初期化 ==========
+function initLogoArea(areaEl, previewEl, fileInputEl, removeBtnEl, onChanged) {
+  if (!areaEl) return { getValue: () => null, setValue: () => {} };
+  let current = null;
+
+  function setImage(base64) {
+    current = base64;
+    if (base64) {
+      previewEl.src = base64;
+      areaEl.classList.add('has-image');
+    } else {
+      previewEl.src = '';
+      areaEl.classList.remove('has-image');
+    }
+    onChanged(current);
+  }
+
+  fileInputEl.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const resized = await resizeImage(await fileToBase64(file));
+    setImage(resized);
+    fileInputEl.value = '';
+  });
+
+  areaEl.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); areaEl.classList.add('dragover'); });
+  areaEl.addEventListener('dragleave', e => { e.stopPropagation(); areaEl.classList.remove('dragover'); });
+  areaEl.addEventListener('drop', async e => {
+    e.preventDefault(); e.stopPropagation();
+    areaEl.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const resized = await resizeImage(await fileToBase64(file));
+    setImage(resized);
+  });
+
+  removeBtnEl.addEventListener('click', e => { e.stopPropagation(); setImage(null); });
+
+  return {
+    getValue: () => current,
+    setValue: v => setImage(v || null)
+  };
+}
+
+// 追加フォームのロゴ
+const addLogoCtrl = initLogoArea(
+  $('addLogoArea'), $('addLogoPreview'), $('addLogoFile'), $('addLogoRemove'),
+  v => { addLogoValue = v; }
+);
+
+// ========== レンダリング ==========
+function render() {
+  const list = $('companyList');
+  if (companies.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      まだ会社が登録されていません</div>`;
+    return;
+  }
+  list.innerHTML = companies.map((c, i) => `
+    <li class="company-item${editingId === c.id ? ' editing' : ''}" data-index="${i}" data-id="${c.id}">
+      <div class="company-item-view" draggable="true">
+        <span class="drag-handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg></span>
+        <div class="logo-display">
+          ${c.logo_base64 ? `<img src="${esc(c.logo_base64)}" alt="ロゴ">` : '<span>NO<br>LOGO</span>'}
+        </div>
+        <div class="company-info">
+          <div class="company-name-text">${esc(c.name)}</div>
+          <div class="company-meta">
+            ${c.address ? `<span class="meta-address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${esc(c.address)}</span>` : ''}
+            ${c.tel ? `<span class="meta-tel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.06 6.06l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17z"/></svg>${esc(c.tel)}</span>` : ''}
+            ${c.fax ? `<span class="meta-tel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h2a2 2 0 0 1 2 2v2"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>FAX: ${esc(c.fax)}</span>` : ''}
+            ${c.email ? `<span class="meta-person"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>${esc(c.email)}</span>` : ''}
+            ${c.representative ? `<span class="meta-person"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${c.representative_title ? esc(c.representative_title) + '　' : ''}${esc(c.representative)}</span>` : ''}
+          </div>
+        </div>
+        <div class="item-actions">
+          <button class="item-action-btn edit" onclick="openInlineEdit('${c.id}')" title="編集">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="item-action-btn delete" onclick="handleDelete('${c.id}')" title="削除">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- インライン編集 -->
+      <div class="company-item-edit${editingId === c.id ? ' open' : ''}" id="edit-${c.id}">
+        <div class="edit-layout">
+          <div class="logo-upload-area${c.logo_base64 ? ' has-image' : ''}" id="editLogoArea-${c.id}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span class="logo-hint">ロゴ画像<br>ドラッグまたは<br>クリック</span>
+            <img class="logo-preview-img" id="editLogoPreview-${c.id}" src="${c.logo_base64 ? esc(c.logo_base64) : ''}" alt="">
+            <button class="logo-remove-btn" id="editLogoRemove-${c.id}" type="button">×</button>
+            <input type="file" id="editLogoFile-${c.id}" accept="image/*">
+          </div>
+          <div class="edit-fields">
+            <div class="edit-field-full">
+              <label class="edit-label">会社名<span class="req">*</span></label>
+              <input type="text" class="edit-input" id="editName-${c.id}" value="${esc(c.name)}">
+            </div>
+            <div class="edit-field-full">
+              <label class="edit-label">住所</label>
+              <input type="text" class="edit-input" id="editAddress-${c.id}" value="${esc(c.address||'')}">
+            </div>
+            <div>
+              <label class="edit-label">電話番号</label>
+              <input type="text" class="edit-input" id="editTel-${c.id}" value="${esc(c.tel||'')}">
+            </div>
+            <div>
+              <label class="edit-label">FAX番号</label>
+              <input type="text" class="edit-input" id="editFax-${c.id}" value="${esc(c.fax||'')}">
+            </div>
+            <div class="edit-field-full">
+              <label class="edit-label">Emailアドレス</label>
+              <input type="email" class="edit-input" id="editEmail-${c.id}" value="${esc(c.email||'')}">
+            </div>
+            <div>
+              <label class="edit-label">役職名</label>
+              <input type="text" class="edit-input" id="editTitle-${c.id}" value="${esc(c.representative_title||'')}">
+            </div>
+            <div>
+              <label class="edit-label">代表者名</label>
+              <input type="text" class="edit-input" id="editPerson-${c.id}" value="${esc(c.representative||'')}">
+            </div>
+          </div>
+        </div>
+        <div class="edit-actions">
+          <button class="btn-secondary" onclick="closeInlineEdit('${c.id}')">キャンセル</button>
+          <button class="btn-primary" onclick="saveInlineEdit('${c.id}')">保存</button>
+        </div>
+      </div>
+    </li>
+  `).join('');
+
+  // ドラッグイベント登録
+  list.querySelectorAll('.company-item').forEach(item => {
+    const viewRow = item.querySelector('.company-item-view');
+    viewRow.addEventListener('dragstart', e => {
+      dragSrcIndex = parseInt(item.dataset.index);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    viewRow.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
+    viewRow.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    viewRow.addEventListener('drop', e => {
+      e.preventDefault();
+      const ti = parseInt(item.dataset.index);
+      if (dragSrcIndex !== null && dragSrcIndex !== ti) {
+        const moved = companies.splice(dragSrcIndex, 1)[0];
+        companies.splice(ti, 0, moved);
+        render();
+      }
+      item.classList.remove('drag-over');
+    });
+    viewRow.addEventListener('dragend', () => { item.classList.remove('dragging'); dragSrcIndex = null; });
+  });
+
+  // 編集ロゴエリア初期化
+  companies.forEach(c => {
+    editLogoValues[c.id] = c.logo_base64 || null;
+    initLogoArea(
+      $(`editLogoArea-${c.id}`), $(`editLogoPreview-${c.id}`),
+      $(`editLogoFile-${c.id}`), $(`editLogoRemove-${c.id}`),
+      v => { editLogoValues[c.id] = v; }
+    );
+    if (c.logo_base64) {
+      const area = $(`editLogoArea-${c.id}`);
+      if (area) area.classList.add('has-image');
+    }
+  });
+}
+
+// ========== インライン編集 ==========
+function openInlineEdit(id) {
+  if (editingId && editingId !== id) closeInlineEdit(editingId);
+  editingId = id;
+  render();
+  document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  const nameInput = $(`editName-${id}`);
+  if (nameInput) nameInput.focus();
+}
+
+function closeInlineEdit(id) {
+  if (editingId === id) editingId = null;
+  render();
+}
+
+async function saveInlineEdit(id) {
+  const name = $(`editName-${id}`).value.trim();
+  if (!name) { alert('会社名を入力してください'); return; }
+  const data = {
+    name,
+    address: $(`editAddress-${id}`).value.trim() || null,
+    tel: $(`editTel-${id}`).value.trim() || null,
+    fax: $(`editFax-${id}`).value.trim() || null,
+    email: $(`editEmail-${id}`).value.trim() || null,
+    representative_title: $(`editTitle-${id}`).value.trim() || null,
+    representative: $(`editPerson-${id}`).value.trim() || null,
+    logo_base64: editLogoValues[id] || null,
+  };
+  showLoading(true);
+  try {
+    const res = await fetch(`${API}/company_master?id=eq.${id}`, {
+      method: 'PATCH', headers: HEADERS, body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error();
+    const idx = companies.findIndex(c => c.id === id);
+    if (idx !== -1) companies[idx] = { ...companies[idx], ...data };
+    editingId = null;
+    render();
+    showToast('更新しました', 'success');
+  } catch {
+    showToast('更新に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ========== 削除 ==========
+async function handleDelete(id) {
+  if (!confirm('この会社を削除しますか？')) return;
+  showLoading(true);
+  try {
+    const res = await fetch(`${API}/company_master?id=eq.${id}`, { method: 'DELETE', headers: HEADERS });
+    if (!res.ok) throw new Error();
+    companies = companies.filter(c => c.id !== id);
+    if (editingId === id) editingId = null;
+    render();
+    showToast('削除しました', 'success');
+  } catch {
+    showToast('削除に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ========== 追加フォーム ==========
+$('addBtn').addEventListener('click', () => {
+  $('addFormCard').classList.add('open');
+  $('addBtn').style.display = 'none';
+  $('addName').focus();
+});
+
+$('addCancelBtn').addEventListener('click', () => {
+  $('addFormCard').classList.remove('open');
+  $('addBtn').style.display = '';
+  ['addName','addAddress','addTel','addFax','addEmail','addTitle','addPerson'].forEach(id => $(id).value = '');
+  addLogoCtrl.setValue(null);
+  addLogoValue = null;
+});
+
+$('addSaveBtn').addEventListener('click', async () => {
+  const name = $('addName').value.trim();
+  if (!name) { alert('会社名を入力してください'); return; }
+  const data = {
+    name,
+    address: $('addAddress').value.trim() || null,
+    tel: $('addTel').value.trim() || null,
+    fax: $('addFax').value.trim() || null,
+    email: $('addEmail').value.trim() || null,
+    representative_title: $('addTitle').value.trim() || null,
+    representative: $('addPerson').value.trim() || null,
+    logo_base64: addLogoValue || null,
+    sort_order: companies.length,
+  };
+  showLoading(true);
+  try {
+    const res = await fetch(`${API}/company_master`, {
+      method: 'POST', headers: HEADERS, body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error();
+    const created = await res.json();
+    companies.push(created[0] || { ...data, id: Date.now().toString() });
+    $('addFormCard').classList.remove('open');
+    $('addBtn').style.display = '';
+    ['addName','addAddress','addTel','addFax','addEmail','addTitle','addPerson'].forEach(id => $(id).value = '');
+    addLogoCtrl.setValue(null);
+    addLogoValue = null;
+    render();
+    showToast('追加しました', 'success');
+  } catch {
+    showToast('追加に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+});
+
+// ========== 並び順保存 ==========
+$('saveOrderBtn').addEventListener('click', async () => {
+  showLoading(true);
+  try {
+    await Promise.all(companies.map((c, i) =>
+      fetch(`${API}/company_master?id=eq.${c.id}`, {
+        method: 'PATCH', headers: HEADERS, body: JSON.stringify({ sort_order: i })
+      })
+    ));
+    showToast('並び順を保存しました', 'success');
+  } catch {
+    showToast('保存に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+});
+
+// ========== 初期ロード ==========
+async function loadCompanies() {
+  showLoading(true);
+  try {
+    const res = await fetch(`${API}/company_master?order=sort_order.asc,created_at.asc`, { headers: HEADERS });
+    if (!res.ok) throw new Error();
+    companies = await res.json();
+    render();
+  } catch {
+    showToast('データの読み込みに失敗しました', 'error');
+    render();
+  } finally {
+    showLoading(false);
+  }
+}
+
+loadCompanies();
+</script>
+</body>
+</html>

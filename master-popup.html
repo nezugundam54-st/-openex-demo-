@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>マスタから引用</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00a99d;
+      --teal-hover: #008c82;
+      --teal-light: #e6f7f6;
+      --text-primary: #1a1a1a;
+      --text-secondary: #777777;
+      --text-muted: #aaaaaa;
+      --border: #e8e8e8;
+      --border-dashed: #dedede;
+      --bg: #ffffff;
+      --bg-sub: #f7f7f7;
+      --red: #e53e3e;
+      --red-light: #fff5f5;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 400;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    /* ========== DIALOG ========== */
+    .dialog {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ========== DIALOG HEADER ========== */
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .dialog-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .btn-close {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      border: none; background: transparent;
+      color: var(--text-muted); font-size: 18px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-close:hover { background: #f0f0f0; color: var(--text-primary); }
+
+    /* ========== FILTER BAR ========== */
+    .filter-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .filter-label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .filter-select {
+      padding: 6px 26px 6px 10px;
+      border: 1px solid var(--border); border-radius: 5px;
+      font-family: inherit; font-size: 12.5px; color: var(--text-primary);
+      background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M0 0l4.5 5L9 0z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 8px center;
+      appearance: none; cursor: pointer; outline: none; min-width: 120px;
+      transition: border-color 0.15s;
+    }
+    .filter-select:focus { border-color: var(--teal); }
+    .search-wrap { flex: 1; position: relative; min-width: 220px; }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px; pointer-events: none; }
+    .search-input {
+      width: 100%; padding: 7px 12px 7px 32px;
+      border: 1.5px solid var(--teal); border-radius: 5px;
+      font-family: inherit; font-size: 12.5px; color: var(--text-primary);
+      background: var(--bg); outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { box-shadow: 0 0 0 3px rgba(0,169,157,0.12); }
+    .filter-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .btn-search {
+      padding: 7px 16px; border-radius: 5px;
+      font-family: inherit; font-size: 12px; font-weight: 500;
+      color: white; background: var(--teal); border: 1px solid var(--teal);
+      cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .btn-search:hover { background: var(--teal-hover); }
+    .btn-sub {
+      display: flex; align-items: center; gap: 5px;
+      padding: 6px 12px; border-radius: 5px;
+      font-family: inherit; font-size: 12px; color: var(--text-secondary);
+      background: var(--bg); border: 1px solid var(--border);
+      cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .btn-sub:hover { background: var(--bg-sub); border-color: #ccc; color: var(--text-primary); }
+    .result-badge {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg-sub); padding: 2px 8px; border-radius: 20px;
+    }
+
+
+    .data-table tbody tr[draggable] { cursor: grab; }
+    .data-table tbody tr[draggable]:active { cursor: grabbing; }
+    .data-table tbody tr.dragging-row { opacity: 0.4; }
+    .drag-hint {
+      text-align: center; padding: 6px; font-size: 11px; color: #aaa;
+      border-top: 1px solid #f0f0f0; background: #fafafa; flex-shrink: 0;
+    }
+    /* ========== TABLE ========== */
+    .table-wrap { flex: 1; overflow: auto; }
+
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 12.5px;
+      min-width: 1100px;
+    }
+    .data-table thead tr { border-bottom: 2px solid var(--border); }
+    .data-table thead th {
+      padding: 9px 8px; text-align: left;
+      font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+      white-space: nowrap; background: var(--bg);
+      position: sticky; top: 0; z-index: 2;
+    }
+    .data-table thead th.center { text-align: center; }
+    .data-table thead th.right  { text-align: right; }
+    .data-table thead th.th-select {
+      background: var(--teal); color: white;
+      text-align: center; width: 40px; border-radius: 4px 0 0 0;
+    }
+
+    .data-table tbody tr {
+      border-bottom: 1px dashed var(--border-dashed);
+      transition: background 0.08s;
+    }
+    .data-table tbody tr:hover { background: #fafefe; }
+    .data-table tbody tr:hover .row-acts { opacity: 1; }
+    .data-table tbody tr.selected { background: var(--teal-light); }
+    /* ダブルクリック挿入ヒント */
+    .data-table tbody tr:not(.add-row-tr):hover::after {
+      content: 'ダブルクリックで即挿入';
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 10.5px; color: var(--teal); opacity: 0;
+      pointer-events: none; white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .data-table tbody tr:not(.add-row-tr) { position: relative; }
+    .data-table tbody tr:not(.add-row-tr):hover::after { opacity: 0.7; }
+    /* ダブルクリック時フラッシュ */
+    @keyframes rowFlash {
+      0%   { background: var(--teal-light); }
+      60%  { background: #b2f0eb; }
+      100% { background: var(--teal-light); }
+    }
+    .data-table tbody tr.dbl-flash { animation: rowFlash 0.35s ease; }
+
+    .data-table tbody td {
+      padding: 4px 6px; color: var(--text-primary); vertical-align: middle;
+    }
+    .data-table tbody td.center { text-align: center; }
+    .data-table tbody td.right  { text-align: right; }
+
+    /* ========== インライン編集セル ========== */
+    .cell-view {
+      display: block; width: 100%;
+      padding: 4px 6px; border-radius: 3px; min-height: 26px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      cursor: text; border: 1px solid transparent;
+      transition: border-color 0.1s, background 0.1s;
+      line-height: 18px;
+    }
+    .cell-view:hover { border-color: var(--border); background: #fff; }
+    .cell-view.muted { color: var(--text-muted); }
+
+    .cell-edit {
+      display: none; width: 100%;
+      padding: 4px 6px; border-radius: 3px;
+      border: 1.5px solid var(--teal); background: #fff;
+      font-family: inherit; font-size: 12.5px; color: var(--text-primary);
+      outline: none; box-shadow: 0 0 0 2px rgba(0,169,157,0.1);
+    }
+    .cell-edit.right  { text-align: right; }
+    .cell-edit.center { text-align: center; }
+
+    td.is-editing .cell-view { display: none; }
+    td.is-editing .cell-edit { display: block; }
+
+    /* ========== 行アクション ========== */
+    .row-acts {
+      display: flex; align-items: center; justify-content: center; gap: 2px;
+      opacity: 0; transition: opacity 0.12s;
+    }
+    .act-btn {
+      width: 22px; height: 22px; border: none; border-radius: 3px;
+      background: transparent; cursor: pointer; font-size: 11px;
+      color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+      transition: all 0.1s; padding: 0; flex-shrink: 0;
+    }
+    .act-btn:hover         { background: #f0f0f0; color: var(--text-primary); }
+    .act-btn.del:hover     { background: var(--red-light); color: var(--red); }
+
+    /* ========== 行追加ボタン ========== */
+    .add-row-tr td { padding: 8px 24px; border-bottom: none; }
+    .btn-add-row {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 14px; border-radius: 5px;
+      border: 1px dashed #ccc; background: transparent;
+      font-family: inherit; font-size: 12px; color: var(--text-muted);
+      cursor: pointer; transition: all 0.12s;
+    }
+    .btn-add-row:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+
+    /* ========== FOOTER ========== */
+    .dialog-footer {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 10px; padding: 12px 24px 16px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .sel-count { font-size: 12px; color: var(--text-muted); margin-right: auto; }
+    .btn {
+      padding: 7px 22px; border-radius: 5px;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-cancel { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-cancel:hover { background: var(--bg-sub); border-color: #bbb; }
+    .btn-apply  { background: var(--teal); color: white; border: 1px solid var(--teal); min-width: 90px; }
+    .btn-apply:hover { background: var(--teal-hover); }
+
+    input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--teal); cursor: pointer; }
+
+    /* ========== 削除確認モーダル ========== */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .modal-bg.show { display: flex; }
+    .modal {
+      background: #fff; border-radius: 8px; padding: 22px 26px 18px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.16); min-width: 300px; max-width: 90vw;
+    }
+    .modal h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+    .modal p  { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6; }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .btn-danger { padding: 7px 18px; border-radius: 5px; border: none; background: var(--red); color: #fff; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .btn-danger:hover { background: #c53030; }
+
+    /* ========== 列幅リサイズ ========== */
+    .data-table thead th {
+      position: relative;
+    }
+    .col-resize-handle {
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 5px; cursor: col-resize;
+      user-select: none;
+      z-index: 3;
+    }
+    .col-resize-handle:hover,
+    .col-resize-handle.dragging { background: var(--teal); opacity: .5; }
+
+    /* ========== フォルダ行 ========== */
+    .folder-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 8px; cursor: pointer; user-select: none;
+      transition: background 0.1s;
+    }
+    .folder-row:hover { filter: brightness(.97); }
+    .folder-toggle {
+      font-size: 9px; color: #888; width: 12px; text-align: center;
+      transition: transform 0.18s; flex-shrink: 0;
+    }
+    .folder-toggle.open { transform: rotate(90deg); }
+    .folder-icon { font-size: 14px; flex-shrink: 0; }
+    .folder-label { font-weight: 600; flex: 1; }
+    .folder-count {
+      font-size: 10px; color: #888;
+      background: rgba(0,0,0,.07); border-radius: 10px; padding: 1px 7px;
+      margin-left: auto; white-space: nowrap;
+    }
+    /* L1 */
+    .fl1 { background: #eef2f7; border-left: 3px solid #c8d3e0; }
+    .fl1 .folder-label { font-size: 12.5px; color: #1a2332; }
+    /* L2 */
+    .fl2 { background: #eff6ff; border-left: 3px solid #bfdbfe; padding-left: 22px; }
+    .fl2 .folder-label { font-size: 12px; color: #1e5fa8; }
+    /* L3 */
+    .fl3 { background: #ecfdf5; border-left: 3px solid #a7f3d0; padding-left: 38px; }
+    .fl3 .folder-label { font-size: 11.5px; color: #047857; }
+    /* item インデント */
+    .data-table tbody tr.item-l2 td:nth-child(2) { padding-left: 22px; }
+    .data-table tbody tr.item-l3 td:nth-child(2) { padding-left: 38px; }
+    .data-table tbody tr.item-l4 td:nth-child(2) { padding-left: 54px; }
+
+    /* クリアボタン */
+    .clear-input-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #aaa;
+      font-size: 14px;
+      padding: 2px 4px;
+      line-height: 1;
+      border-radius: 3px;
+      display: none;
+    }
+    .clear-input-btn:hover { color: #555; background: #f0f0f0; }
+    .search-input:not(:placeholder-shown) ~ .clear-input-btn { display: block; }
+  </style>
+<script>
+/* ── postMessage送信先を自動判定（iframe: parent, popup: opener） ── */
+function _sendToParent(data) {
+  const target = (window.parent !== window) ? window.parent : window.opener;
+  if (target && !target.closed) target.postMessage(data, '*');
+}
+</script>
+</head>
+<body>
+
+<div class="dialog">
+
+  <!-- HEADER -->
+  <div class="dialog-header">
+    <span class="dialog-title">マスタから引用</span>
+    <button class="btn-close" onclick="_sendToParent({type:'closePanel'})">×</button>
+  </div>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="filter-label">工事種別:</span>
+      <select class="filter-select" id="categorySelect" onchange="applyFilters()">
+        <option value="">すべて</option>
+      </select>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text"
+             placeholder="名称、仕様、RIKCAD材料名などで検索..."
+             oninput="applyFilters()"
+             onkeydown="if(event.key==='Escape'){this.value='';applyFilters();}">
+      <button class="clear-input-btn" onclick="document.getElementById('searchInput').value='';applyFilters();" title="クリア">✕</button>
+    </div>
+    <div class="filter-actions">
+      <span class="result-badge" id="resultBadge">— 件</span>
+      <button class="btn-search" onclick="applyFilters()">検索</button>
+      <button class="btn-sub" id="btnUpdate">🔄 マスタ更新</button>
+      <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="loadCSV(event)">
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="th-select">選択</th>
+          <th style="width:68px;">作図要素</th>
+          <th style="min-width:110px;">RIKCAD材料名</th>
+          <th style="min-width:100px;">引出線名称</th>
+          <th style="min-width:110px;">名称</th>
+          <th style="min-width:130px;">仕様</th>
+          <th class="center" style="width:52px;">単位</th>
+          <th class="right"  style="width:82px;">原価</th>
+          <th class="right"  style="width:82px;">単価</th>
+          <th style="min-width:90px;">備考</th>
+          <th style="min-width:80px;">社内メモ</th>
+          <th style="width:48px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dialog-footer">
+    <span class="sel-count" id="selCount"></span>
+    <button class="btn btn-cancel" onclick="clearSelection()">選択解除</button>
+    <button class="btn btn-cancel" onclick="_sendToParent({type:'closePanel'})">キャンセル</button>
+    <button class="btn" id="btnCadGet" onclick="fetchFromRikcad()" style="background:#f0fdf4;border:1px solid #00b27d;color:#00b27d;">🏗 CAD取得</button>
+    <button class="btn btn-apply" onclick="applySelected()">引用する</button>
+  </div>
+</div>
+
+<!-- 削除確認モーダル -->
+<div class="modal-bg" id="deleteModal">
+  <div class="modal">
+    <h3>削除の確認</h3>
+    <p id="deleteMsg"></p>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" style="border:1px solid var(--border);" onclick="closeDeleteModal()">キャンセル</button>
+      <button class="btn-danger" onclick="confirmDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// データ定義
+// ============================================================
+let _uid = 0;
+const uid = () => ++_uid;
+
+const LS_KEY_ROWS = 'masterPopup_allRows';
+const LS_KEY_FILE = 'masterPopup_fileName';
+const MASTER_API  = 'http://localhost:8767';
+
+function saveToLocalStorage(fileName) {
+  try {
+    localStorage.setItem(LS_KEY_ROWS, JSON.stringify(allRows));
+    localStorage.setItem(LS_KEY_FILE, fileName || '');
+  } catch(e) { console.warn('localStorage保存失敗:', e); }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const rows = localStorage.getItem(LS_KEY_ROWS);
+    const file = localStorage.getItem(LS_KEY_FILE);
+    if (rows) {
+      allRows = JSON.parse(rows);
+      allRows.forEach(r => { if (!r.id) r.id = uid(); });
+      const btn = document.getElementById('btnUpdate');
+      if (btn && file) btn.textContent = `✅ ${file}（保存済）`;
+      buildCategories();
+      applyFilters();
+      return true;
+    }
+  } catch(e) { console.warn('localStorage復元失敗:', e); }
+  return false;
+}
+
+// MasterData/index.csv からAPI経由で読み込む
+async function loadFromIndex() {
+  const btn = document.getElementById('btnUpdate');
+  btn.textContent = '⏳ 読み込み中...';
+  try {
+    const idxResp = await fetch(`${MASTER_API}/api/files?path=${encodeURIComponent('MasterData/index.csv')}`);
+    if (!idxResp.ok) throw new Error(`index.csv取得失敗 (HTTP ${idxResp.status})`);
+    const idxText = await idxResp.text();
+    const idxRows = parseCSVText(idxText).filter(r => r.some(c => c));
+    if (idxRows.length < 2) throw new Error('index.csvにデータがありません');
+    const hdr = idxRows[0];
+    const iPth = hdr.indexOf('ファイルパス'), iOn = hdr.indexOf('有効'), iNm = hdr.indexOf('商品名');
+    const actives = idxRows.slice(1).filter(r => r[iOn] === '1');
+    if (!actives.length) throw new Error('有効なマスタがありません');
+    const merged = []; const names = [];
+    for (const entry of actives) {
+      const fp = (entry[iPth]||'').replace(/\\/g,'/').trim();
+      if (!fp) continue;
+      try {
+        const r = await fetch(`${MASTER_API}/api/files?path=${encodeURIComponent('MasterData/'+fp)}`);
+        if (!r.ok) continue;
+        const text = await r.text();
+        const rows = parseCSVText(text).filter(r => r.some(c=>c));
+        if (rows.length < 2) continue;
+        merged.push(...importCSVRows(rows));
+        names.push(entry[iNm]||fp);
+      } catch(e) { console.warn('スキップ:', fp, e); }
+    }
+    if (!merged.length) throw new Error('有効なCSVからデータを読み込めませんでした');
+    allRows = merged;
+    buildCategories();
+    applyFilters();
+    saveToLocalStorage(names.join(' / '));
+    btn.textContent = `✅ ${names.length}件読込済`;
+  } catch(e) {
+    btn.textContent = '❌ 読み込み失敗';
+    console.error(e);
+    alert('マスタ読み込みエラー: ' + e.message);
+  }
+}
+
+// CSVテキスト → 二次元配列
+function parseCSVText(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  return lines.map(line => {
+    if (!line.trim()) return null;
+    const cols=[]; let cur='', inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;}
+      else if(c===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=c;}
+    }
+    cols.push(cur.trim()); return cols;
+  }).filter(r=>r);
+}
+
+// 二次元配列 → allRows形式（type/level対応）
+function importCSVRows(rows) {
+  const header = rows[0];
+  const ci = (...names) => {
+    for (const n of names) {
+      let i = header.findIndex(h => h === n);
+      if (i >= 0) return i;
+      i = header.findIndex(h => h.includes(n));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const iType  = ci('type','種別');
+  const iLevel = ci('level','階層');
+  return rows.slice(1).map(r => {
+    const type  = iType  >= 0 ? (r[iType]  || 'item').toLowerCase() : 'item';
+    const level = iLevel >= 0 ? (parseInt(r[iLevel]) || 4)           : 4;
+    if (type === 'folder') {
+      return {
+        id: uid(), type:'folder', level,
+        name: r[ci('名称')] || '',
+        _open: true,
+        _visible: true,
+      };
+    }
+    return {
+      id: uid(), type:'item', level,
+      category: r[ci('工事種別','カテゴリ')]              || '',
+      drawEl:   r[ci('作図要素','作図')]                  || '',
+      rikcad:   r[ci('RIKCAD材料名','RIKCAD','rikcad')]  || '',
+      leader:   r[ci('引出線名称','引出線','引出')]         || '',
+      name:     r[ci('名称')]                             || '',
+      spec:     r[ci('仕様')]                             || '',
+      unit:     r[ci('単位')]                             || '',
+      cost:     r[ci('原価','コスト')]                    || '',
+      price:    r[ci('単価','価格')]                      || '',
+      note:     r[ci('備考')]                             || '',
+      memo:     r[ci('社内メモ','メモ')]                  || '',
+    };
+  }).filter(r => r.type==='folder' ? r.name : (r.name||r.spec||r.rikcad));
+}
+
+let allRows = [];
+const selected = new Set();
+let deleteTargetId = null;
+
+// 列定義（工事種別列は削除、フォルダで代替）
+const COLS = [
+  { key:'drawEl',   label:'作図要素',     align:'left',   muted:true },
+  { key:'rikcad',   label:'RIKCAD材料名', align:'left',   muted:true },
+  { key:'leader',   label:'引出線名称',   align:'left',   muted:true },
+  { key:'name',     label:'名称',         align:'left'   },
+  { key:'spec',     label:'仕様',         align:'left',   muted:true },
+  { key:'unit',     label:'単位',         align:'center' },
+  { key:'cost',     label:'原価',         align:'right',  fmt: v => v ? '¥' + Number(String(v).replace(/[^0-9.]/g,'')).toLocaleString() : '' },
+  { key:'price',    label:'単価',         align:'right',  fmt: v => v ? '¥' + Number(String(v).replace(/[^0-9.]/g,'')).toLocaleString() : '' },
+  { key:'note',     label:'備考',         align:'left',   muted:true },
+  { key:'memo',     label:'社内メモ',     align:'left',   muted:true },
+];
+
+// ============================================================
+// フォルダ開閉状態を allRows に同期して再描画
+// ============================================================
+function toggleFolder(folderId) {
+  const folder = allRows.find(r => r.id == folderId);
+  if (!folder) return;
+  folder._open = !folder._open;
+  applyFilters();
+}
+
+// ============================================================
+// カテゴリ選択肢の構築（item行のcategoryから生成）
+// ============================================================
+function buildCategories() {
+  const sel = document.getElementById('categorySelect');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">すべて</option>';
+  const cats = [...new Set(allRows.filter(r=>r.type==='item').map(r=>r.category).filter(Boolean))].sort();
+  cats.forEach(c => { const o=document.createElement('option'); o.value=o.textContent=c; sel.appendChild(o); });
+  if (cats.includes(cur)) sel.value = cur;
+}
+
+// ============================================================
+// フィルタリング（検索時はフォルダ構造を維持しつつitemを絞る）
+// ============================================================
+function applyFilters() {
+  const cat = (document.getElementById('categorySelect')?.value || '');
+  const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+
+  if (!q && !cat) {
+    // 検索なし・カテゴリなし：フォルダ開閉状態に従って表示
+    const visible = computeVisible(allRows, () => true);
+    renderTable(visible);
+    const itemCount = allRows.filter(r=>r.type==='item').length;
+    document.getElementById('resultBadge').textContent = itemCount + ' 件';
+  } else {
+    // 検索 or カテゴリ絞り込み：マッチするitemと祖先フォルダを表示（強制展開）
+    const matchedItems = new Set();
+    allRows.forEach(r => {
+      if (r.type !== 'item') return;
+      if (cat && r.category !== cat) return;
+      const t = COLS.map(c => r[c.key]||'').join(' ').toLowerCase();
+      if (!q || q.split(/\s+/).every(w => t.includes(w))) matchedItems.add(r.id);
+    });
+    // マッチしたitemの祖先フォルダを収集
+    const showIds = new Set(matchedItems);
+    let currentFolders = [];
+    allRows.forEach(r => {
+      if (r.type === 'folder') { currentFolders = currentFolders.filter(f=>f.level < r.level); currentFolders.push(r); }
+      else if (matchedItems.has(r.id)) { currentFolders.forEach(f=>showIds.add(f.id)); }
+    });
+    const filtered = allRows.filter(r => showIds.has(r.id));
+    renderTable(filtered, true);
+    document.getElementById('resultBadge').textContent = matchedItems.size + ' 件';
+  }
+}
+
+// フォルダの開閉を考慮して表示行を決定
+function computeVisible(rows, matchFn) {
+  const result = [];
+  // フォルダのopen状態スタック（level → open）
+  const openStack = {}; // level -> bool
+  rows.forEach(r => {
+    if (r.type === 'folder') {
+      // 親フォルダがすべて開いているか確認
+      let parentOpen = true;
+      for (let l = 1; l < r.level; l++) {
+        if (openStack[l] === false) { parentOpen = false; break; }
+      }
+      if (parentOpen) {
+        result.push(r);
+        openStack[r.level] = r._open;
+        // 子レベルのスタックをリセット
+        for (let l = r.level+1; l <= 4; l++) delete openStack[l];
+      } else {
+        openStack[r.level] = false;
+      }
+    } else {
+      // item: 全親フォルダが開いているか
+      let parentOpen = true;
+      for (let l = 1; l < r.level; l++) {
+        if (openStack[l] === false) { parentOpen = false; break; }
+      }
+      if (parentOpen && matchFn(r)) result.push(r);
+    }
+  });
+  return result;
+}
+
+// ============================================================
+// テーブル描画（フォルダ＋item混在対応）
+// ============================================================
+function renderTable(rows, searchMode) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  const TOTAL_COLS = COLS.length + 2; // チェックボックス + データ列 + 削除列
+
+  if (!rows || rows.length === 0) {
+    tbody.insertAdjacentHTML('beforeend',
+      `<tr><td colspan="${TOTAL_COLS}" style="padding:40px;text-align:center;color:var(--text-muted);">該当する項目がありません</td></tr>`);
+    updateSelCount(); return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = row.id;
+
+    if (row.type === 'folder') {
+      // ── フォルダ行 ──
+      const fClass = ['fl1','fl2','fl3'][row.level - 1] || 'fl1';
+      const isOpen = searchMode ? true : row._open;
+      const td = document.createElement('td');
+      td.colSpan = TOTAL_COLS;
+      td.style.padding = '0';
+      td.innerHTML = `
+        <div class="folder-row ${fClass}" onclick="toggleFolder(${row.id})">
+          <span class="folder-toggle ${isOpen?'open':''}" id="ftog-${row.id}">▶</span>
+          <span class="folder-icon">${row.level===1?'📁':'📂'}</span>
+          <span class="folder-label">${esc(row.name)}</span>
+        </div>`;
+      tr.appendChild(td);
+    } else {
+      // ── データ行 ──
+      const indentLevel = row.level || 4;
+      if (indentLevel === 2) tr.classList.add('item-l2');
+      else if (indentLevel === 3) tr.classList.add('item-l3');
+      else if (indentLevel >= 4) tr.classList.add('item-l4');
+      if (selected.has(row.id)) tr.classList.add('selected');
+
+      // チェックボックス
+      const tdChk = document.createElement('td');
+      tdChk.className = 'center';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.has(row.id);
+      cb.onclick = e => { e.stopPropagation(); toggleSelect(row.id, tr, cb); };
+      tdChk.appendChild(cb);
+      tr.appendChild(tdChk);
+
+      // データセル
+      COLS.forEach(col => {
+        const td = document.createElement('td');
+        const view = document.createElement('span');
+        view.className = 'cell-view' + (col.muted ? ' muted' : '');
+        if (col.align === 'right')  view.style.textAlign = 'right';
+        if (col.align === 'center') view.style.textAlign = 'center';
+        const rawVal = row[col.key] || '';
+        view.textContent = col.fmt ? col.fmt(rawVal) : rawVal;
+        const inp = document.createElement('input');
+        inp.className = 'cell-edit' + (col.align === 'right' ? ' right' : col.align === 'center' ? ' center' : '');
+        inp.placeholder = col.label;
+        inp.value = rawVal;
+        td.appendChild(view); td.appendChild(inp);
+        tr.appendChild(td);
+        if (col.key === 'rikcad') {
+          view.style.cursor = 'pointer';
+          view.title = 'カタログから検索';
+          view.style.color = '#1d6fdb';
+          view.style.textDecoration = 'underline';
+          view.style.textUnderlineOffset = '2px';
+          view.addEventListener('click', e => { e.stopPropagation(); const k=row.rikcad||''; if(k)openCatalogWithKeyword(k); });
+        } else {
+          view.addEventListener('click', e => { e.stopPropagation(); startEdit(td, inp, row, col); });
+        }
+        const commit = () => {
+          const v = inp.value.trim(); row[col.key] = v;
+          view.textContent = col.fmt ? col.fmt(v) : v;
+          td.classList.remove('is-editing');
+          saveToLocalStorage(localStorage.getItem(LS_KEY_FILE)||'');
+        };
+        inp.addEventListener('blur', commit);
+        inp.addEventListener('keydown', e => {
+          if (e.key==='Enter')  { e.preventDefault(); commit(); }
+          if (e.key==='Escape') { inp.value=row[col.key]||''; commit(); }
+          if (e.key==='Tab') {
+            e.preventDefault(); commit();
+            const allTds = [...tr.querySelectorAll('td')];
+            const nextTd = allTds[allTds.indexOf(td)+1];
+            if (nextTd) { const ni=nextTd.querySelector('.cell-edit'); const nv=nextTd.querySelector('.cell-view'); if(ni&&nv)startEdit(nextTd,ni,row,{}); }
+          }
+        });
+      });
+
+      // 削除ボタン
+      const tdAct = document.createElement('td');
+      tdAct.className = 'center';
+      tdAct.innerHTML = `<div class="row-acts"><button class="act-btn del" title="この行を削除" onclick="showDelete(${row.id})"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button></div>`;
+      tr.appendChild(tdAct);
+
+      // ダブルクリックで即挿入
+      tr.setAttribute('draggable','true');
+      tr.addEventListener('dragstart', e => {
+        const item = {
+          name:  row.name  || '',
+          spec:  row.spec  || '',
+          unit:  row.unit  || '式',
+          cost:  row.cost  ? Number(String(row.cost).replace(/[¥￥,]/g,''))  : null,
+          unit_price: row.price ? Number(String(row.price).replace(/[¥￥,]/g,'')) : null,
+          note:  row.note  || '',
+          memo:  row.memo  || ''
+        };
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', JSON.stringify(item));
+        tr.classList.add('dragging-row');
+        _sendToParent({ type: 'historyDragStart', item });
+      });
+      tr.addEventListener('dragend', () => {
+        tr.classList.remove('dragging-row');
+        _sendToParent({ type: 'historyDragEnd' });
+      });
+      tr.addEventListener('dblclick', e => {
+        if (e.target.closest('.row-acts')||e.target.type==='checkbox') return;
+        tr.classList.add('dbl-flash');
+        setTimeout(()=>tr.classList.remove('dbl-flash'),380);
+        const item = { name:row.name||'', spec:row.spec||'', unit:row.unit||'式',
+          cost:row.cost?Number(String(row.cost).replace(/[¥￥,]/g,'')):null,
+          price:row.price?Number(String(row.price).replace(/[¥￥,]/g,'')):null,
+          note:row.note||'', memo:row.memo||'' };
+        _sendToParent({type:'masterItems',items:[item]});
+      });
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  updateSelCount();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+// ============================================================
+// 編集開始
+// ============================================================
+function startEdit(td, inp, row, col) {
+  document.querySelectorAll('td.is-editing').forEach(t => t.classList.remove('is-editing'));
+  td.classList.add('is-editing');
+  if (col && col.key) inp.value = row[col.key] || '';
+  inp.focus(); inp.select();
+}
+
+// ============================================================
+// 行追加
+// ============================================================
+function addNewRow() {
+  const newRow = {
+    id:uid(), type:'item', level:4,
+    drawEl:'', rikcad:'', leader:'',
+    name:'', spec:'', unit:'', cost:'', price:'', note:'', memo:''
+  };
+  allRows.push(newRow);
+  applyFilters();
+  saveToLocalStorage(localStorage.getItem(LS_KEY_FILE) || '');
+  // 追加行の「名称」セルをフォーカス（COLS index=3が名称 → td index=4: chk列含む）
+  setTimeout(() => {
+    const trs = [...document.querySelectorAll('#tableBody tr[data-id]')];
+    const last = trs[trs.length - 1];
+    if (!last) return;
+    const tds = [...last.querySelectorAll('td')];
+    const nameTd = tds[4]; // chk(0)+drawEl(1)+rikcad(2)+leader(3)+name(4)
+    if (nameTd) { const v=nameTd.querySelector('.cell-view'), i=nameTd.querySelector('.cell-edit'); if(v&&i)startEdit(nameTd,i,newRow,COLS[3]); }
+  }, 40);
+}
+
+// ============================================================
+// 選択
+// ============================================================
+function toggleSelect(id, tr, cb) {
+  if (selected.has(id)) { selected.delete(id); tr.classList.remove('selected'); cb.checked = false; }
+  else                  { selected.add(id);    tr.classList.add('selected');    cb.checked = true;  }
+  updateSelCount();
+}
+function clearSelection() { selected.clear(); applyFilters(); }
+function updateSelCount() {
+  const el = document.getElementById('selCount');
+  el.textContent = selected.size > 0 ? `${selected.size} 件選択中` : '';
+}
+
+// ============================================================
+// 削除
+// ============================================================
+function showDelete(id) {
+  const row = allRows.find(r => r.id === id);
+  if (!row) return;
+  deleteTargetId = id;
+  document.getElementById('deleteMsg').textContent =
+    `「${row.name || '（名称未設定）'}」を削除します。この操作は元に戻せません。`;
+  document.getElementById('deleteModal').classList.add('show');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+  deleteTargetId = null;
+}
+function confirmDelete() {
+  if (deleteTargetId !== null) {
+    allRows = allRows.filter(r => r.id !== deleteTargetId);
+    selected.delete(deleteTargetId);
+    buildCategories();
+    applyFilters();
+    saveToLocalStorage(localStorage.getItem(LS_KEY_FILE) || '');
+  }
+  closeDeleteModal();
+}
+document.getElementById('deleteModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeDeleteModal();
+});
+
+// ============================================================
+// ============================================================
+// Catalog Popup 連携
+// ============================================================
+let _catalogPopup = null;
+
+function openCatalogWithKeyword(keyword) {
+  const w = 1200, h = 700;
+  const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
+  const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+
+  if (_catalogPopup && !_catalogPopup.closed) {
+    _catalogPopup.focus();
+    _catalogPopup.postMessage({ type: 'search', keyword: keyword, specKeyword: '' }, '*');
+    return;
+  }
+  _catalogPopup = window.open('catalog-popup.html', 'catalogFromMaster',
+    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+
+  // 開いた後にメッセージを送る
+  const timer = setInterval(() => {
+    if (_catalogPopup && !_catalogPopup.closed) {
+      try {
+        _catalogPopup.postMessage({ type: 'search', keyword: keyword, specKeyword: '' }, '*');
+        clearInterval(timer);
+      } catch(e) {}
+    } else {
+      clearInterval(timer);
+    }
+  }, 500);
+}
+
+// ============================================================
+// CAD取得（RIKCADから名称を取得して検索欄に反映）
+// ============================================================
+function fetchFromRikcad() {
+  const btn = document.getElementById('btnCadGet');
+  btn.textContent = '⏳ 取得中...';
+  btn.disabled = true;
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', 'http://localhost:8767/rikcad/selection', true);
+  xhr.timeout = 5000;
+  xhr.onload = function() {
+    btn.textContent = '🏗 CAD取得';
+    btn.disabled = false;
+    if (xhr.status === 200) {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.ok && data.items && data.items.length > 0) {
+          const item = data.items[0];
+          const keyword = item.NAME || '';
+          const searchInput = document.getElementById('searchInput');
+          if (searchInput) {
+            searchInput.value = keyword;
+            applyFilters();
+          }
+          console.log('[RIKCAD] NAME:', keyword);
+        } else {
+          alert('RIKCAD: ' + (data.error || '選択中の要素がありません'));
+        }
+      } catch(e) { alert('レスポンスの解析に失敗しました'); }
+    } else {
+      alert('APIサーバーに接続できませんでした (HTTP ' + xhr.status + ')');
+    }
+  };
+  xhr.onerror   = () => { btn.textContent = '🏗 CAD取得'; btn.disabled = false; alert('APIサーバーに接続できませんでした'); };
+  xhr.ontimeout = () => { btn.textContent = '🏗 CAD取得'; btn.disabled = false; alert('タイムアウトしました（RIKCADで要素を選択してください）'); };
+  xhr.send();
+}
+
+// 引用
+// ============================================================
+const RIKCAD_API = 'http://localhost:8767';
+
+async function applySelected() {
+  if (!selected.size) { alert('引用する行を選択してください。'); return; }
+  const items = allRows
+    .filter(r => selected.has(r.id))
+    .map(r => ({
+      name:  r.name  || '',
+      spec:  r.spec  || '',
+      unit:  r.unit  || '式',
+      cost:  r.cost  ? Number(String(r.cost).replace(/[¥￥,]/g,'')) : null,
+      price: r.price ? Number(String(r.price).replace(/[¥￥,]/g,'')) : null,
+      note:  r.note  || '',
+      memo:  r.memo  || '',
+      qty:   null,
+    }));
+
+  // RIKCADから面積を取得して数量欄に反映
+  try {
+    const xhr = new XMLHttpRequest();
+    const areas = await new Promise((resolve, reject) => {
+      xhr.open('GET', `${RIKCAD_API}/rikcad/areas`, true);
+      xhr.timeout = 1500;
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch(e) { reject(e); }
+        } else { reject(new Error('HTTP ' + xhr.status)); }
+      };
+      xhr.onerror = () => reject(new Error('network error'));
+      xhr.ontimeout = () => reject(new Error('timeout'));
+      xhr.send();
+    });
+
+    if (areas.ok && areas.items && areas.items.length > 0) {
+      // 選択アイテム数とRIKCAD選択要素数を照合して順番にqtyをセット
+      areas.items.forEach((areaItem, i) => {
+        if (i < items.length && areaItem.area !== null) {
+          items[i].qty = areaItem.area;
+        }
+      });
+      console.log('[RIKCAD] 面積取得:', areas.items.map(a => a.area));
+    } else {
+      console.warn('[RIKCAD] 面積取得失敗:', areas.error || '要素なし');
+    }
+  } catch(e) {
+    console.info('[RIKCAD] APIサーバー未接続。数量は空のままにします。', e.message);
+  }
+
+  if (true) {
+    // openerに選択行があるか確認してからダイアログ表示
+    _sendToParent({ type: 'masterItemsCheck', items: items });
+  }
+}
+
+let _masterInsertItems = null;
+let _masterInsertResolve = null;
+
+function showMasterInsertDialog(items, hasData, selCount) {
+  _masterInsertItems = items;
+  if (!hasData) {
+    // 選択行にデータなし → そのまま送信
+    sendMasterItems(items, 'add');
+    return;
+  }
+  document.getElementById('masterInsertBody').textContent =
+    `選択行（${selCount}行）にデータが入力されています。追加しますか？上書きしますか？`;
+  document.getElementById('masterInsertOverlay').style.display = 'flex';
+}
+
+function resolveMasterInsert(mode) {
+  document.getElementById('masterInsertOverlay').style.display = 'none';
+  if (_masterInsertItems && true) {
+    sendMasterItems(_masterInsertItems, mode);
+  }
+  _masterInsertItems = null;
+}
+
+function sendMasterItems(items, mode) {
+  if (true) {
+    _sendToParent({ type: 'masterItems', items: items, mode: mode });
+  }
+}
+
+// openerからの返答を受け取る
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'masterItemsCheckResult') {
+    showMasterInsertDialog(_masterInsertItems || e.data.items, e.data.hasData, e.data.selCount);
+    if (!_masterInsertItems) _masterInsertItems = e.data.items;
+  }
+});
+
+// ============================================================
+// マスタ更新ボタン（API優先、失敗時はファイル選択にフォールバック）
+// ============================================================
+document.getElementById('btnUpdate').addEventListener('click', async () => {
+  try {
+    const ping = await fetch(`${MASTER_API}/api/list?dir=MasterData`).catch(()=>null);
+    if (ping && ping.ok) {
+      await loadFromIndex();
+    } else {
+      document.getElementById('csvInput').click();
+    }
+  } catch(e) {
+    document.getElementById('csvInput').click();
+  }
+});
+
+function loadCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const btn = document.getElementById('btnUpdate');
+  btn.textContent = '⏳ 読み込み中...';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const rows = parseCSVText(ev.target.result).filter(r=>r.some(c=>c));
+      if (rows.length < 2) throw new Error('データがありません');
+      allRows = importCSVRows(rows);
+      selected.clear();
+      buildCategories();
+      applyFilters();
+      saveToLocalStorage(file.name);
+      btn.textContent = `✅ ${file.name}`;
+    } catch (err) {
+      btn.textContent = '❌ 失敗';
+      alert('CSVの読み込みに失敗しました: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'Shift_JIS');
+}
+
+// ============================================================
+// 親ウィンドウからの検索ワード受信
+// ============================================================
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'search') {
+    // rikcadNameがある場合はRIKCAD材料名で検索、なければkeywordで検索
+    const searchVal = e.data.rikcadName || e.data.keyword || '';
+    if (searchVal != null) {
+      document.getElementById('searchInput').value = searchVal;
+      applyFilters();
+    }
+  }
+});
+
+// フォーカス時にクリップボードを読み取って検索欄に反映
+let _clipboardDenied = false;
+
+async function _applyClipboardToSearch() {
+  if (_clipboardDenied) return;
+  try {
+    const perm = await navigator.permissions.query({ name: 'clipboard-read' });
+    if (perm.state === 'denied') { _clipboardDenied = true; return; }
+    perm.onchange = () => { if (perm.state === 'denied') _clipboardDenied = true; };
+    const text = await navigator.clipboard.readText();
+    if (text && text.trim()) {
+      document.getElementById('searchInput').value = text.trim();
+      applyFilters();
+    }
+  } catch (e) {
+    _clipboardDenied = true;
+  }
+}
+
+// ============================================================
+// 列幅ドラッグリサイズ
+// ============================================================
+(function initColResize() {
+  // th 要素にリサイズハンドルを付与
+  function attachHandles() {
+    const ths = document.querySelectorAll('.data-table thead th');
+    ths.forEach((th, i) => {
+      // 最後の列（削除ボタン列）と選択列はスキップ
+      if (th.classList.contains('th-select')) return;
+      if (i === ths.length - 1) return;
+      if (th.querySelector('.col-resize-handle')) return;
+      const handle = document.createElement('div');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+      let startX, startWidth;
+      handle.addEventListener('mousedown', e => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = th.offsetWidth;
+        handle.classList.add('dragging');
+        const onMove = ev => {
+          const newW = Math.max(40, startWidth + ev.clientX - startX);
+          th.style.width = newW + 'px';
+          th.style.minWidth = newW + 'px';
+        };
+        const onUp = () => {
+          handle.classList.remove('dragging');
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  }
+  // DOMロード後と renderTable 後に都度付与
+  document.addEventListener('DOMContentLoaded', attachHandles);
+  const _origRender = window.renderTable;
+  // renderTable は定義後にラップ
+  setTimeout(() => {
+    const orig = renderTable;
+    window.renderTable = function(...args) {
+      orig.apply(this, args);
+      attachHandles();
+    };
+    attachHandles();
+  }, 0);
+})();
+
+
+
+// ============================================================
+// 初期化
+// ============================================================
+(async () => {
+  try {
+    const ping = await fetch(`${MASTER_API}/api/list?dir=MasterData`).catch(()=>null);
+    if (ping && ping.ok) {
+      await loadFromIndex();
+    } else {
+      loadFromLocalStorage();
+    }
+  } catch(e) {
+    loadFromLocalStorage();
+  }
+})();
+</script>
+
+<!-- 追加/上書き確認ダイアログ -->
+<div id="masterInsertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;justify-content:center;align-items:center;">
+  <div style="background:#fff;border-radius:10px;width:320px;box-shadow:0 8px 40px rgba(0,0,0,0.25);overflow:hidden;">
+    <div style="padding:16px 20px 12px;border-bottom:1px solid #e5e7eb;font-size:14px;font-weight:600;color:#111827;">引用方法を選択</div>
+    <div id="masterInsertBody" style="padding:16px 20px;font-size:13px;color:#374151;line-height:1.6;"></div>
+    <div style="display:flex;gap:8px;padding:12px 20px;border-top:1px solid #e5e7eb;justify-content:flex-end;">
+      <button onclick="resolveMasterInsert('add')" style="padding:7px 18px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-size:13px;">追加</button>
+      <button onclick="resolveMasterInsert('overwrite')" style="padding:7px 18px;border-radius:6px;border:none;background:#00b27d;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">上書き</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

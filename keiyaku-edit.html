@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>契約編集</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f0f4f8; }
+  body, input, select, textarea, button { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif; }
+  a { color: #1a6fc4; text-decoration: none; }
+  a:hover { color: #0d5aa8; text-decoration: underline; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid #7db3e0; }
+
+  /* ===== ナビバー（index.html と共通） ===== */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+  }
+  .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 11px; font-size: 12px; color: #555;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .nav-item:hover { color: #1a6fc4; }
+  .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+  .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+  .nav-item.hacchukanri svg { color: #e53935; }
+  .nav-right {
+    display: flex; align-items: center;
+    margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+  }
+
+  /* ===== 契約状況チップ ===== */
+  .ky-chip {
+    display: inline-block; min-width: 96px; text-align: center; padding: 8px 0;
+    font-size: 14px; border-radius: 2px; border: 1px solid #8a97a3; color: #333; background: #fff;
+  }
+  input[value="契約済"]:checked + .ky-chip { background: #cfe6f7; border-color: #cfe6f7; color: #1a4f7c; font-weight: 700; }
+  input[value="失注"]:checked + .ky-chip { background: #c9ced3; border-color: #c9ced3; color: #444; }
+</style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item active" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      契約管理
+    </button>
+    <button class="nav-item hacchukanri" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" onclick="window.location.href='outsourcing-list.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      外注費管理
+    </button>
+    <button class="nav-item" onclick="window.location.href='schedule.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+<div style="min-height: 100vh; background: #f0f4f8; color: #333; font-size: 14px; padding-bottom: 24px; padding-top: 48px;">
+
+  <!-- Header area on white -->
+  <div style="background: #ffffff; padding: 20px 0 0 0;">
+    <div style="max-width: 1500px; margin: 0 auto; padding: 0 40px;">
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; margin-bottom: 14px;">
+        <a href="#" onclick="goBack(); return false;">契約一覧</a>
+        <span style="color: #888;">&gt;</span>
+        <span style="color: #333;">契約編集</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 40px; padding-bottom: 18px;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #222;">契約編集</h1>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 1: contract basic info -->
+  <div style="max-width: 1500px; margin: 0 auto; padding: 0 16px;">
+    <div style="background: #ffffff; margin: 0 24px; padding: 28px 24px 32px 24px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 40px; row-gap: 0;">
+
+        <!-- Left column -->
+        <div style="display: flex; flex-direction: column;">
+          <!-- 顧客名 -->
+          <div style="display: grid; grid-template-columns: 180px 220px 1fr; align-items: center; min-height: 62px;">
+            <div style="font-weight: 700;">顧客名</div>
+            <div>
+              <div id="kyCustKana" style="font-size: 11px; color: #555;">&nbsp;</div>
+              <div id="kyCustName" style="font-weight: 700;">—</div>
+            </div>
+            <div id="kyCustCode" style="color: #333;">—</div>
+          </div>
+          <!-- 物件名 -->
+          <div style="display: grid; grid-template-columns: 180px 220px 1fr; align-items: center; min-height: 62px;">
+            <div style="font-weight: 700;">物件名</div>
+            <div>
+              <div id="kyPropKana" style="font-size: 11px; color: #555;">&nbsp;</div>
+              <div id="kyPropName" style="font-weight: 700;">—</div>
+            </div>
+            <div id="kyPropCode" style="color: #333;">—</div>
+          </div>
+          <!-- 契約書名 -->
+          <div style="display: grid; grid-template-columns: 180px 1fr; align-items: center; min-height: 58px;">
+            <div style="font-weight: 700;">契約書名 <span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+            <input id="kyContractName" type="text" style="width: 440px; max-width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff;">
+          </div>
+          <!-- 契約書名かな -->
+          <div style="display: grid; grid-template-columns: 180px 1fr; align-items: start; min-height: 76px; padding-top: 10px;">
+            <div style="font-weight: 700; padding-top: 8px;">契約書名かな</div>
+            <div>
+              <input id="kyContractKana" type="text" style="width: 440px; max-width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff;">
+              <div style="font-size: 11px; color: #777; margin-top: 6px;">全角ひらがな、または全角/半角カタカナ（スペース不可）で入力してください</div>
+            </div>
+          </div>
+          <!-- 契約日 + 担当者 -->
+          <div style="display: flex; align-items: center; gap: 24px; min-height: 66px; margin-top: 8px;">
+            <div style="display: flex; align-items: center; gap: 16px; width: 300px;">
+              <div style="font-weight: 700; width: 164px;">契約日 <span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+              <input id="kyContractDate" type="date" style="padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff; width: 130px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="font-weight: 700; white-space: nowrap;">担当者 <span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+              <select id="kyStaffSelect" style="padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff; width: 250px;">
+                <option value="">—</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div style="display: flex; flex-direction: column;">
+          <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; min-height: 62px;">
+            <div style="font-weight: 700;">住所</div>
+            <div id="kyCustAddr">—</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 140px 1fr; align-items: center; min-height: 62px;">
+            <div style="font-weight: 700;">現場住所</div>
+            <div id="kyJobAddr">—</div>
+          </div>
+          <!-- 契約状況を選択 -->
+          <div style="display: flex; align-items: center; gap: 8px; min-height: 76px; padding-top: 10px;">
+            <div style="font-weight: 700; margin-right: 12px;">契約状況を選択</div>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" name="contractStatus" value="作成中" checked style="width: 16px; height: 16px; accent-color: #1668c7; cursor: pointer;">
+              <span class="ky-chip">作成中</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" name="contractStatus" value="契約済" style="width: 16px; height: 16px; accent-color: #1668c7; cursor: pointer;">
+              <span class="ky-chip">契約済</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="radio" name="contractStatus" value="失注" style="width: 16px; height: 16px; accent-color: #1668c7; cursor: pointer;">
+              <span class="ky-chip">失注</span>
+            </label>
+          </div>
+          <!-- 予定工期 -->
+          <div style="display: flex; align-items: center; gap: 14px; min-height: 66px; margin-top: 8px; justify-content: flex-end;">
+            <div style="font-weight: 700; white-space: nowrap;">予定工期</div>
+            <input id="kyScheduleStart" type="date" style="padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff; width: 130px;">
+            <span style="color: #555;">～</span>
+            <input id="kyScheduleEnd" type="date" style="padding: 8px 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; background: #fff; width: 130px;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: 契約対象見積 -->
+    <div style="background: #ffffff; margin: 32px 24px 0 24px; padding: 24px 24px 40px 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #222;">契約対象見積</h2>
+        <button onclick="goToEstimateList()" style="background: #1668c7; color: #fff; border: none; border-radius: 4px; padding: 9px 20px; font-size: 14px; font-weight: 700; cursor: pointer;">見積一覧</button>
+      </div>
+      <div style="display: grid; grid-template-columns: 60px 90px 190px 220px 160px 1fr 1fr 120px 90px; align-items: center; padding: 10px 8px; border-bottom: 1px dashed #b7c2cc; color: #667; font-size: 14px;">
+        <div style="text-align: center;">反映</div>
+        <div style="text-align: right;">台帳No.</div>
+        <div style="padding-left: 24px;">見積No.</div>
+        <div>見積プラン名</div>
+        <div>見積状況</div>
+        <div style="text-align: right;">売上予定金額（円）</div>
+        <div style="text-align: right;">原価金額（円）</div>
+        <div style="text-align: right;">粗利（％）</div>
+        <div style="text-align: center;">契約反映</div>
+      </div>
+      <div id="kyEstimateRows">
+        <div style="padding: 16px 8px; color: #888;">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- Card 3: 金額・備考・入金予定 -->
+    <div style="background: #ffffff; margin: 32px 24px 0 24px; padding: 28px 24px 32px 24px;">
+      <!-- 金額 row -->
+      <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 24px;">
+        <div style="font-weight: 700; white-space: nowrap;">請負金額（税込）<span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+        <input id="kyAmountTax" type="text" value="0" readonly style="width: 150px; padding: 8px 10px; font-size: 14px; text-align: right; border: 1px solid #8a97a3; border-radius: 3px; background: #f2f4f6;">
+        <div style="font-weight: 700; white-space: nowrap; margin-left: 8px;">請負金額（税抜）<span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+        <input id="kyAmountNoTax" type="text" value="0" readonly style="width: 150px; padding: 8px 10px; font-size: 14px; text-align: right; border: 1px solid #8a97a3; border-radius: 3px; background: #f2f4f6;">
+        <div style="font-weight: 700; white-space: nowrap; margin-left: 8px;">消費税額 <span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+        <input id="kyTaxAmount" type="text" value="0" readonly style="width: 140px; padding: 8px 10px; font-size: 14px; text-align: right; border: 1px solid #8a97a3; border-radius: 3px; background: #f2f4f6;">
+        <div style="font-weight: 700; white-space: nowrap; margin-left: 8px;">税率 <span style="color: #e00000; font-size: 13px;">【必須】</span></div>
+        <input id="kyTaxRate" type="text" value="10.0" readonly style="width: 70px; padding: 8px 10px; font-size: 14px; text-align: right; border: 1px solid #8a97a3; border-radius: 3px; background: #f2f4f6;">
+        <span>%</span>
+      </div>
+
+      <!-- 契約備考 -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-weight: 700; margin-bottom: 8px;">契約備考</div>
+        <textarea id="kyNote" style="width: 100%; box-sizing: border-box; height: 96px; padding: 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; resize: vertical;"></textarea>
+      </div>
+
+      <!-- bottom two columns -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 40px; align-items: start;">
+        <!-- 契約備考（社内用） -->
+        <div>
+          <div style="font-weight: 700; margin-bottom: 8px;">契約備考（社内用）</div>
+          <textarea id="kyInternalNote" style="width: 100%; box-sizing: border-box; height: 190px; padding: 10px; font-size: 14px; border: 1px solid #8a97a3; border-radius: 3px; resize: vertical;"></textarea>
+        </div>
+        <!-- 入金予定 -->
+        <div>
+          <div style="font-weight: 700; margin-bottom: 10px;">入金予定</div>
+          <div style="padding-left: 24px;">
+            <div style="display: grid; grid-template-columns: 1fr 110px 130px 30px; column-gap: 12px; padding: 6px 0; border-bottom: 1px dashed #b7c2cc; color: #667; font-size: 13px;">
+              <div>名目</div>
+              <div style="text-align: right;">予定金額（円）</div>
+              <div>入金予定日</div>
+              <div></div>
+            </div>
+            <div id="kyPaymentRows"></div>
+            <div style="display: grid; grid-template-columns: 1fr 110px 130px 30px; column-gap: 12px; align-items: center; padding: 12px 0 4px 0;">
+              <div style="text-align: right; font-weight: 700; padding-right: 8px;">合計</div>
+              <div id="kyPaymentTotal" style="text-align: right; font-weight: 700;">¥0</div>
+              <div></div>
+              <div></div>
+            </div>
+            <div style="margin-top: 14px;">
+              <button onclick="addPaymentRow()" style="display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #7db3e0; border-radius: 4px; padding: 8px 16px; font-size: 14px; color: #1668c7; cursor: pointer;">＋ 行を追加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer buttons -->
+    <div style="display: flex; align-items: center; margin: 24px 24px 0 24px;">
+      <button style="background: #e8304a; color: #fff; border: none; border-radius: 4px; padding: 10px 22px; font-size: 14px; font-weight: 700; cursor: pointer;">削 除</button>
+      <div style="flex: 1; display: flex; justify-content: center;">
+        <button onclick="goBack()" style="background: #fff; color: #1668c7; border: 1px solid #7db3e0; border-radius: 4px; padding: 10px 26px; font-size: 14px; font-weight: 700; cursor: pointer;">閉じる</button>
+      </div>
+      <div style="display: flex; gap: 14px;">
+        <button style="background: #1668c7; color: #fff; border: none; border-radius: 4px; padding: 10px 26px; font-size: 14px; font-weight: 700; cursor: pointer;">保 存</button>
+        <button style="background: #1668c7; color: #fff; border: none; border-radius: 4px; padding: 10px 22px; font-size: 14px; font-weight: 700; cursor: pointer;">契約書出力</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== Supabase ==========
+const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const API = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json'
+};
+
+// ========== URLパラメータ ==========
+const params = new URLSearchParams(location.search);
+const PROPERTY_ID = params.get('property_id') || '';
+const BACK_URL = params.get('back') || 'index.html';
+let CHECKED_EST_IDS = [];
+try { CHECKED_EST_IDS = JSON.parse(decodeURIComponent(params.get('checked_est_ids') || '[]')); } catch(e) { CHECKED_EST_IDS = []; }
+
+let currentEstimates = [];
+
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtNum(n) { return (n != null && n !== '') ? Number(n).toLocaleString('ja-JP') : '—'; }
+
+// ========== ナビゲーション ==========
+function navClick(key) {
+  sessionStorage.setItem('openex_nav_target', key);
+  window.location.href = 'index.html';
+}
+function goBack() {
+  if (BACK_URL === 'index.html' || BACK_URL.startsWith('index.html')) {
+    sessionStorage.setItem('openex_nav_target', 'keiyaku');
+  }
+  window.location.href = BACK_URL;
+}
+function goToEstimateList() {
+  if (!PROPERTY_ID) return;
+  window.location.href = `estimate-list.html?property_id=${encodeURIComponent(PROPERTY_ID)}&back=${encodeURIComponent(location.href)}`;
+}
+
+// ========== 顧客・物件情報の取得 ==========
+async function loadPropertyAndCustomer() {
+  if (!PROPERTY_ID) return;
+  try {
+    const pr = await fetch(`${API}/properties?id=eq.${PROPERTY_ID}&select=*`, { headers: HEADERS });
+    if (!pr.ok) return;
+    const props = await pr.json();
+    const prop = props[0];
+    if (!prop) return;
+
+    document.getElementById('kyPropName').textContent = prop.name || '—';
+    document.getElementById('kyPropKana').textContent = prop.name_kana || ' ';
+    document.getElementById('kyPropCode').textContent = prop.code ? `ID: ${prop.code}` : '—';
+    document.getElementById('kyJobAddr').textContent = prop.address || '—';
+
+    // 契約書名の初期値は物件名（未入力時のみ）
+    const nameInput = document.getElementById('kyContractName');
+    if (nameInput && !nameInput.value) nameInput.value = prop.name || '';
+    const kanaInput = document.getElementById('kyContractKana');
+    if (kanaInput && !kanaInput.value) kanaInput.value = prop.name_kana || '';
+
+    if (prop.sales_staff_id) {
+      const sel = document.getElementById('kyStaffSelect');
+      const check = () => { if (sel.querySelector(`option[value="${prop.sales_staff_id}"]`)) sel.value = prop.sales_staff_id; };
+      if (sel.dataset.loaded === '1') check(); else sel.dataset.pendingStaffId = prop.sales_staff_id;
+    }
+
+    if (prop.customer_id) {
+      const cr = await fetch(`${API}/customers?id=eq.${prop.customer_id}&select=*`, { headers: HEADERS });
+      if (cr.ok) {
+        const customers = await cr.json();
+        const cust = customers[0];
+        if (cust) {
+          document.getElementById('kyCustName').textContent = cust.name || '—';
+          document.getElementById('kyCustKana').textContent = cust.name_kana || cust.kana || ' ';
+          document.getElementById('kyCustCode').textContent = cust.code ? `ID: ${cust.code}` : '—';
+          document.getElementById('kyCustAddr').textContent = cust.address || '—';
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[keiyaku-edit] 物件・顧客情報取得失敗:', e);
+  }
+}
+
+// ========== 担当者リストの取得 ==========
+async function loadStaffs() {
+  const sel = document.getElementById('kyStaffSelect');
+  try {
+    const r = await fetch(`${API}/staffs?select=id,name&order=name.asc`, { headers: HEADERS });
+    const staffs = r.ok ? await r.json() : [];
+    staffs.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id; opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+    sel.dataset.loaded = '1';
+    if (sel.dataset.pendingStaffId) sel.value = sel.dataset.pendingStaffId;
+  } catch (e) {
+    console.warn('[keiyaku-edit] 担当者取得失敗:', e);
+  }
+}
+
+// ========== 契約対象見積の取得 ==========
+async function loadEstimates() {
+  const box = document.getElementById('kyEstimateRows');
+  if (!PROPERTY_ID) { box.innerHTML = '<div style="padding:16px 8px;color:#888;">物件が指定されていません</div>'; return; }
+  try {
+    const r = await fetch(`${API}/estimates?property_id=eq.${PROPERTY_ID}&order=created_at.asc`, { headers: HEADERS });
+    const estimates = r.ok ? await r.json() : [];
+    currentEstimates = estimates;
+    renderEstimateRows();
+  } catch (e) {
+    console.warn('[keiyaku-edit] 見積取得失敗:', e);
+    box.innerHTML = '<div style="padding:16px 8px;color:#888;">見積の取得に失敗しました</div>';
+  }
+}
+
+function renderEstimateRows() {
+  const box = document.getElementById('kyEstimateRows');
+  if (!currentEstimates.length) {
+    box.innerHTML = '<div style="padding:16px 8px;color:#888;">この物件に紐づく見積がありません</div>';
+    recalcAmounts();
+    return;
+  }
+  box.innerHTML = currentEstimates.map((est, i) => {
+    const checked = CHECKED_EST_IDS.includes(est.id);
+    const profit = (est.total_amount != null && est.cost_amount != null && est.total_amount > 0)
+      ? ((est.total_amount - est.cost_amount) / est.total_amount * 100).toFixed(1)
+      : '—';
+    return `<div class="ky-est-row" style="display: grid; grid-template-columns: 60px 90px 190px 220px 160px 1fr 1fr 120px 90px; align-items: center; padding: 14px 8px; border-bottom: 1px solid #dfe5ea; font-size: 14px;">
+      <div style="text-align: center;"><input type="checkbox" class="ky-est-check" data-est-id="${escHtml(est.id)}" ${checked ? 'checked' : ''} onchange="onEstimateCheckChange(this)" style="width: 16px; height: 16px; accent-color: #1668c7;"></div>
+      <div style="text-align: right;">${i + 1}</div>
+      <div style="padding-left: 24px;">${escHtml(est.estimate_no || '—')}</div>
+      <div>${escHtml(est.plan_name || '—')}</div>
+      <div>${escHtml(est.status || '見積中')}</div>
+      <div style="text-align: right;">${fmtNum(est.total_amount)}</div>
+      <div style="text-align: right;">${fmtNum(est.cost_amount)}</div>
+      <div style="text-align: right;">${profit === '—' ? '—' : profit}</div>
+      <div class="ky-reflect-cell" style="text-align: center;">${checked ? '済' : '—'}</div>
+    </div>`;
+  }).join('');
+  recalcAmounts();
+}
+
+// ========== 反映チェックから請負金額を計算 ==========
+function onEstimateCheckChange(cb) {
+  const cell = cb.closest('.ky-est-row')?.querySelector('.ky-reflect-cell');
+  if (cell) cell.textContent = cb.checked ? '済' : '—';
+  recalcAmounts();
+}
+
+// 見積の売上予定金額（total_amount）は税込として扱い、税率10%固定で税抜・消費税額を逆算する
+function recalcAmounts() {
+  const checkedIds = Array.from(document.querySelectorAll('.ky-est-check:checked')).map(el => el.dataset.estId);
+  const sumTax = currentEstimates
+    .filter(e => checkedIds.includes(e.id))
+    .reduce((sum, e) => sum + (Number(e.total_amount) || 0), 0);
+  const rate = 0.10;
+  const sumNoTax = Math.round(sumTax / (1 + rate));
+  document.getElementById('kyAmountTax').value = sumTax.toLocaleString('ja-JP');
+  document.getElementById('kyAmountNoTax').value = sumNoTax.toLocaleString('ja-JP');
+  document.getElementById('kyTaxAmount').value = (sumTax - sumNoTax).toLocaleString('ja-JP');
+}
+
+// ========== 入金予定行 ==========
+function addPaymentRow(name, amount, date) {
+  const wrap = document.getElementById('kyPaymentRows');
+  const row = document.createElement('div');
+  row.style.cssText = 'display: grid; grid-template-columns: 1fr 110px 130px 30px; column-gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #dfe5ea;';
+  row.innerHTML = `
+    <input type="text" placeholder="例）着手金" value="${escHtml(name || '')}" style="padding: 7px 10px; font-size: 14px; border: 1px solid #b9c4cf; border-radius: 3px;">
+    <input type="text" placeholder="0" value="${escHtml(amount || '')}" onchange="recalcPaymentTotal()" style="padding: 7px 8px; font-size: 14px; text-align: right; border: 1px solid #b9c4cf; border-radius: 3px;">
+    <input type="date" value="${escHtml(date || '')}" style="padding: 7px 6px; font-size: 13px; border: 1px solid #b9c4cf; border-radius: 3px;">
+    <button onclick="this.closest('div').remove(); recalcPaymentTotal();" style="width: 26px; height: 26px; background: #fff; border: 1px solid #c6ced5; border-radius: 3px; color: #888; font-size: 12px; cursor: pointer; line-height: 1;">×</button>`;
+  wrap.appendChild(row);
+}
+function recalcPaymentTotal() {
+  const amounts = Array.from(document.querySelectorAll('#kyPaymentRows > div')).map(row => {
+    const input = row.querySelectorAll('input')[1];
+    const n = parseFloat(String(input.value).replace(/,/g, ''));
+    return isNaN(n) ? 0 : n;
+  });
+  const total = amounts.reduce((a, b) => a + b, 0);
+  document.getElementById('kyPaymentTotal').textContent = '¥' + total.toLocaleString('ja-JP');
+}
+
+// ========== 初期化 ==========
+(async function init() {
+  addPaymentRow(); addPaymentRow(); addPaymentRow();
+  document.getElementById('kyContractDate').value = new Date().toISOString().slice(0, 10);
+  await Promise.all([loadStaffs(), loadPropertyAndCustomer(), loadEstimates()]);
+})();
+</script>
+
+</body>
+</html>

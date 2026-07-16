@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>見積マスタ編集（replus再現・Supabase連携版）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Yu Gothic", "Meiryo", sans-serif;
+    font-size: 13px;
+    background: #eef1f4;
+    color: #303133;
+  }
+  .app-bar {
+    height: 48px;
+    background: #2592D3;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 15px;
+    font-weight: bold;
+    justify-content: space-between;
+  }
+  .app-bar .note { font-weight: normal; font-size: 12px; opacity: .85; }
+  .app-container { padding: 12px 16px; }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .toolbar button {
+    border: 1px solid #2592D3;
+    background: #fff;
+    color: #2592D3;
+    border-radius: 3px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .toolbar button.primary { background: #2592D3; color: #fff; }
+  .toolbar button:hover { filter: brightness(0.95); }
+  .toolbar .spacer { flex: 1; }
+  .toolbar .status { font-size:12px; color:#909399; }
+
+  .condition-row {
+    display: flex;
+    gap: 40px;
+    background: #fff;
+    padding: 10px 14px;
+    border: 1px solid #d7dbe0;
+    border-bottom: none;
+  }
+  .condition-item { width: 300px; }
+  .condition-item label { display:block; text-align:center; font-size:12px; color:#606266; margin-bottom:4px; }
+  .condition-item input {
+    width: 100%; padding: 6px 8px; border: 1px solid #dcdfe6; border-radius: 3px; font-size: 13px;
+  }
+
+  .table-scroll {
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid #7f7f7f;
+    background: #fff;
+  }
+  table.est-table { border-collapse: collapse; min-width: 900px; width: 100%; table-layout: fixed; }
+  table.est-table th, table.est-table td {
+    border: 1px solid #7f7f7f;
+    padding: 0;
+    height: 26px;
+  }
+  table.est-table thead th {
+    font-size: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  table.est-table thead tr.grp-row th {
+    background: #606266;
+    color: #fff;
+    font-weight: bold;
+    top: 0;
+  }
+  table.est-table thead tr.sub-row th {
+    background: #ffffff;
+    color: #303133;
+    top: 22px;
+  }
+  th.grp { text-align:center; padding: 2px 4px; }
+  th.grp .grp-btn {
+    border: none; background: #ffffff; border-radius: 2px; width:16px; height:16px; line-height:14px;
+    cursor:pointer; margin-right:4px; font-weight:bold; color:#606266;
+  }
+  th.col-tree { width: 26px; }
+  th.sub { font-size:11px; padding: 2px 2px; }
+
+  col.c-tree { width: 26px; }
+  col.c-name { width: 210px; }
+  col.c-standard { width: 90px; }
+  col.c-rikcad { width: 90px; }
+  col.c-num { width: 60px; }
+  col.c-unit { width: 55px; }
+  col.c-fixed { width: 85px; }
+  col.c-narrow { width: 30px; }
+  col.c-rate { width: 55px; }
+  col.c-price { width: 75px; }
+  col.c-amount { width: 75px; }
+  col.c-remark { width: 130px; }
+  col.c-order { width: 95px; }
+  col.c-profitrate { width: 60px; }
+
+  td.name-cell { padding-left: 4px; }
+  .tree-line { display:flex; align-items:center; height:100%; gap:4px; }
+  .folder-toggle { cursor:pointer; width:14px; text-align:center; user-select:none; color:#606266; flex:none; }
+  .folder-toggle.leaf { visibility:hidden; }
+  .folder-icon { flex:none; }
+  .cell-input {
+    width:100%; height:100%; border:none; background:transparent; font: inherit; padding: 2px 4px;
+    color:#303133;
+  }
+  .cell-input:focus { outline: 2px solid #79bbff; background:#fff; }
+  .cell-input.align-right { text-align:right; }
+  .cell-input.align-center { text-align:center; }
+  .cell-input.align-left { text-align:left; }
+  .cell-input[readonly] { background:#f5f7fa; color:#606266; }
+  .cell-input.changed { color:#d9363e; font-weight:bold; }
+  .cell-input.bold { font-weight:bold; }
+  tr.folder-row td:not(.name-cell) .cell-input { background:#f7f9fb; }
+
+  .row-menu-wrap { position:relative; flex:none; }
+  .row-menu-btn { border:none; background:transparent; cursor:pointer; color:#909399; font-size:14px; }
+  .row-menu {
+    display:none; position:absolute; left: 18px; top: 0; background:#fff; border:1px solid #dcdfe6;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15); z-index: 50; min-width: 160px; padding: 4px 0;
+  }
+  .row-menu.open { display:block; }
+  .row-menu button {
+    display:block; width:100%; text-align:left; border:none; background:none; padding:6px 14px;
+    font-size:12px; cursor:pointer; color:#303133;
+  }
+  .row-menu button:hover { background:#f0f5fa; }
+  .row-menu hr { border:none; border-top:1px solid #ebeef5; margin:4px 0; }
+
+  .control-strip {
+    display:flex; justify-content:center; align-items:center; gap:8px; padding:10px 8px;
+    background:#fff; border:1px solid #d7dbe0; border-top:none; flex-wrap:wrap;
+  }
+  .control-strip button {
+    border:1px solid #c0c4cc; background:#fff; color:#606266; border-radius:3px;
+    padding:6px 14px; font-size:12px; cursor:pointer;
+  }
+  .control-strip button.primary { background:#2592D3; border-color:#2592D3; color:#fff; }
+  .control-strip button.accent { color:#2592D3; border-color:#2592D3; }
+  .control-strip button:hover { filter:brightness(0.96); }
+  .control-strip .sel-info { font-size:12px; color:#909399; margin-left:8px; }
+
+  tr.selected-row > td { background:#d9ecff !important; }
+
+  .modal-overlay {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.25); z-index:200;
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal-box {
+    background:#fff; min-width:210px; border-radius:4px; box-shadow:0 4px 24px rgba(0,0,0,.25);
+    padding:6px 0; max-height:80vh; overflow:auto;
+  }
+  .modal-title { padding:8px 16px; font-weight:bold; border-bottom:1px solid #ebeef5; margin-bottom:4px; color:#2592D3; }
+  .modal-box button {
+    display:block; width:100%; text-align:left; border:none; background:none; padding:8px 16px;
+    font-size:13px; cursor:pointer; color:#303133;
+  }
+  .modal-box button:hover { background:#f0f5fa; }
+  .modal-box hr { border:none; border-top:1px solid #ebeef5; margin:4px 0; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #303133; color:#fff; padding: 8px 18px; border-radius: 4px; font-size: 12px;
+    opacity: 0; transition: opacity .2s; pointer-events:none; z-index: 100;
+  }
+  .toast.show { opacity: .92; }
+
+  .legend {
+    margin-top: 10px; font-size: 12px; color: #606266; line-height: 1.7;
+  }
+  .legend b { color:#2592D3; }
+</style>
+</head>
+<body>
+
+<div class="app-bar">
+  <span>見積マスタ編集（Supabase連携版）</span>
+  <span class="note">元ソース: engineering/docs/estimate/replus/exReplus-Web/.../views/estimateMaster/edit/index.vue　※全列グループをmaster_rowsに結線</span>
+</div>
+
+<div class="app-container">
+
+  <div class="toolbar">
+    <button class="primary" onclick="addTopFolder()">＋ 大項目追加</button>
+    <button onclick="saveToSupabase()">保存</button>
+    <span class="status" id="statusText"></span>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="condition-row">
+    <div class="condition-item">
+      <label>工事種別</label>
+      <input id="masterName" oninput="masterHeader.name=this.value">
+    </div>
+    <div class="condition-item">
+      <label>備考</label>
+      <input id="masterRemark" oninput="masterHeader.memo=this.value">
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="est-table" id="estTable"></table>
+  </div>
+
+  <div class="control-strip">
+    <button class="accent" onclick="openOpMenu()">操作メニュー</button>
+    <button onclick="notImplemented('CSV読込')">CSV読込</button>
+    <button onclick="notImplemented('CSV出力')">CSV出力</button>
+    <button onclick="notImplemented('メーカー見積')">メーカー見積</button>
+    <button onclick="notImplemented('マスタから引用')">マスタから引用</button>
+    <button onclick="notImplemented('履歴から引用')">履歴から引用</button>
+    <button onclick="goBackToMasterList()">一覧へ戻る</button>
+    <button class="primary" onclick="saveToSupabase()">登録</button>
+    <span class="sel-info" id="selInfo"></span>
+  </div>
+
+  <div class="legend">
+    このページは <b>master_items</b>（マスタ本体・工事種別/備考）と <b>master_rows</b>（内訳表・問屋材仕入れ・職人手間・骨材料等・客出し・HM出し・備考・発注先・社内メモ）にSupabase経由で読み書きします。
+    <b>粗利額・粗利率</b> は保存せず、大項目（フォルダ）を開くたびに配下の行から都度集計して表示します（客出し金額 − (問屋材仕入れ + 職人手間 + 骨材料等)）。<br>
+    URLに <code>?master_id=...</code> を付けると既存マスタを編集、付けなければ新規マスタとして「保存」時に新しいIDが発行されます。<br>
+    「保存」「登録」はどちらも同じ処理です（既存の内訳行を全削除→今の内容を再登録、という元のmaster-edit.htmlと同じ方式）。<br>
+    行の <b>⋮</b> メニューのうち「行追加・階層追加・大項目追加・削除」は動作します。それ以外（切り取り・コピー・貼り付け・元に戻す・印刷ON/OFF・コメント・備考登録・発注先設定・検索・テンプレートへコピー・マスタへ追加）は一覧表示のみで未実装です。<br>
+    行クリックで選択（水色ハイライト）、<b>Shift</b>+クリックで範囲選択、<b>Ctrl</b>+クリックで個別追加/解除ができます。下部の「操作メニュー」ボタンは選択中の行に対して行追加・階層追加・大項目追加・削除を実行します（削除は選択中の全行が対象）。<br>
+    各列グループ見出しの <b>−</b> / <b>＋</b> ボタンで列グループの表示・折りたたみができます（元のreplus画面と同じ挙動）。<br>
+    <b>問屋材仕入れ</b>の掛率↔単価、<b>客出し</b>の原価率↔単価は、どちらかを編集するともう片方が自動計算されます（元のreplus画面の計算式をそのまま再現）。<b>HM出し</b>の単価は「客出し単価 ÷ (1 − 上乗せ％/100)」で自動計算されます。RIKCAD材料名との連携は今回のスコープ外です。
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="opMenuOverlay" onclick="closeOpMenu()">
+  <div class="modal-box" id="opMenuBox" onclick="event.stopPropagation()"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- Supabase設定（fils_demo） ---------- */
+const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const SB_HEADERS = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+
+const urlParams = new URLSearchParams(location.search);
+let masterId = urlParams.get('master_id');
+
+/* ---------- state ---------- */
+let idSeq = 100;
+const masterHeader = { name: '', memo: '' };
+const foldTableParams = {
+  isWholesaleMaterials: true,
+  isCraftsmanLabor: true,
+  isBoneMaterial: true,
+  isPassenger: true,
+  isHM: true,
+  isRemarks: true,
+  isProfit: true,
+  isOrder: true,
+  isMemo: true,
+};
+
+/* 台帳行の全フィールド（内訳表＋各列グループ） */
+const FIELD_DEFAULTS = {
+  name: '', standard: '', rikcadName: '', num: '', unitCode: '', fixedPrice: '',
+  incorporation3: '', unitPrice3: '', infoAmount3: '',
+  unitPrice2: '', infoAmount2: '',
+  unitPrice4: '', infoAmount4: '',
+  costRate: '', unitPrice: '', amount: '',
+  incorporation1: '', unitPrice1: '', infoAmount1: '',
+  lineRemark: '',
+  interest: '', interestRate: '',
+  orderWholesaleName: '', orderCraftsmanName: '',
+  companyComment: '',
+};
+
+function newLeaf(name, opts = {}) {
+  const base = {
+    id: idSeq++, isMain: false, expanded: false, children: [],
+    ...JSON.parse(JSON.stringify(FIELD_DEFAULTS)), name
+  };
+  Object.assign(base, opts);
+  base._init = JSON.parse(JSON.stringify(base));
+  return base;
+}
+function newFolder(name, children = []) {
+  const base = {
+    id: idSeq++, isMain: true, expanded: true, children,
+    ...JSON.parse(JSON.stringify(FIELD_DEFAULTS)), name
+  };
+  base._init = JSON.parse(JSON.stringify(base));
+  return base;
+}
+
+let tree = [];
+
+/* ---------- 金額計算（replusのestimateMaster/edit/index.vueの計算式を再現） ---------- */
+/* changedField: 直前に編集されたフィールド名（掛率↔単価、原価率↔単価のどちらを再計算するかの判定に使う） */
+function recalcRow(row, changedField) {
+  if (row.isMain) return;
+  const num = Number(row.num) || 0;
+
+  /* 問屋材仕入れ: 掛率 ⇔ 単価 */
+  if (changedField === 'unitPrice3') {
+    if (row.fixedPrice !== '' && Number(row.fixedPrice) !== 0) {
+      row.incorporation3 = Math.round(Number(row.unitPrice3) / Number(row.fixedPrice) * 100 * 10) / 10;
+    }
+  } else {
+    if (row.fixedPrice !== '' && row.incorporation3 !== '') {
+      row.unitPrice3 = Math.round(Number(row.fixedPrice) * (Number(row.incorporation3) / 100));
+    }
+  }
+  row.infoAmount3 = (num && row.unitPrice3 !== '') ? Math.ceil(num * Number(row.unitPrice3)) : '';
+
+  /* 職人手間・骨材料等: 単価入力→金額のみ */
+  row.infoAmount2 = (num && row.unitPrice2 !== '') ? Math.ceil(num * Number(row.unitPrice2)) : '';
+  row.infoAmount4 = (num && row.unitPrice4 !== '') ? Math.ceil(num * Number(row.unitPrice4)) : '';
+
+  /* 客出し: 原価率 ⇔ 単価（問屋材仕入れ＋職人手間＋骨材料等の単価合計を基準に） */
+  const baseSum = (Number(row.unitPrice3) || 0) + (Number(row.unitPrice2) || 0) + (Number(row.unitPrice4) || 0);
+  if (changedField === 'unitPrice') {
+    if (row.unitPrice !== '' && Number(row.unitPrice) !== 0) {
+      row.costRate = Math.round(baseSum / Number(row.unitPrice) * 100 * 10) / 10;
+    }
+  } else if (changedField === 'costRate') {
+    if (row.costRate !== '' && Number(row.costRate) !== 0) {
+      row.unitPrice = Math.round(baseSum / (Number(row.costRate) / 100));
+    }
+  } else {
+    if (row.costRate !== '' && Number(row.costRate) !== 0) {
+      row.unitPrice = Math.round(baseSum / (Number(row.costRate) / 100));
+    } else if (row.unitPrice !== '' && Number(row.unitPrice) !== 0) {
+      row.costRate = Math.round(baseSum / Number(row.unitPrice) * 100 * 10) / 10;
+    }
+  }
+  row.amount = (num && row.unitPrice !== '') ? Math.ceil(num * Number(row.unitPrice)) : '';
+
+  /* HM出し: 単価 = 客出し単価 ÷ (1 − 上乗せ％/100)（一方向のみ） */
+  if (row.incorporation1 !== '' && row.unitPrice !== '' && Number(row.incorporation1) < 100) {
+    row.unitPrice1 = Math.ceil(Number(row.unitPrice) / (1 - Number(row.incorporation1) / 100));
+  } else {
+    row.unitPrice1 = '';
+  }
+  row.infoAmount1 = (num && row.unitPrice1 !== '') ? Math.ceil(num * Number(row.unitPrice1)) : '';
+}
+function recalcAll(nodes) {
+  nodes.forEach(n => { recalcRow(n); if (n.children) recalcAll(n.children); });
+}
+
+/* ---------- 大項目（フォルダ）の集計: 金額合計 + 粗利額/粗利率（都度計算・非保存） ---------- */
+function aggregateAmounts(node) {
+  if (!node.isMain) return;
+  let s3 = 0, s2 = 0, s4 = 0, sAmt = 0, s1 = 0;
+  (node.children || []).forEach(c => {
+    aggregateAmounts(c);
+    s3 += Number(c.infoAmount3) || 0;
+    s2 += Number(c.infoAmount2) || 0;
+    s4 += Number(c.infoAmount4) || 0;
+    sAmt += Number(c.amount) || 0;
+    s1 += Number(c.infoAmount1) || 0;
+  });
+  node.infoAmount3 = s3; node.infoAmount2 = s2; node.infoAmount4 = s4; node.amount = sAmt; node.infoAmount1 = s1;
+  const interest = sAmt - (s2 + s3 + s4);
+  node.interest = interest;
+  if (sAmt) {
+    let rate = Math.round(interest / sAmt * 100 * 100) / 100;
+    if (rate < 0) rate = 0; else if (rate > 100) rate = 100;
+    node.interestRate = rate.toFixed(1);
+  } else {
+    node.interestRate = '';
+  }
+}
+function aggregateAll(nodes) { nodes.forEach(n => { if (n.isMain) aggregateAmounts(n); }); }
+
+const SNAPSHOT_FIELDS = Object.keys(FIELD_DEFAULTS);
+function rebaseInit(nodes) {
+  nodes.forEach(n => {
+    const snap = {};
+    SNAPSHOT_FIELDS.forEach(f => { snap[f] = n[f]; });
+    n._init = snap;
+    if (n.children) rebaseInit(n.children);
+  });
+}
+
+/* ---------- Supabase読み込み・保存 ---------- */
+function genShortId() { return Math.random().toString(36).slice(2, 10); }
+
+function rowToNode(r, isMain) {
+  return {
+    id: idSeq++, isMain, expanded: true, children: [],
+    name: r.name || '',
+    standard: r.spec || '',
+    rikcadName: r.rikcad_name || '',
+    num: r.qty != null ? String(r.qty) : '',
+    unitCode: r.unit || '',
+    fixedPrice: r.list_price != null ? String(r.list_price) : '',
+    incorporation3: r.rate != null ? String(r.rate) : '',
+    unitPrice3: r.unit_price != null ? String(r.unit_price) : '',
+    infoAmount3: '',
+    unitPrice2: r.craftsman_unit_price != null ? String(r.craftsman_unit_price) : '',
+    infoAmount2: '',
+    unitPrice4: r.bone_unit_price != null ? String(r.bone_unit_price) : '',
+    infoAmount4: '',
+    costRate: r.cost_rate != null ? String(r.cost_rate) : '',
+    unitPrice: r.customer_unit_price != null ? String(r.customer_unit_price) : '',
+    amount: '',
+    incorporation1: r.hm_markup_rate != null ? String(r.hm_markup_rate) : '',
+    unitPrice1: '',
+    infoAmount1: '',
+    lineRemark: r.line_remark || '',
+    interest: '', interestRate: '',
+    orderWholesaleName: r.order_wholesale_name || '',
+    orderCraftsmanName: r.order_craftsman_name || '',
+    companyComment: r.company_comment || '',
+  };
+}
+
+function rowsToTree(rows) {
+  const folderNodes = new Map(); // folder_id -> node
+  const folderParent = new Map(); // folder_id -> parent_id
+  rows.filter(r => r.row_type !== 'row').forEach(r => {
+    folderNodes.set(r.folder_id, rowToNode(r, true));
+    folderParent.set(r.folder_id, r.parent_id);
+  });
+  const roots = [];
+  folderNodes.forEach((node, folderId) => {
+    const parentId = folderParent.get(folderId);
+    if (parentId && folderNodes.has(parentId)) {
+      folderNodes.get(parentId).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  rows.filter(r => r.row_type === 'row').forEach(r => {
+    const node = rowToNode(r, false);
+    if (r.parent_id && folderNodes.has(r.parent_id)) {
+      folderNodes.get(r.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
+
+function treeToRows(nodes, masterIdVal, parentFolderId, level) {
+  let out = [];
+  nodes.forEach((n, idx) => {
+    if (n.isMain) {
+      const folderId = genShortId();
+      out.push({
+        master_id: masterIdVal,
+        row_type: parentFolderId ? 'subcat' : 'cat',
+        name: n.name, spec: null, rikcad_name: null, qty: null, unit: null,
+        list_price: null, rate: null, unit_price: null,
+        craftsman_unit_price: null, bone_unit_price: null,
+        cost_rate: null, customer_unit_price: null, hm_markup_rate: null,
+        line_remark: null, order_wholesale_name: null, order_craftsman_name: null, company_comment: null,
+        level: level, folder_id: folderId, parent_id: parentFolderId, sort_order: idx
+      });
+      out = out.concat(treeToRows(n.children, masterIdVal, folderId, level + 1));
+    } else {
+      out.push({
+        master_id: masterIdVal,
+        row_type: 'row',
+        name: n.name,
+        spec: n.standard || null,
+        rikcad_name: n.rikcadName || null,
+        qty: n.num !== '' ? Number(n.num) : null,
+        unit: n.unitCode || null,
+        list_price: n.fixedPrice !== '' ? Number(n.fixedPrice) : null,
+        rate: n.incorporation3 !== '' ? Number(n.incorporation3) : null,
+        unit_price: n.unitPrice3 !== '' ? Number(n.unitPrice3) : null,
+        craftsman_unit_price: n.unitPrice2 !== '' ? Number(n.unitPrice2) : null,
+        bone_unit_price: n.unitPrice4 !== '' ? Number(n.unitPrice4) : null,
+        cost_rate: n.costRate !== '' ? Number(n.costRate) : null,
+        customer_unit_price: n.unitPrice !== '' ? Number(n.unitPrice) : null,
+        hm_markup_rate: n.incorporation1 !== '' ? Number(n.incorporation1) : null,
+        line_remark: n.lineRemark || null,
+        order_wholesale_name: n.orderWholesaleName || null,
+        order_craftsman_name: n.orderCraftsmanName || null,
+        company_comment: n.companyComment || null,
+        level: level, folder_id: null, parent_id: parentFolderId, sort_order: idx
+      });
+    }
+  });
+  return out;
+}
+
+async function loadFromSupabase(id) {
+  setStatus('読み込み中...');
+  try {
+    if (id) {
+      const [itemRes, rowsRes] = await Promise.all([
+        fetch(`${SUPABASE_URL}/master_items?id=eq.${id}`, { headers: SB_HEADERS }),
+        fetch(`${SUPABASE_URL}/master_rows?master_id=eq.${id}&order=sort_order.asc`, { headers: SB_HEADERS })
+      ]);
+      const items = await itemRes.json();
+      const rows = await rowsRes.json();
+      const item = items[0] || {};
+      masterHeader.name = item.name || '';
+      masterHeader.memo = item.memo || '';
+      tree = rowsToTree(rows);
+      setStatus(`master_id=${id}（内訳行${rows.length}件）`);
+    } else {
+      masterHeader.name = '新規大項目';
+      masterHeader.memo = '';
+      tree = [newFolder('新規大項目')];
+      setStatus('新規マスタ（未保存）');
+    }
+  } catch (e) {
+    toast('読み込みに失敗しました: ' + e.message);
+    tree = [newFolder('新規大項目')];
+  }
+  recalcAll(tree);
+  rebaseInit(tree);
+  if (tree.length) {
+    anchorId = tree[0].id;
+    selectedIds = new Set(collectWithChildren(tree[0]).map(n => n.id));
+  } else {
+    anchorId = null;
+    selectedIds = new Set();
+  }
+  document.getElementById('masterName').value = masterHeader.name;
+  document.getElementById('masterRemark').value = masterHeader.memo;
+  render();
+}
+
+async function saveToSupabase() {
+  setStatus('保存中...');
+  try {
+    if (!masterId) {
+      const res = await fetch(`${SUPABASE_URL}/master_items`, {
+        method: 'POST',
+        headers: { ...SB_HEADERS, Prefer: 'return=representation' },
+        body: JSON.stringify({ name: masterHeader.name, memo: masterHeader.memo })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      masterId = data[0].id;
+      history.replaceState(null, '', `?master_id=${masterId}`);
+    } else {
+      const res = await fetch(`${SUPABASE_URL}/master_items?id=eq.${masterId}`, {
+        method: 'PATCH', headers: SB_HEADERS,
+        body: JSON.stringify({ name: masterHeader.name, memo: masterHeader.memo, updated_at: new Date().toISOString() })
+      });
+      if (!res.ok) throw new Error(await res.text());
+    }
+
+    // 収集(client側)→削除→登録、の順で行う(元のmaster-edit.htmlと同じ安全な順序)
+    const rows = treeToRows(tree, masterId, null, 1);
+    const delRes = await fetch(`${SUPABASE_URL}/master_rows?master_id=eq.${masterId}`, { method: 'DELETE', headers: SB_HEADERS });
+    if (!delRes.ok) throw new Error(await delRes.text());
+    if (rows.length) {
+      const insRes = await fetch(`${SUPABASE_URL}/master_rows`, { method: 'POST', headers: SB_HEADERS, body: JSON.stringify(rows) });
+      if (!insRes.ok) throw new Error(await insRes.text());
+    }
+    toast('保存しました');
+    await loadFromSupabase(masterId);
+  } catch (e) {
+    toast('保存に失敗しました: ' + e.message);
+    setStatus('保存エラー');
+  }
+}
+
+/* ---------- ヘルパー ---------- */
+function findNode(nodes, id, parent = null) {
+  for (const n of nodes) {
+    if (n.id === id) return { node: n, parent, siblings: nodes };
+    if (n.children && n.children.length) {
+      const r = findNode(n.children, id, n);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+function flattenTree(nodes) {
+  let out = [];
+  nodes.forEach(n => {
+    out.push(n);
+    if (n.children && n.children.length) out = out.concat(flattenTree(n.children));
+  });
+  return out;
+}
+function collectWithChildren(node) {
+  let out = [node];
+  (node.children || []).forEach(c => { out = out.concat(collectWithChildren(c)); });
+  return out;
+}
+
+/* ---------- 選択状態（単一クリック / Shift範囲選択 / Ctrl個別追加） ---------- */
+let selectedIds = new Set();
+let anchorId = null;
+
+function onRowClick(id, ev) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const node = found.node;
+  const flat = flattenTree(tree);
+  const curIdx = flat.findIndex(n => n.id === id);
+
+  if (ev.shiftKey && anchorId != null) {
+    const anchorIdx = flat.findIndex(n => n.id === anchorId);
+    if (anchorIdx >= 0 && curIdx >= 0) {
+      const lo = Math.min(anchorIdx, curIdx), hi = Math.max(anchorIdx, curIdx);
+      selectedIds = new Set(flat.slice(lo, hi + 1).map(n => n.id));
+    }
+  } else if (ev.ctrlKey || ev.metaKey) {
+    const group = collectWithChildren(node).map(n => n.id);
+    if (selectedIds.has(id)) {
+      group.forEach(gid => selectedIds.delete(gid));
+    } else {
+      group.forEach(gid => selectedIds.add(gid));
+    }
+    anchorId = id;
+  } else {
+    selectedIds = new Set(collectWithChildren(node).map(n => n.id));
+    anchorId = id;
+  }
+  render();
+}
+function toThousands(v) {
+  if (v === '' || v === null || v === undefined || Number.isNaN(Number(v))) return '';
+  return Number(v).toLocaleString();
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function setStatus(msg) {
+  const el = document.getElementById('statusText');
+  if (el) el.textContent = msg;
+}
+function notImplemented(label) {
+  toast(`「${label}」はこの再現版では未実装です`);
+}
+function goBackToMasterList() {
+  sessionStorage.setItem('openex_nav_target', 'estimate-master');
+  sessionStorage.setItem('openex_master_reload', '1');
+  window.location.href = 'index.html';
+}
+
+/* ---------- 列グループ開閉 ---------- */
+function toggleGroup(key) {
+  foldTableParams[key] = !foldTableParams[key];
+  render();
+}
+
+/* ---------- 行操作 ---------- */
+function addTopFolder() {
+  tree.push(newFolder('新規大項目'));
+  render();
+}
+function onRowAdd(id) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const { node, siblings } = found;
+  const targetList = node.isMain ? node.children : siblings;
+  const insertAt = node.isMain ? targetList.length : targetList.indexOf(node) + 1;
+  const leaf = newLeaf('新規行');
+  targetList.splice(insertAt, 0, leaf);
+  if (node.isMain) node.expanded = true;
+  render();
+}
+function onHierarchyAdd(id) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const { node } = found;
+  if (!node.isMain) { notImplemented('階層追加（行に対しては大項目のみ対応）'); return; }
+  node.children.push(newFolder('新規階層'));
+  node.expanded = true;
+  render();
+}
+function onBigItemAdd() {
+  addTopFolder();
+}
+function onRowDelete(id) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  if (!confirm('この行（配下含む）を削除しますか？')) return;
+  const { siblings, node } = found;
+  siblings.splice(siblings.indexOf(node), 1);
+  selectedIds.delete(id);
+  render();
+}
+function onBulkDelete() {
+  if (selectedIds.size === 0) { toast('行が選択されていません'); return; }
+  const selectedNodes = flattenTree(tree).filter(n => selectedIds.has(n.id));
+  const hasFolder = selectedNodes.some(n => n.isMain);
+  const msg = hasFolder
+    ? '階層を削除すると、その階層に含まれる全ての行も一緒に削除されます。よろしいですか。'
+    : '全ての行も一緒に削除されます。よろしいですか？';
+  if (!confirm(msg)) return;
+  selectedIds.forEach(id => {
+    const found = findNode(tree, id);
+    if (found) {
+      const idx = found.siblings.indexOf(found.node);
+      if (idx > -1) found.siblings.splice(idx, 1);
+    }
+  });
+  selectedIds = new Set();
+  anchorId = tree.length ? tree[0].id : null;
+  render();
+}
+function onToggleExpand(id, ev) {
+  if (ev) ev.stopPropagation();
+  const found = findNode(tree, id);
+  if (!found) return;
+  found.node.expanded = !found.node.expanded;
+  render();
+}
+function onFieldChange(id, field, value) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  found.node[field] = value;
+  recalcRow(found.node, field);
+  render();
+}
+function isChanged(row, field) {
+  return String(row[field] ?? '') !== String(row._init?.[field] ?? '');
+}
+
+/* ---------- 行メニュー ---------- */
+let openMenuId = null;
+function toggleRowMenu(id, ev) {
+  ev.stopPropagation();
+  openMenuId = (openMenuId === id) ? null : id;
+  render();
+}
+document.addEventListener('click', () => { if (openMenuId !== null) { openMenuId = null; render(); } });
+
+/* ---------- 描画: 列グループ定義 ----------
+ * kind:
+ *   'edit'     … 内訳行で編集可、大項目は空欄
+ *   'readonly' … 内訳行のみ表示（計算値・編集不可）、大項目は空欄
+ *   'amount'   … 内訳行は計算値、大項目は配下の合計を太字表示（両方readonly）
+ *   'profit'   … 大項目のみ表示（粗利額・粗利率。都度集計・非保存）
+ */
+const GROUPS = [
+  { key: 'isWholesaleMaterials', label: '問屋材仕入れ', cols: [
+      { label: '掛率', field: 'incorporation3', cls: 'align-right', kind: 'edit', colClass:'c-rate' },
+      { label: '単価', field: 'unitPrice3', cls: 'align-right', kind: 'edit', colClass:'c-price' },
+      { label: '金額', field: 'infoAmount3', cls: 'align-right', kind: 'amount', colClass:'c-amount' } ] },
+  { key: 'isCraftsmanLabor', label: '職人手間', cols: [
+      { label: '単価', field: 'unitPrice2', cls: 'align-right', kind: 'edit', colClass:'c-price' },
+      { label: '金額', field: 'infoAmount2', cls: 'align-right', kind: 'amount', colClass:'c-amount' } ] },
+  { key: 'isBoneMaterial', label: '骨材料 等', cols: [
+      { label: '単価', field: 'unitPrice4', cls: 'align-right', kind: 'edit', colClass:'c-price' },
+      { label: '金額', field: 'infoAmount4', cls: 'align-right', kind: 'amount', colClass:'c-amount' } ] },
+  { key: 'isPassenger', label: '客出し', cols: [
+      { label: '原価率', field: 'costRate', cls: 'align-right', kind: 'edit', colClass:'c-rate' },
+      { label: '単価', field: 'unitPrice', cls: 'align-right', kind: 'edit', colClass:'c-price' },
+      { label: '金額', field: 'amount', cls: 'align-right', kind: 'amount', colClass:'c-amount' } ] },
+  { key: 'isHM', label: 'HM出し', cols: [
+      { label: '上乗せ', field: 'incorporation1', cls: 'align-right', kind: 'edit', colClass:'c-rate' },
+      { label: '単価', field: 'unitPrice1', cls: 'align-right', kind: 'readonly', colClass:'c-price' },
+      { label: '金額', field: 'infoAmount1', cls: 'align-right', kind: 'amount', colClass:'c-amount' } ] },
+  { key: 'isRemarks', label: '備考', cols: [
+      { label: '備考', field: 'lineRemark', cls: 'align-left', kind: 'edit', colClass:'c-remark' } ] },
+  { key: 'isProfit', label: '粗利額', cols: [
+      { label: '粗利額', field: 'interest', cls: 'align-right', kind: 'profit', colClass:'c-amount' },
+      { label: '粗利率', field: 'interestRate', cls: 'align-right', kind: 'profit', isRate: true, colClass:'c-profitrate' } ] },
+  { key: 'isOrder', label: '発注先', cols: [
+      { label: '発注先問屋', field: 'orderWholesaleName', cls: 'align-left', kind: 'edit', colClass:'c-order' },
+      { label: '発注先職人', field: 'orderCraftsmanName', cls: 'align-left', kind: 'edit', colClass:'c-order' } ] },
+  { key: 'isMemo', label: '社内メモ', cols: [
+      { label: '備考', field: 'companyComment', cls: 'align-left', kind: 'edit', colClass:'c-remark' } ] },
+];
+
+function buildHeader() {
+  let colgroup = '<colgroup><col class="c-tree">'
+    + '<col class="c-name"><col class="c-standard"><col class="c-rikcad"><col class="c-num"><col class="c-unit"><col class="c-fixed">';
+  let row1 = '<tr class="grp-row"><th class="col-tree" rowspan="2"></th><th class="grp" colspan="6">内訳表</th>';
+  let row2 = '<tr class="sub-row"><th class="sub">名称</th><th class="sub">仕様</th><th class="sub">RIKCAD材料名</th><th class="sub">数量</th><th class="sub">単位</th><th class="sub">定価</th>';
+
+  GROUPS.forEach(g => {
+    const open = foldTableParams[g.key];
+    if (open) {
+      colgroup += g.cols.map(c => `<col class="${c.colClass}">`).join('');
+      row1 += `<th class="grp" colspan="${g.cols.length}"><button class="grp-btn" onclick="toggleGroup('${g.key}')">−</button>${g.label}</th>`;
+      row2 += g.cols.map(c => `<th class="sub">${c.label}</th>`).join('');
+    } else {
+      colgroup += '<col class="c-narrow">';
+      row1 += `<th class="grp" colspan="1"><button class="grp-btn" onclick="toggleGroup('${g.key}')">＋</button></th>`;
+      row2 += '<th class="sub"></th>';
+    }
+  });
+
+  row1 += '</tr>';
+  row2 += '</tr>';
+  colgroup += '</colgroup>';
+  return colgroup + '<thead>' + row1 + row2 + '</thead>';
+}
+
+const MENU_ITEMS = [
+  { label: '行追加', fn: 'onRowAdd', real: true },
+  { label: '階層追加', fn: 'onHierarchyAdd', real: true },
+  { label: '大項目追加', fn: 'onRowBigItemAddFromRow', real: true },
+  { sep: true },
+  { label: '切り取り', real: false },
+  { label: 'コピー', real: false },
+  { label: '貼り付け', real: false },
+  { label: '元に戻す', real: false },
+  { sep: true },
+  { label: '削除', fn: 'onRowDelete', real: true },
+  { sep: true },
+  { label: '印刷ON', real: false },
+  { label: '印刷OFF', real: false },
+  { label: 'コメント編集', real: false },
+  { label: 'コメント削除', real: false },
+  { label: '備考登録', real: false },
+  { label: '発注先設定', real: false },
+  { label: '検索', real: false },
+  { label: 'テンプレートへコピー', real: false },
+  { label: 'マスタへ追加', real: false }
+];
+function onRowBigItemAddFromRow(id) { onBigItemAdd(); }
+
+function buildRowMenu(id) {
+  const items = MENU_ITEMS.map(it => {
+    if (it.sep) return '<hr>';
+    if (it.real) return `<button onclick="${it.fn}(${id});closeMenuAfter()">${it.label}</button>`;
+    return `<button onclick="notImplemented('${it.label}');closeMenuAfter()">${it.label}</button>`;
+  }).join('');
+  return `<div class="row-menu-wrap">
+    <button class="row-menu-btn" onclick="toggleRowMenu(${id}, event)">⋮</button>
+    <div class="row-menu ${openMenuId === id ? 'open' : ''}" onclick="event.stopPropagation()">${items}</div>
+  </div>`;
+}
+function closeMenuAfter() { openMenuId = null; render(); }
+
+/* ---------- 下部「操作メニュー」（選択中の行/範囲に対して実行） ---------- */
+function openOpMenu() {
+  if (anchorId == null) { toast('行が選択されていません'); return; }
+  renderOpMenu();
+  document.getElementById('opMenuOverlay').classList.add('open');
+}
+function closeOpMenu() {
+  document.getElementById('opMenuOverlay').classList.remove('open');
+}
+function renderOpMenu() {
+  const box = document.getElementById('opMenuBox');
+  const items = MENU_ITEMS.map(it => {
+    if (it.sep) return '<hr>';
+    if (it.fn === 'onRowDelete') return `<button onclick="onBulkDelete();closeOpMenu()">${it.label}</button>`;
+    if (it.real) return `<button onclick="${it.fn}(anchorId);closeOpMenu()">${it.label}</button>`;
+    return `<button onclick="notImplemented('${it.label}');closeOpMenu()">${it.label}</button>`;
+  }).join('');
+  box.innerHTML = '<div class="modal-title">操作メニュー（選択中の行が対象）</div>' + items;
+}
+
+function esc(v) { return String(v).replace(/"/g, '&quot;'); }
+
+function buildCell(row, col) {
+  const { field, cls, kind, isRate } = col;
+
+  if (kind === 'profit') {
+    if (!row.isMain) return `<input class="cell-input ${cls}" readonly value="" />`;
+    const raw = row[field];
+    const display = isRate ? (raw === '' ? '' : raw + '%') : toThousands(raw);
+    return `<input class="cell-input ${cls} bold" readonly value="${esc(display)}" />`;
+  }
+
+  if (kind === 'amount') {
+    const changed = isChanged(row, field) ? 'changed' : '';
+    const boldCls = row.isMain ? 'bold' : '';
+    return `<input class="cell-input ${cls} ${changed} ${boldCls}" readonly value="${esc(toThousands(row[field]))}" />`;
+  }
+
+  // 'edit' or 'readonly'（大項目では常に空欄・編集不可）
+  const disabled = row.isMain;
+  const val = disabled ? '' : (row[field] ?? '');
+  const changed = !disabled && isChanged(row, field) ? 'changed' : '';
+  const ro = (kind === 'readonly' || disabled) ? 'readonly' : '';
+  if (ro) {
+    return `<input class="cell-input ${cls} ${changed}" readonly value="${esc(val)}" />`;
+  }
+  return `<input class="cell-input ${cls} ${changed}"
+    value="${esc(val)}"
+    onclick="event.stopPropagation()"
+    onchange="onFieldChange(${row.id}, '${field}', this.value)" />`;
+}
+
+function buildRows(nodes, level) {
+  let html = '';
+  nodes.forEach(node => {
+    const indent = level * 14;
+    const rowCls = (node.isMain ? 'folder-row ' : '') + (selectedIds.has(node.id) ? 'selected-row' : '');
+    html += `<tr class="${rowCls}" onclick="onRowClick(${node.id}, event)">`;
+    html += `<td></td>`;
+    html += `<td class="name-cell"><div class="tree-line" style="padding-left:${indent}px;">`;
+    if (node.isMain) {
+      html += `<span class="folder-toggle" onclick="onToggleExpand(${node.id}, event)">${node.expanded ? '▾' : '▸'}</span>`;
+      html += `<span class="folder-icon">📁</span>`;
+    } else {
+      html += `<span class="folder-toggle leaf">-</span>`;
+    }
+    const nameChanged = isChanged(node, 'name') ? 'changed' : '';
+    html += `<input class="cell-input ${node.isMain ? 'bold' : ''} ${nameChanged}" style="flex:1;min-width:0;"
+      value="${esc(node.name)}"
+      onclick="event.stopPropagation()"
+      onchange="onFieldChange(${node.id}, 'name', this.value)" />`;
+    html += buildRowMenu(node.id);
+    html += `</div></td>`;
+
+    html += `<td>${buildCell(node, { field:'standard', cls:'align-left', kind:'edit' })}</td>`;
+    html += `<td>${buildCell(node, { field:'rikcadName', cls:'align-left', kind:'edit' })}</td>`;
+    html += `<td>${buildCell(node, { field:'num', cls:'align-right', kind:'edit' })}</td>`;
+    html += `<td>${buildCell(node, { field:'unitCode', cls:'align-center', kind:'edit' })}</td>`;
+    html += `<td>${buildCell(node, { field:'fixedPrice', cls:'align-right', kind:'edit' })}</td>`;
+
+    GROUPS.forEach(g => {
+      if (foldTableParams[g.key]) {
+        g.cols.forEach(c => { html += `<td>${buildCell(node, c)}</td>`; });
+      } else {
+        html += `<td></td>`;
+      }
+    });
+
+    html += '</tr>';
+    if (node.isMain && node.expanded && node.children.length) {
+      html += buildRows(node.children, level + 1);
+    }
+  });
+  return html;
+}
+
+function render() {
+  aggregateAll(tree);
+  const table = document.getElementById('estTable');
+  table.innerHTML = buildHeader() + '<tbody>' + buildRows(tree, 0) + '</tbody>';
+  const selInfo = document.getElementById('selInfo');
+  if (selInfo) selInfo.textContent = selectedIds.size ? `${selectedIds.size}行選択中` : '';
+}
+
+/* ---------- キーボードナビゲーション（Enter/↑↓で縦移動） ---------- */
+document.getElementById('estTable').addEventListener('keydown', e => {
+  const inp = e.target;
+  if (inp.tagName !== 'INPUT') return;
+  if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+
+  const currentTr = inp.closest('tr');
+  if (!currentTr) return;
+  const currentTd = inp.closest('td');
+  const allTds = [...currentTr.querySelectorAll('td')];
+  const tdIdx = allTds.indexOf(currentTd);
+
+  const allRows = [...document.querySelectorAll('#estTable tbody tr')];
+  const rowIdx = allRows.indexOf(currentTr);
+  if (rowIdx === -1) return;
+
+  let targetRow = null;
+  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    targetRow = allRows[rowIdx + 1] || null;
+  } else if (e.key === 'ArrowUp') {
+    targetRow = allRows[rowIdx - 1] || null;
+  }
+  if (!targetRow) return;
+
+  const targetTds = [...targetRow.querySelectorAll('td')];
+  const targetTd = targetTds[tdIdx];
+  const targetInp = targetTd?.querySelector('input.cell-input:not([readonly])');
+  if (targetInp) {
+    e.preventDefault();
+    targetInp.focus();
+    targetInp.select?.();
+  }
+});
+
+loadFromSupabase(masterId);
+</script>
+</body>
+</html>

@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商談管理 - OPEN EX</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --bc: #cccccc;
+  --text: #333333;
+  --sub: #999999;
+  --blue: #1d6ed1;
+  --green: #5a9e6e;
+  --red: #ff4d4f;
+  --bg: #f7f9fc;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: #f0f2f5; color: #333; min-height: 100vh; }
+.page { max-width: 1280px; margin: 0 auto; padding: 24px 32px 60px; }
+
+/* パンくず */
+.breadcrumb { font-size: 12px; color: #888; margin-bottom: 12px; }
+.breadcrumb a { color: var(--blue); text-decoration: none; cursor: pointer; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { margin: 0 6px; }
+.page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.page-title { font-size: 20px; font-weight: 700; color: #1a1a2e; }
+.btn-info { display: flex; align-items: center; gap: 5px; padding: 6px 14px; border: 1px solid #c8d8f0; border-radius: 6px; background: #fff; font-size: 12px; font-family: 'Noto Sans JP', sans-serif; color: var(--blue); cursor: pointer; }
+.btn-info:hover { background: #e8f0fd; }
+
+/* カード */
+.card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 16px; }
+.card-body { padding: 20px 28px 24px; }
+.section-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; }
+.shadan-info-header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 14px; }
+.shadan-info-label { font-size: 13px; font-weight: 700; color: #555; }
+.shadan-info-profit { font-size: 13px; font-weight: 700; color: var(--blue); }
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 500; color: #999; border-bottom: 1px solid #eee; white-space: nowrap; }
+tbody td { padding: 12px; border-bottom: 1px dashed #eee; vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+.col-right { text-align: right; }
+.btn-row-edit { background: none; border: none; cursor: pointer; color: var(--blue); font-size: 16px; padding: 2px 6px; }
+.btn-row-edit:hover { color: #0d47a1; }
+.section-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.btn-green-tbl { padding: 8px 20px; background: #2e7d32; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; }
+.btn-green-tbl:hover { background: #1b5e20; }
+.check-col { width: 40px; }
+.badge-status { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #e3f2fd; color: var(--blue); }
+
+/* 商談履歴カード */
+.history-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 16px; overflow: hidden; }
+.history-card-title { padding: 16px 28px 14px; border-bottom: 1px solid #eee; font-size: 15px; font-weight: 700; color: #1a1a2e; }
+.list-area { display: grid; grid-template-columns: 1fr 1px 1fr; }
+.list-col-divider { background: #e8edf3; }
+.list-col { display: flex; flex-direction: column; }
+.list-col-head { display: flex; align-items: center; gap: 10px; padding: 12px 24px 11px; border-bottom: 1px solid #f0f0f0; background: #fafbfc; }
+.list-col-icon { font-size: 16px; }
+.list-col-title { font-size: 13px; font-weight: 700; color: #333; flex: 1; }
+.col-badge { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px; }
+.col-badge.yotei   { background: #e3f2fd; color: var(--blue); }
+.col-badge.jisseki { background: #e8f5e9; color: #2e7d32; }
+.btn-col-new { padding: 5px 14px; border: none; border-radius: 5px; font-size: 12px; font-weight: 600; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; color: #fff; white-space: nowrap; transition: opacity .15s; }
+.btn-col-new:hover { opacity: .85; }
+.btn-col-new.blue  { background: var(--blue); }
+.btn-col-new.green { background: var(--green); }
+.list-body { padding: 4px 20px 8px; }
+.list-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 6px; border-bottom: 1px dashed #eee; cursor: pointer; transition: background .1s; border-radius: 5px; }
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: #f0f5ff; }
+.list-row.active { background: #e8f0fd; border-radius: 5px; }
+.row-date { font-size: 11px; color: #999; width: 98px; flex-shrink: 0; padding-top: 2px; white-space: nowrap; }
+.row-body { flex: 1; min-width: 0; }
+.row-title { font-size: 13px; font-weight: 500; color: #222; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub   { font-size: 11px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-del { width: 26px; height: 26px; border: 1px solid #ddd; border-radius: 4px; background: #fff; color: #bbb; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all .12s; }
+.row-del:hover { background: #fff0f0; border-color: #ef9a9a; color: #e53935; }
+.list-empty { text-align: center; padding: 28px 0; color: #ccc; font-size: 13px; }
+.list-empty .ei { font-size: 24px; margin-bottom: 6px; }
+.form-area { border-top: 2px solid #e8edf3; background: var(--bg); display: flex; justify-content: center; }
+.form-col { width: 100%; max-width: 780px; padding: 28px 32px 32px; }
+.sec-badge { font-size: 12px; font-weight: 700; color: #fff; display: inline-block; padding: 3px 12px; border-radius: 10px; margin-bottom: 18px; letter-spacing: .04em; }
+.sec-badge.blue  { background: var(--blue); }
+.sec-badge.green { background: var(--green); }
+.flabel { font-size: 13px; font-weight: 500; color: #444; margin-bottom: 4px; display: block; }
+.req { color: var(--red); margin-left: 2px; }
+.form-col input[type="text"], .form-col input[type="date"], .form-col input[type="time"], .form-col select, .form-col textarea {
+  width: 100%; border: 1px solid var(--bc); border-radius: 4px; padding: 6px 12px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: var(--text); outline: none; background: #fff; transition: border-color .15s;
+}
+.form-col input:focus, .form-col select:focus, .form-col textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(29,110,209,.09); }
+.form-col textarea { resize: none; }
+.form-col select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cccccc'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; background-size: 18px; }
+.sck-layout { display: grid; grid-template-columns: 1fr 175px; column-gap: 16px; }
+.frow { margin-bottom: 12px; }
+.frow-flex { display: flex; gap: 12px; margin-bottom: 12px; }
+.frow-flex > div { flex: 1; }
+.dt-grid { display: grid; grid-template-columns: 1fr 84px 1fr 84px 64px; gap: 8px; align-items: end; margin-bottom: 12px; }
+.toggle-box { border: 1px solid var(--bc); border-radius: 4px; padding: 0 8px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; height: 33px; background: #fff; white-space: nowrap; }
+.toggle-box input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--blue); }
+.repeat-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #555; margin-bottom: 12px; }
+.repeat-link { color: var(--blue); cursor: pointer; text-decoration: underline; font-size: 13px; }
+.attendees-box { min-height: 150px; border: 1px dashed #add8e6; border-radius: 6px; margin-top: 8px; background: #fafcff; padding: 10px 10px 36px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; position: relative; }
+.attendees-ph { color: #ccc; font-size: 13px; width: 100%; text-align: center; margin-top: 36px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: #e3f2fd; border-radius: 12px; font-size: 12px; color: var(--blue); font-weight: 500; }
+.chip-x { background: none; border: none; cursor: pointer; color: #90caf9; font-size: 14px; line-height: 1; padding: 0; }
+.chip-x:hover { color: #e53935; }
+.del-box { position: absolute; right: 8px; bottom: 8px; width: 28px; height: 28px; background: #f0f4f8; border-radius: 4px; display: flex; justify-content: center; align-items: center; color: #bcc6d1; cursor: pointer; }
+.del-box:hover { background: #ffe0e0; color: #e53935; }
+.detail-wrap { grid-column: 1 / span 2; position: relative; margin-top: 4px; }
+.detail-wrap textarea { height: 88px; }
+.detail-cnt { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #999; }
+.shodan-grid { display: grid; grid-template-columns: 110px 1fr; row-gap: 16px; align-items: start; }
+.slabel { padding-top: 7px; font-size: 13px; font-weight: 700; color: var(--text); }
+.slabel .req { color: var(--red); margin-left: 2px; }
+.sinput { position: relative; }
+.char-cnt { position: absolute; right: 4px; bottom: -17px; font-size: 11px; color: var(--sub); }
+.date-wrap { width: 180px; position: relative; }
+.date-wrap .cal-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #ccc; font-size: 13px; pointer-events: none; }
+.file-btns { display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 10px; }
+.btn-outline { background: #fff; border: 1px solid var(--bc); border-radius: 4px; padding: 5px 16px; font-size: 12px; color: #555; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; transition: all .12s; }
+.btn-outline:hover { background: #f0f4ff; border-color: #90caf9; color: var(--blue); }
+.file-empty { border-top: 1px dashed #e0e0e0; border-bottom: 1px dashed #e0e0e0; padding: 16px 0; text-align: center; color: #bbb; }
+.file-empty i { font-size: 24px; display: block; margin-bottom: 4px; opacity: .4; }
+.file-empty span { font-size: 12px; }
+.save-row { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 14px; border-top: 1px solid #dde3eb; }
+.btn-save { padding: 8px 32px; border: none; border-radius: 5px; font-size: 13px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; color: #fff; transition: opacity .15s; }
+.btn-save:hover { opacity: .85; }
+.btn-save.blue  { background: var(--blue); }
+.btn-save.green { background: var(--green); }
+
+
+/* ===== 商談履歴 新UI ===== */
+.hx-outer { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.07); margin-bottom: 16px; overflow: hidden; }
+.hx-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px 14px; border-bottom: 2px solid #e8edf3; }
+.hx-title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+/* 新規作成ボタン削除 - 保存ボタンのみ */
+.hx-save-top { display: flex; justify-content: flex-end; padding: 10px 24px 0; }
+.hx-btn-new { display: flex; align-items: center; gap: 6px; padding: 7px 18px; background: var(--blue); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s; }
+.hx-btn-new:hover { background: #1558b0; }
+.hx-btn-save-top { background: var(--blue); color: #fff; border: none; border-radius: 6px; padding: 8px 28px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s; }
+.hx-btn-save-top:hover { background: #1558b0; }
+.hx-month-sep { padding: 10px 24px 4px; font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+.hx-month-sep::after { content: ''; flex: 1; height: 1px; background: #eee; }
+/* カード */
+.hx-card { border-top: 1px solid #f0f0f0; position: relative; }
+.hx-card.is-new { border-top: none; border-bottom: 2px solid var(--blue); background: #f8fbff; }
+/* アコーディオン行（常時表示） */
+.hx-card-summary {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  align-items: stretch;
+  cursor: pointer;
+  user-select: none;
+  min-height: 44px;
+}
+.hx-card-summary:hover { background: #f8fbff; }
+.hx-summary-left {
+  display: flex; align-items: center;
+  padding: 10px 8px 10px 24px;
+  font-size: 13px; font-weight: 500; color: #333;
+  min-width: 0; overflow: hidden;
+}
+.hx-summary-left span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hx-summary-left.empty span { color: #bbb; font-weight: 400; }
+.hx-summary-divider { background: #e8edf3; }
+.hx-summary-right {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px 10px 24px;
+  gap: 8px; min-width: 0;
+}
+.hx-summary-right-title {
+  font-size: 13px; font-weight: 500; color: #333;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
+.hx-summary-right-title.empty { color: #bbb; font-weight: 400; }
+.hx-summary-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.hx-chevron { font-size: 12px; color: #aaa; transition: transform .2s; margin-right: 4px; }
+.hx-card.open .hx-chevron { transform: rotate(180deg); }
+/* アコーディオン本体 */
+.hx-card-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease;
+}
+.hx-card.open .hx-card-body { max-height: 2000px; }
+.hx-card-header { display: none; } /* 旧ヘッダー非表示 */
+.hx-btn-save-inline { background: var(--blue); color: #fff; border: none; border-radius: 5px; padding: 5px 18px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s; }
+.hx-btn-save-inline:hover { background: #1558b0; }
+.hx-btn-del-inline { background: none; border: 1px solid #fca5a5; color: #ef4444; border-radius: 5px; padding: 5px 12px; font-size: 12px; font-family: inherit; cursor: pointer; transition: all .12s; }
+.hx-btn-del-inline:hover { background: #fef2f2; }
+.hx-card-inner { display: grid; grid-template-columns: 1fr 1px 1fr; }
+.hx-divider { background: #e8edf3; }
+.hx-col { padding: 8px 24px 16px; }
+.hx-col-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.hx-col-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.hx-col-badge.yotei { background: #e3f2fd; color: var(--blue); }
+.hx-col-badge.jisseki { background: #e8f5e9; color: #2e7d32; }
+.hx-field { margin-bottom: 10px; }
+.hx-label { font-size: 11px; font-weight: 600; color: #888; margin-bottom: 3px; display: block; }
+.hx-input { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; font-size: 13px; font-family: inherit; color: #333; outline: none; background: #fff; transition: border-color .15s; }
+.hx-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(29,110,209,.08); }
+.hx-textarea { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; font-size: 13px; font-family: inherit; color: #333; outline: none; background: #fff; resize: vertical; min-height: 64px; transition: border-color .15s; }
+.hx-textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(29,110,209,.08); }
+.hx-select { width: 100%; border: 1px solid #ddd; border-radius: 4px; padding: 6px 28px 6px 10px; font-size: 13px; font-family: inherit; color: #333; outline: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cccccc'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 6px center / 18px; appearance: none; }
+.hx-select:focus { border-color: var(--blue); }
+.hx-date-grid { display: grid; grid-template-columns: 1fr 80px 1fr 80px; gap: 6px; align-items: end; margin-bottom: 6px; }
+.hx-allday-row { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; font-size: 12px; color: #555; }
+.hx-allday-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.hx-allday-row input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--blue); }
+.hx-repeat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: #555; }
+.hx-repeat-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.hx-repeat-link { color: var(--blue); cursor: pointer; text-decoration: underline; font-size: 12px; }
+.hx-char-hint { font-size: 10px; color: #bbb; text-align: right; margin-top: 2px; }
+/* 参加者チップ */
+.hx-chips-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; align-items: center; }
+.hx-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #e3f2fd; border-radius: 10px; font-size: 11px; color: var(--blue); font-weight: 500; }
+.hx-chip-x { background: none; border: none; cursor: pointer; color: #90caf9; font-size: 13px; line-height: 1; padding: 0; }
+.hx-chip-x:hover { color: #e53935; }
+/* 添付ファイル */
+.hx-attach-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.hx-attach-btn { flex: 1; padding: 6px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: inherit; background: #fff; color: #555; cursor: pointer; transition: all .12s; text-align: center; }
+.hx-attach-btn:hover { border-color: var(--blue); color: var(--blue); background: #f0f5ff; }
+.hx-attach-list { font-size: 12px; color: #555; min-height: 32px; padding: 4px 0; }
+.hx-attach-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.hx-attach-del { background: none; border: none; cursor: pointer; color: #bbb; font-size: 13px; padding: 0 2px; }
+.hx-attach-del:hover { color: #ef4444; }
+.hx-empty { text-align: center; padding: 40px; color: #ccc; font-size: 13px; }
+/* 繰り返しモーダル */
+.hx-repeat-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:2000; justify-content:center; align-items:center; }
+.hx-repeat-modal-overlay.active { display:flex; }
+.hx-repeat-modal { background:#fff; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.18); width:360px; padding:0; overflow:hidden; }
+.hx-repeat-modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 14px; border-bottom:1px solid #eee; }
+.hx-repeat-modal-title { font-size:15px; font-weight:700; color:#1a1a2e; }
+.hx-repeat-modal-close { background:none; border:none; font-size:18px; color:#aaa; cursor:pointer; }
+.hx-repeat-modal-body { padding:20px 24px; }
+.hx-repeat-field { margin-bottom:14px; }
+.hx-repeat-label { font-size:12px; font-weight:600; color:#666; margin-bottom:4px; display:block; }
+.hx-repeat-select { width:100%; border:1px solid #ddd; border-radius:4px; padding:7px 28px 7px 10px; font-size:13px; font-family:inherit; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cccccc'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 6px center / 18px; appearance:none; outline:none; }
+.hx-repeat-select:focus { border-color:var(--blue); }
+.hx-repeat-input { border:1px solid #ddd; border-radius:4px; padding:7px 10px; font-size:13px; font-family:inherit; width:80px; outline:none; }
+.hx-repeat-input:focus { border-color:var(--blue); }
+.hx-repeat-end-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:13px; }
+.hx-repeat-end-row input[type=radio] { accent-color:var(--blue); }
+.hx-repeat-summary { font-size:12px; color:#888; margin-top:8px; }
+.hx-repeat-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 20px; border-top:1px solid #eee; }
+.hx-repeat-modal-cancel { background:#fff; border:1px solid #ddd; border-radius:5px; padding:7px 20px; font-size:13px; font-family:inherit; cursor:pointer; color:#555; }
+.hx-repeat-modal-save { background:var(--blue); color:#fff; border:none; border-radius:5px; padding:7px 20px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; }
+/* 商談情報モーダル */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: #fff; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.18); width: 760px; max-width: 95vw; padding: 0; overflow: hidden; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px 14px; border-bottom: 1px solid #eee; }
+.modal-title-row { display: flex; align-items: baseline; gap: 16px; }
+.modal-title { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+.modal-profit { font-size: 13px; color: var(--blue); font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 18px; color: #aaa; cursor: pointer; padding: 2px 8px; border-radius: 4px; }
+.modal-close:hover { background: #f5f5f5; color: #555; }
+.modal-body { padding: 20px 24px; overflow-x: auto; }
+.modal-footer { display: flex; justify-content: center; gap: 16px; padding: 16px 24px; border-top: 1px solid #eee; }
+.modal-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+.modal-table thead th { padding: 8px 10px; font-size: 12px; font-weight: 500; color: #999; border-bottom: 1px solid #eee; white-space: nowrap; text-align: left; }
+.modal-table thead th.col-right { text-align: right; }
+.modal-table tbody td { padding: 10px; vertical-align: middle; }
+.modal-table tbody td.col-right { text-align: right; }
+.modal-input { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; outline: none; }
+.modal-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(29,110,209,.09); }
+.modal-select { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 6px 28px 6px 10px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; outline: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cccccc'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 6px center / 18px; appearance: none; }
+.modal-select:focus { border-color: var(--blue); }
+.modal-static { font-size: 13px; color: #333; padding-top: 6px; }
+.btn-modal-cancel { padding: 8px 28px; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; background: #fff; color: var(--blue); border: 1.5px solid var(--blue); }
+.btn-modal-cancel:hover { background: #e8f0fd; }
+.btn-modal-save { padding: 8px 28px; border-radius: 6px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: var(--blue); color: #fff; border: none; }
+.btn-modal-save:hover { background: #1558b0; }
+
+/* トースト */
+#toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 6px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; color: #fff; font-family: 'Noto Sans JP', sans-serif; }
+    /* ===== ナビバー ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right {
+      display: flex; align-items: center;
+      margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+    }
+  body { padding-top: 48px; }
+
+/* ===== 契約情報 ===== */
+.ky-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ky-table th { text-align:left; font-size:11px; color:#bbb; font-weight:400; padding:8px 10px; border-bottom:1px solid #eee; white-space:nowrap; }
+.ky-table th.right { text-align:right; }
+.ky-table td { padding:10px; border-bottom:1px dashed #eee; vertical-align:middle; }
+.ky-check-col { width:36px; text-align:center; }
+.ky-status-sel {
+  border:1px solid #ddd; border-radius:4px; padding:4px 22px 4px 8px; font-size:12px; font-family:inherit;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 6px center;
+  appearance:none; outline:none; cursor:pointer;
+}
+.ky-status-sel:focus { border-color:var(--blue); }
+.ky-status-sakusei { color:#f57c00; }
+.ky-status-keiyaku { color:#2e7d32; }
+.ky-status-shicchu  { color:#c62828; }
+.ky-num-cell { text-align:right; font-variant-numeric:tabular-nums; }
+.ky-new-btn { display:flex; align-items:center; gap:6px; padding:7px 16px; background:var(--blue); color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; }
+.ky-new-btn:hover { background:#1558b0; }
+.ky-empty { text-align:center; padding:32px; color:#ccc; font-size:13px; }
+</style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item" data-nav="keiyaku" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      契約管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="window.location.href='schedule.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- パンくず -->
+  <div class="breadcrumb">
+    <a id="bcIndex" onclick="goBack()">物件参照</a>
+    <span>›</span>
+    <span id="bcPropName">—</span>
+  </div>
+
+  <div class="page-header">
+    <h1 class="page-title">商談管理</h1>
+    <button class="btn-info" onclick="openPropInfoModal()">ⓘ 物件情報</button>
+  </div>
+
+  <!-- 商談情報カード -->
+  <div class="card"><div class="card-body">
+    <div class="shadan-info-header">
+      <span class="shadan-info-label">商談情報</span>
+      <span class="shadan-info-profit" id="profitDisplay">粗利（売上総利益）：— 円（—%）</span>
+    </div>
+    <div class="table-wrapper"><table>
+      <thead><tr>
+        <th>受注確度</th>
+        <th class="col-right">売上予定金額（円）</th>
+        <th>売上予定日</th>
+        <th class="col-right">原価金額（円）</th>
+        <th>拠点</th>
+        <th>営業責任者</th>
+        <th></th>
+      </tr></thead>
+      <tbody><tr>
+        <td id="disp-kakudo">—</td>
+        <td class="col-right" id="disp-uriage">—</td>
+        <td id="disp-yoteibi">—</td>
+        <td class="col-right" id="disp-genka">—</td>
+        <td id="disp-kyoten">—</td>
+        <td id="disp-sales">—</td>
+        <td style="text-align:right"><button class="btn-row-edit" onclick="openDealInfoModal()">✏</button></td>
+      </tr></tbody>
+    </table></div>
+  </div></div>
+
+  <!-- 見積情報カード -->
+  <div class="card"><div class="card-body">
+    <div class="section-header-row">
+      <span class="section-title">見積情報</span>
+      <button class="btn-green-tbl" id="btnEstimateList">見積一覧</button>
+    </div>
+    <div class="table-wrapper"><table>
+      <thead><tr>
+        <th class="check-col">反映</th>
+        <th>台帳No.</th>
+        <th>見積No.</th>
+        <th>見積プラン名</th>
+        <th>見積状況</th>
+        <th class="col-right">売上予定金額（円）</th>
+        <th class="col-right">原価金額（円）</th>
+        <th class="col-right">粗利（%）</th>
+      </tr></thead>
+      <tbody id="estimateTbody">
+        <tr><td colspan="8" style="text-align:center;padding:32px;color:#ccc;font-size:13px;">見積データがありません</td></tr>
+      </tbody>
+    </table></div>
+  </div></div>
+
+  <!-- 契約情報カード -->
+  <div class="card" id="keiyaku-card"><div class="card-body">
+    <div class="section-header-row">
+      <span class="section-title">契約情報</span>
+      <button class="ky-new-btn" onclick="kyAddNew()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
+        新規作成
+      </button>
+    </div>
+    <div class="table-wrapper"><table class="ky-table">
+      <thead><tr>
+        <th class="ky-check-col">反映</th>
+        <th>契約No.</th>
+        <th>契約書名</th>
+        <th>契約状況</th>
+        <th class="right">請負金額（税込）</th>
+        <th class="right">請負金額（税抜）</th>
+        <th class="right">消費税額</th>
+        <th class="right">対象見積原価</th>
+        <th>対象見積No.</th>
+      </tr></thead>
+      <tbody id="kyTbody">
+        <tr><td colspan="9" class="ky-empty">契約データがありません</td></tr>
+      </tbody>
+    </table></div>
+  </div></div>
+
+  <!-- 商談履歴カード -->
+  <div class="hx-outer" id="history-card">
+    <div class="hx-header">
+      <span class="hx-title">商談履歴</span>
+      <button class="hx-btn-new" onclick="hxAddCard()">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><line x1="7" y1="1" x2="7" y2="13"/><line x1="1" y1="7" x2="13" y2="7"/></svg>
+        新規作成
+      </button>
+    </div>
+    <div id="hx-list"></div>
+  </div>
+
+  <!-- 繰り返し設定モーダル -->
+  <div class="hx-repeat-modal-overlay" id="hxRepeatModal">
+    <div class="hx-repeat-modal">
+      <div class="hx-repeat-modal-header">
+        <span class="hx-repeat-modal-title">繰り返し設定</span>
+        <button class="hx-repeat-modal-close" onclick="hxCloseRepeatModal()">×</button>
+      </div>
+      <div class="hx-repeat-modal-body">
+        <div class="hx-repeat-field">
+          <label class="hx-repeat-label">繰り返し</label>
+          <select class="hx-repeat-select" id="hxRepeatType" onchange="hxUpdateRepeatSummary()">
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+        </div>
+        <div class="hx-repeat-field">
+          <label class="hx-repeat-label">繰り返す間隔</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input class="hx-repeat-input" type="number" id="hxRepeatInterval" value="1" min="1" oninput="hxUpdateRepeatSummary()">
+            <span id="hxRepeatUnit" style="font-size:13px;color:#555;">日</span>
+          </div>
+        </div>
+        <div class="hx-repeat-field">
+          <label class="hx-repeat-label">終了日</label>
+          <div class="hx-repeat-end-row">
+            <input type="radio" name="hxRepeatEnd" id="hxRepeatEndDate" value="date" checked onchange="hxUpdateRepeatSummary()">
+            <input class="hx-repeat-input" type="date" id="hxRepeatEndDateVal" style="width:140px;" oninput="hxUpdateRepeatSummary()">
+          </div>
+          <div class="hx-repeat-end-row">
+            <input type="radio" name="hxRepeatEnd" id="hxRepeatEndCount" value="count" onchange="hxUpdateRepeatSummary()">
+            <input class="hx-repeat-input" type="number" id="hxRepeatEndCountVal" placeholder="回数" min="1" style="width:80px;" oninput="hxUpdateRepeatSummary()">
+            <span style="font-size:13px;color:#555;">回</span>
+          </div>
+        </div>
+        <div class="hx-repeat-summary" id="hxRepeatSummary"></div>
+      </div>
+      <div class="hx-repeat-modal-footer">
+        <button class="hx-repeat-modal-cancel" onclick="hxCloseRepeatModal()">戻る</button>
+        <button class="hx-repeat-modal-save" onclick="hxSaveRepeatSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- 商談情報モーダル -->
+<div class="modal-overlay" id="dealInfoModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <span class="modal-title">商談情報</span>
+        <span class="modal-profit" id="modalProfitDisplay">粗利（売上総利益）：0円（%）</span>
+      </div>
+      <button class="modal-close" onclick="closeDealInfoModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <table class="modal-table">
+        <thead><tr>
+          <th>受注確度</th>
+          <th class="col-right">売上予定金額（円）</th>
+          <th>売上予定日</th>
+          <th class="col-right">原価金額（円）</th>
+          <th>拠点</th>
+          <th>営業責任者</th>
+        </tr></thead>
+        <tbody><tr>
+          <td style="min-width:120px;">
+            <select class="modal-select" id="m-kakudo">
+              <option value="">—</option>
+              <option value="注文済">注文済</option>
+              <option value="確度A">確度A</option>
+              <option value="確度B">確度B</option>
+              <option value="確度C">確度C</option>
+              <option value="失注">失注</option>
+            </select>
+          </td>
+          <td class="col-right" style="min-width:140px;">
+            <input type="text" class="modal-input" id="m-uriage" placeholder="0" style="text-align:right;"
+              oninput="updateModalProfit()">
+          </td>
+          <td style="min-width:130px;">
+            <input type="date" class="modal-input" id="m-yoteibi">
+          </td>
+          <td class="col-right" style="min-width:140px;">
+            <input type="text" class="modal-input" id="m-genka" placeholder="0" style="text-align:right;"
+              oninput="updateModalProfit()">
+          </td>
+          <td style="min-width:80px;"><span class="modal-static" id="m-kyoten">—</span></td>
+          <td style="min-width:100px;"><span class="modal-static" id="m-sales">—</span></td>
+        </tr></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeDealInfoModal()">閉じる</button>
+      <button class="btn-modal-save" onclick="saveDealInfo()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 物件情報モーダル -->
+<div class="modal-overlay" id="propInfoModal">
+  <div class="modal-box" style="width:480px;">
+    <div class="modal-header">
+      <span class="modal-title">物件情報</span>
+      <button class="modal-close" onclick="document.getElementById('propInfoModal').classList.remove('active')">×</button>
+    </div>
+    <div class="modal-body">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">
+        <tr><td style="padding:8px 0;color:#999;width:100px;">物件名</td><td style="padding:8px 0;font-weight:500;" id="pi-name">—</td></tr>
+        <tr><td style="padding:8px 0;color:#999;">物件状況</td><td style="padding:8px 0;" id="pi-status">—</td></tr>
+        <tr><td style="padding:8px 0;color:#999;">現場住所</td><td style="padding:8px 0;" id="pi-addr">—</td></tr>
+        <tr><td style="padding:8px 0;color:#999;">顧客名</td><td style="padding:8px 0;" id="pi-cust">—</td></tr>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-save" onclick="document.getElementById('propInfoModal').classList.remove('active')">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- メッセージダイアログ -->
+<div id="msgDialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:3000;justify-content:center;align-items:center;">
+  <div style="background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:480px;width:90%;padding:0;overflow:hidden;">
+    <div id="msgDialogBar" style="height:4px;background:#1565c0;"></div>
+    <div style="padding:24px 28px 16px;">
+      <p id="msgDialogText" style="font-size:14px;line-height:1.7;color:#333;margin:0;"></p>
+    </div>
+    <div style="padding:8px 20px 18px;text-align:center;">
+      <button onclick="document.getElementById('msgDialog').style.display='none'"
+        style="background:#1d6ed1;color:#fff;border:none;border-radius:5px;padding:8px 36px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== Supabase ==========
+const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const API = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+// ========== 状態 ==========
+const params = new URLSearchParams(location.search);
+const PROPERTY_ID = params.get('property_id');
+const SCROLL_TO_HISTORY = params.get('scroll') === 'history';
+const BACK_URL = params.get('back') || 'index.html';
+
+let currentProperty = null;
+let currentCustomer = null;
+let currentDealInfo = null; // deal_infoレコード
+let items = [];             // deal_historiesレコード
+let participants = [];
+let editingId = null;
+let activeType = null;
+let staffList = [];
+
+function $(id) { return document.getElementById(id); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showToast(msg, type='success') {
+  if (type === 'info') {
+    // infoタイプ（長いメッセージ）はOKボタン付きダイアログで表示
+    const dialog = document.getElementById('msgDialog');
+    const text   = document.getElementById('msgDialogText');
+    const bar    = document.getElementById('msgDialogBar');
+    if (dialog && text) {
+      text.textContent = msg;
+      if (bar) bar.style.background = '#1565c0';
+      dialog.style.display = 'flex';
+    }
+    return;
+  }
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.background = type === 'error' ? '#c62828' : '#388e3c';
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2800);
+}
+
+// ========== 初期ロード ==========
+async function init() {
+  if (!PROPERTY_ID) { showToast('物件IDが指定されていません', 'error'); return; }
+
+  // 物件情報取得
+  try {
+    const r = await fetch(`${API}/properties?id=eq.${PROPERTY_ID}`, { headers: HEADERS });
+    const data = await r.json();
+    if (!data[0]) throw new Error();
+    currentProperty = data[0];
+    $('bcPropName').textContent = currentProperty.name;
+    $('pi-name').textContent = currentProperty.name || '—';
+    $('pi-status').textContent = currentProperty.status || '—';
+    $('pi-addr').textContent = currentProperty.address || '—';
+
+    // 拠点・営業責任者をモーダル静的表示にセット
+    $('m-kyoten').textContent = currentProperty.branch || '—';
+    $('disp-kyoten').textContent = currentProperty.branch || '—';
+
+    // 営業担当者名
+    if (currentProperty.sales_staff_id) {
+      const sr = await fetch(`${API}/staffs?id=eq.${currentProperty.sales_staff_id}&select=name`, { headers: HEADERS });
+      const sd = await sr.json();
+      const sname = sd[0]?.name || '—';
+      $('m-sales').textContent = sname;
+      $('disp-sales').textContent = sname;
+    }
+
+    // 顧客情報
+    if (currentProperty.customer_id) {
+      const cr = await fetch(`${API}/customers?id=eq.${currentProperty.customer_id}`, { headers: HEADERS });
+      const cd = await cr.json();
+      if (cd[0]) {
+        currentCustomer = cd[0];
+        $('pi-cust').textContent = cd[0].name || '—';
+      }
+    }
+  } catch { showToast('物件情報の取得に失敗しました', 'error'); return; }
+
+  // スタッフリスト取得（参加者選択用）
+  try {
+    const sr = await fetch(`${API}/staffs?select=id,name&order=name`, { headers: HEADERS });
+    if (sr.ok) {
+      staffList = await sr.json();
+      hxStaffs = staffList;
+    }
+  } catch {}
+
+  // 見積一覧ボタン
+  $('btnEstimateList').onclick = () => {
+    window.location.href = `estimate-list.html?property_id=${encodeURIComponent(PROPERTY_ID)}&back=${encodeURIComponent(location.href)}`;
+  };
+
+  // deal_info取得
+  await loadDealInfo();
+  // 契約情報取得
+  await loadContracts();
+  // 見積一覧取得
+  await loadEstimates();
+  // deal_histories取得
+  await loadHistories();
+
+  // スクロール
+  if (SCROLL_TO_HISTORY) {
+    setTimeout(() => {
+      $('history-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
+  }
+}
+
+// ========== 見積一覧 ==========
+async function loadEstimates() {
+  try {
+    const r = await fetch(
+      `${API}/estimates?property_id=eq.${PROPERTY_ID}&order=created_at.desc`,
+      { headers: HEADERS }
+    );
+    if (!r.ok) throw new Error();
+    const estimates = await r.json();
+    renderEstimates(estimates);
+  } catch {
+    $('estimateTbody').innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#ccc;font-size:13px;">見積データの取得に失敗しました</td></tr>';
+  }
+}
+
+function renderEstimates(estimates) {
+  const tbody = $('estimateTbody');
+  if (!estimates || estimates.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:#ccc;font-size:13px;">見積データがありません</td></tr>';
+    return;
+  }
+  const fmtNum = n => (n != null && n !== '') ? Number(n).toLocaleString('ja-JP') : '——';
+
+  tbody.innerHTML = estimates.map((est, i) => {
+    const estNo    = escHtml(est.estimate_no || '——');
+    const planName = escHtml(est.plan_name   || '——');
+    const status   = escHtml(est.status      || '見積中');
+    const amount   = fmtNum(est.total_amount);
+    const cost     = fmtNum(est.cost_amount);
+    let profit = '——';
+    if (est.total_amount != null && est.cost_amount != null && est.total_amount > 0) {
+      profit = ((est.total_amount - est.cost_amount) / est.total_amount * 100).toFixed(1) + '%';
+    }
+    return `<tr data-estimate-id="${est.id}">
+      <td class="check-col" style="text-align:center;">
+        <input type="checkbox" title="商談情報に反映" onchange="onEstimateReflect(this,'${est.id}')">
+      </td>
+      <td style="font-size:12px;color:#888;text-align:center;">${i + 1}</td>
+      <td style="font-size:12px;">${estNo}</td>
+      <td style="font-size:13px;font-weight:500;">${planName}</td>
+      <td><span class="badge-status">${status}</span></td>
+      <td class="col-right">${amount}</td>
+      <td class="col-right">${cost}</td>
+      <td class="col-right">${profit}</td>
+    </tr>`;
+  }).join('');
+}
+
+function onEstimateReflect(checkbox, estimateId) {
+  applyAllReflection();
+}
+
+function goKeiyakuCreate() {
+  // チェック済み見積IDをestimate_idのdata属性から収集
+  const checked = [];
+  document.querySelectorAll('#estimateTbody tr').forEach(tr => {
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if (cb?.checked && tr.dataset.estimateId) checked.push(tr.dataset.estimateId);
+  });
+  const params = new URLSearchParams({ property_id: PROPERTY_ID, back: location.href });
+  if (checked.length) params.set('checked_est_ids', encodeURIComponent(JSON.stringify(checked)));
+  window.location.href = `keiyaku-edit.html?${params.toString()}`;
+}
+
+// ========== 商談情報 ==========
+async function loadDealInfo() {
+  try {
+    const r = await fetch(`${API}/deal_info?property_id=eq.${PROPERTY_ID}`, { headers: HEADERS });
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    currentDealInfo = data[0] || null;
+    renderDealInfo();
+  } catch {}
+}
+
+function renderDealInfo() {
+  const d = currentDealInfo;
+  $('disp-kakudo').textContent = d?.order_probability || '—';
+  $('disp-uriage').textContent = d?.expected_revenue != null ? Number(d.expected_revenue).toLocaleString() : '—';
+  $('disp-yoteibi').textContent = d?.expected_date ? d.expected_date.replace(/-/g,'/') : '—';
+  $('disp-genka').textContent = d?.cost_amount != null ? Number(d.cost_amount).toLocaleString() : '—';
+  updateProfitDisplay();
+}
+
+function updateProfitDisplay() {
+  const d = currentDealInfo;
+  if (!d || d.expected_revenue == null || d.cost_amount == null) {
+    $('profitDisplay').textContent = '粗利（売上総利益）：— 円（—%）';
+    return;
+  }
+  const profit = Number(d.expected_revenue) - Number(d.cost_amount);
+  const pct = Number(d.expected_revenue) > 0
+    ? ((profit / Number(d.expected_revenue)) * 100).toFixed(1) : 0;
+  $('profitDisplay').textContent = `粗利（売上総利益）：${profit.toLocaleString()}円（${pct}%）`;
+}
+
+function openDealInfoModal() {
+  const d = currentDealInfo;
+  $('m-kakudo').value  = d?.order_probability || '';
+  $('m-yoteibi').value = d?.expected_date     || '';
+  $('m-genka').value   = d?.cost_amount != null ? d.cost_amount : '';
+
+  const uriageInput = document.getElementById('m-uriage');
+  const anyChecked  = !!document.querySelector('#estimateTbody input[type="checkbox"]:checked');
+
+  if (anyChecked && uriageInput) {
+    uriageInput.value    = d?.expected_revenue != null ? d.expected_revenue : '';
+    uriageInput.readOnly = true;
+    uriageInput.style.background = '#f0f4f8';
+    uriageInput.style.color      = '#888';
+    uriageInput.title = '見積反映中（チェックを外すと手入力に戻ります）';
+  } else if (uriageInput) {
+    // チェックなし：手入力値を表示（退避値があればそちら）
+    uriageInput.value    = _manualUriage !== null ? _manualUriage : (d?.expected_revenue != null ? d.expected_revenue : '');
+    uriageInput.readOnly = false;
+    uriageInput.style.background = '';
+    uriageInput.style.color      = '';
+    uriageInput.title = '';
+  }
+
+  updateModalProfit();
+  $('dealInfoModal').classList.add('active');
+}
+
+function closeDealInfoModal() { $('dealInfoModal').classList.remove('active'); }
+
+function updateModalProfit() {
+  const u = parseFloat($('m-uriage').value) || 0;
+  const g = parseFloat($('m-genka').value) || 0;
+  const profit = u - g;
+  const pct = u > 0 ? ((profit / u) * 100).toFixed(1) : 0;
+  $('modalProfitDisplay').textContent = `粗利（売上総利益）：${profit.toLocaleString()}円（${pct}%）`;
+}
+
+async function saveDealInfo() {
+  const anyChecked = !!document.querySelector('#estimateTbody input[type="checkbox"]:checked');
+  const uriageVal  = $('m-uriage').value;
+
+  // チェックなし時は手入力値を退避変数に同期
+  if (!anyChecked) {
+    _manualUriage = uriageVal !== '' ? parseFloat(uriageVal) : null;
+  }
+
+  const data = {
+    property_id:       PROPERTY_ID,
+    order_probability: $('m-kakudo').value || null,
+    expected_revenue:  uriageVal !== '' ? parseFloat(uriageVal) : null,
+    expected_date:     $('m-yoteibi').value || null,
+    cost_amount:       $('m-genka').value !== '' ? parseFloat($('m-genka').value) : null,
+    updated_at:        new Date().toISOString()
+  };
+  try {
+    let res;
+    if (currentDealInfo?.id) {
+      res = await fetch(`${API}/deal_info?id=eq.${currentDealInfo.id}`, {
+        method: 'PATCH', headers: HEADERS, body: JSON.stringify(data)
+      });
+    } else {
+      res = await fetch(`${API}/deal_info`, {
+        method: 'POST', headers: HEADERS, body: JSON.stringify(data)
+      });
+    }
+    if (!res.ok) throw new Error();
+    const saved = await res.json();
+    currentDealInfo = saved[0] || { ...currentDealInfo, ...data };
+    renderDealInfo();
+    closeDealInfoModal();
+    showToast('商談情報を保存しました');
+  } catch { showToast('保存に失敗しました', 'error'); }
+}
+
+// ========== 物件情報モーダル ==========
+function openPropInfoModal() { $('propInfoModal').classList.add('active'); }
+
+// ========== 商談履歴（新カードUI） ==========
+let hxCards = [];   // {card_id, yotei: row|null, jisseki: row|null}
+let hxStaffs = [];  // staffList の別名参照
+
+function hxGenerateId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0;
+    return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+
+async function loadHistories() {
+  try {
+    const r = await fetch(`${API}/deal_histories?property_id=eq.${PROPERTY_ID}&order=created_at.desc`, { headers: HEADERS });
+    if (!r.ok) throw new Error();
+    const rows = await r.json();
+    hxBuildCards(rows);
+    hxRender();
+  } catch { hxRender(); }
+}
+
+function hxBuildCards(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const key = r.card_id || r.id;
+    if (!map.has(key)) map.set(key, { card_id: key, yotei: null, jisseki: null, created_at: r.created_at });
+    const card = map.get(key);
+    if (r.type === 'yotei') card.yotei = r;
+    else card.jisseki = r;
+    if (r.created_at < card.created_at) card.created_at = r.created_at;
+  });
+  // 予定の日付が新しい順にソート（予定なしは作成日順）
+  hxCards = [...map.values()].sort((a, b) => {
+    const da = a.yotei?.date || a.created_at;
+    const db = b.yotei?.date || b.created_at;
+    return db.localeCompare(da);
+  });
+}
+
+// 入力中の新規カードID
+let hxNewCardId = null;
+
+function hxInitNewCard() {
+  const today = new Date().toISOString().split('T')[0];
+  hxNewCardId = hxGenerateId();
+  const card = {
+    card_id: hxNewCardId,
+    yotei: { id: null, date: today, title: '', time: '10:00', end_date: today, end_time: '11:00',
+             all_day: false, repeat_type: null, repeat_interval: 1, repeat_end_date: null,
+             repeat_end_count: null, memo: '', participants: null, _new: true },
+    jisseki: { id: null, date: today, title: '', memo: '', attachment_name: null, _new: true },
+    _new: true
+  };
+  document.getElementById('hx-new-card').innerHTML = hxCardHtml(card, true);
+}
+
+function hxRender() {
+  const list = document.getElementById('hx-list');
+  if (!hxCards.length) {
+    list.innerHTML = '<div class="hx-empty">履歴はまだありません。「新規作成」から追加してください。</div>';
+    return;
+  }
+  let html = '';
+  let lastMonth = '';
+  hxCards.forEach(card => {
+    // 新規カードは月区切りなし
+    if (!card._new) {
+      const dateKey = card.yotei?.date || card.created_at;
+      const month = dateKey.slice(0,7).replace('-','年') + '月';
+      if (month !== lastMonth) {
+        html += `<div class="hx-month-sep">${month}</div>`;
+        lastMonth = month;
+      }
+    }
+    html += hxCardHtml(card, !!card._new);
+  });
+  list.innerHTML = html;
+}
+
+function hxCardHtml(card, isNew) {
+  const y = card.yotei || {};
+  const j = card.jisseki || {};
+  const cid = card.card_id;
+  const today = new Date().toISOString().split('T')[0];
+
+  // 参加者チップ
+  let yParts = [];
+  try { yParts = y.participants ? JSON.parse(y.participants) : []; } catch {}
+  const chipsHtml = yParts.map(name =>
+    `<span class="hx-chip">${escHtml(name)}<button class="hx-chip-x" onclick="hxRemoveParticipant('${cid}','${escHtml(name)}')">×</button></span>`
+  ).join('');
+  const staffOpts = `<option value="">参加者を選択</option>` +
+    hxStaffs.map(s => `<option value="${escHtml(s.name)}">${escHtml(s.name)}</option>`).join('');
+
+  // 添付ファイル
+  const attachName = j.attachment_name || '';
+  const attachHtml = attachName
+    ? `<div class="hx-attach-item"><i class="fa-solid fa-paperclip" style="font-size:11px;color:#888;"></i>${escHtml(attachName)}<button class="hx-attach-del" onclick="hxClearAttach('${cid}')">×</button></div>`
+    : '<div style="color:#ccc;font-size:12px;padding:4px 0;">まだデータがありません</div>';
+
+  // 繰り返しラベル
+  const repeatTypes = { daily:'毎日', weekly:'毎週', monthly:'毎月', yearly:'毎年' };
+  const repeatLabel = y.repeat_type ? repeatTypes[y.repeat_type] || '' : '';
+
+  // デフォルトは閉じた状態（新規カードのみ開く）
+  const cardClass = isNew ? 'hx-card is-new open' : 'hx-card';
+  const yTitle = y.title || '';
+  const jTitle = j.title || '';
+
+  return `<div class="${cardClass}" id="hx-card-${cid}">
+    <div class="hx-card-summary" onclick="hxToggleCard('${cid}')">
+      <div class="hx-summary-left${yTitle?'':' empty'}">
+        <i class="hx-chevron fa-solid fa-chevron-down" style="margin-right:8px;flex-shrink:0;"></i>
+        <span>${yTitle ? '📅 '+escHtml(yTitle) : '📅 （未入力）'}</span>
+      </div>
+      <div class="hx-summary-divider"></div>
+      <div class="hx-summary-right" onclick="event.stopPropagation()">
+        <div class="hx-summary-right-title${jTitle?'':' empty'}">${jTitle ? '📝 '+escHtml(jTitle) : '📝 （未入力）'}</div>
+        <div class="hx-summary-actions">
+          <button class="hx-btn-save-inline" onclick="hxCardSave('${cid}',${isNew})">保存</button>
+          <button class="hx-btn-del-inline" onclick="hxCardDel('${cid}',${isNew})" title="削除">
+            <i class="fa-solid fa-trash-can" style="font-size:11px;margin-right:3px;"></i> 削除
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="hx-card-body">
+    <div class="hx-card-inner">
+      <!-- 予定 -->
+      <div class="hx-col">
+        <div class="hx-col-head"><span class="hx-col-badge yotei">📅 予定</span></div>
+        <div class="hx-field">
+          <label class="hx-label">タイトル</label>
+          <input class="hx-input" type="text" id="hx-y-title-${cid}" value="${escHtml(y.title||'')}" placeholder="タイトルを入力">
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">開始日 / 開始時間 / 終了日 / 終了時間</label>
+          <div class="hx-date-grid">
+            <div>
+              <span class="hx-label" style="font-size:10px;color:#aaa;">開始日</span>
+              <input class="hx-input" type="date" id="hx-y-date-${cid}" value="${escHtml(y.date||today)}">
+            </div>
+            <div>
+              <span class="hx-label" style="font-size:10px;color:#aaa;">開始時間</span>
+              <input class="hx-input" type="time" id="hx-y-stime-${cid}" value="${escHtml(y.time||'10:00')}">
+            </div>
+            <div>
+              <span class="hx-label" style="font-size:10px;color:#aaa;">終了日</span>
+              <input class="hx-input" type="date" id="hx-y-edate-${cid}" value="${escHtml(y.end_date||today)}">
+            </div>
+            <div>
+              <span class="hx-label" style="font-size:10px;color:#aaa;">終了時間</span>
+              <input class="hx-input" type="time" id="hx-y-etime-${cid}" value="${escHtml(y.end_time||'11:00')}">
+            </div>
+          </div>
+          <div class="hx-allday-row">
+            <label><input type="checkbox" id="hx-y-allday-${cid}" ${y.all_day?'checked':''} onchange="hxToggleAllDay('${cid}',this)"> 終日</label>
+          </div>
+          <div class="hx-repeat-row">
+            <label><input type="checkbox" id="hx-y-repeat-${cid}" ${y.repeat_type?'checked':''} onchange="hxToggleRepeat('${cid}',this)"> 繰り返し</label>
+            <span id="hx-y-repeat-label-${cid}" style="font-size:12px;color:#888;">${escHtml(repeatLabel)}</span>
+            <a class="hx-repeat-link" onclick="hxOpenRepeatModal('${cid}')" id="hx-y-repeat-edit-${cid}" style="display:${y.repeat_type?'inline':'none'};">編集</a>
+          </div>
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">参加者</label>
+          <select class="hx-select" id="hx-y-psel-${cid}" onchange="hxAddParticipant('${cid}',this)">${staffOpts}</select>
+          <div class="hx-chips-wrap" id="hx-y-chips-${cid}">${chipsHtml}</div>
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">詳細</label>
+          <textarea class="hx-textarea" id="hx-y-memo-${cid}" placeholder="詳細・メモ">${escHtml(y.memo||'')}</textarea>
+        </div>
+      </div>
+      <div class="hx-divider"></div>
+      <!-- 実績 -->
+      <div class="hx-col">
+        <div class="hx-col-head"><span class="hx-col-badge jisseki">📝 実績</span></div>
+        <div class="hx-field">
+          <label class="hx-label">商談タイトル</label>
+          <input class="hx-input" type="text" id="hx-j-title-${cid}" value="${escHtml(j.title||'')}" placeholder="商談タイトルを入力" maxlength="100"
+            oninput="document.getElementById('hx-j-tcnt-${cid}').textContent=this.value.length+'/100'">
+          <div class="hx-char-hint" id="hx-j-tcnt-${cid}">${(j.title||'').length}/100</div>
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">打合せ日</label>
+          <input class="hx-input" type="date" id="hx-j-date-${cid}" value="${escHtml(j.date||today)}" style="max-width:180px;">
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">メモ</label>
+          <textarea class="hx-textarea" id="hx-j-memo-${cid}" placeholder="メモ" maxlength="1000"
+            oninput="document.getElementById('hx-j-mcnt-${cid}').textContent=this.value.length+'/1000'">${escHtml(j.memo||'')}</textarea>
+          <div class="hx-char-hint" id="hx-j-mcnt-${cid}">${(j.memo||'').length}/1000</div>
+        </div>
+        <div class="hx-field">
+          <label class="hx-label">添付ファイル</label>
+          <div class="hx-attach-row">
+            <button class="hx-attach-btn" onclick="hxAttachOpenex('${cid}')">
+              <i class="fa-solid fa-folder-open" style="margin-right:4px;"></i>OPEN EXから選択
+            </button>
+            <button class="hx-attach-btn" onclick="document.getElementById('hx-j-file-${cid}').click()">
+              <i class="fa-solid fa-upload" style="margin-right:4px;"></i>デバイスから選択
+            </button>
+            <input type="file" id="hx-j-file-${cid}" style="display:none;" onchange="hxAttachDevice('${cid}',this)">
+          </div>
+          <div class="hx-attach-list" id="hx-j-attach-${cid}">${attachHtml}</div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /hx-card-body -->
+  </div>`;
+}
+
+// アコーディオン開閉
+function hxToggleCard(cid) {
+  const card = document.getElementById('hx-card-' + cid);
+  if (!card) return;
+  card.classList.toggle('open');
+  // タイトルをサマリーに反映
+  const yTitle = document.getElementById('hx-y-title-' + cid)?.value || '';
+  const jTitle = document.getElementById('hx-j-title-' + cid)?.value || '';
+  const sumY = card.querySelector('.hx-summary-left span');
+  const sumJ = card.querySelector('.hx-summary-right-title');
+  if (sumY) {
+    sumY.textContent = yTitle ? '📅 ' + yTitle : '📅 （未入力）';
+    card.querySelector('.hx-summary-left').className = 'hx-summary-left' + (yTitle ? '' : ' empty');
+  }
+  if (sumJ) {
+    sumJ.textContent = jTitle ? '📝 ' + jTitle : '📝 （未入力）';
+    sumJ.className = 'hx-summary-right-title' + (jTitle ? '' : ' empty');
+  }
+}
+
+// 終日トグル
+function hxToggleAllDay(cid, cb) {
+  const timeEls = [`hx-y-stime-${cid}`, `hx-y-etime-${cid}`];
+  timeEls.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = cb.checked ? '0.3' : '1';
+  });
+}
+
+// 繰り返しトグル
+function hxToggleRepeat(cid, cb) {
+  const editLink = document.getElementById(`hx-y-repeat-edit-${cid}`);
+  if (editLink) editLink.style.display = cb.checked ? 'inline' : 'none';
+  if (cb.checked) hxOpenRepeatModal(cid);
+}
+
+// 繰り返しモーダル
+let _hxRepeatCid = null;
+function hxOpenRepeatModal(cid) {
+  _hxRepeatCid = cid;
+  const card = hxCards.find(c => c.card_id === cid) || { card_id: cid, yotei: { repeat_type: 'daily', repeat_interval: 1 } };
+  const y = card?.yotei || {};
+  document.getElementById('hxRepeatType').value = y.repeat_type || 'daily';
+  document.getElementById('hxRepeatInterval').value = y.repeat_interval || 1;
+  const endDate = document.getElementById('hxRepeatEndDateVal');
+  if (endDate) endDate.value = y.repeat_end_date || new Date().toISOString().split('T')[0];
+  const endCount = document.getElementById('hxRepeatEndCountVal');
+  if (endCount) endCount.value = y.repeat_end_count || '';
+  document.getElementById('hxRepeatEndDate').checked = !y.repeat_end_count;
+  document.getElementById('hxRepeatEndCount').checked = !!y.repeat_end_count;
+  hxUpdateRepeatUnit();
+  hxUpdateRepeatSummary();
+  document.getElementById('hxRepeatModal').classList.add('active');
+}
+function hxCloseRepeatModal() {
+  document.getElementById('hxRepeatModal').classList.remove('active');
+}
+function hxUpdateRepeatUnit() {
+  const type = document.getElementById('hxRepeatType')?.value;
+  const units = { daily:'日', weekly:'週', monthly:'ヶ月', yearly:'年' };
+  const el = document.getElementById('hxRepeatUnit');
+  if (el) el.textContent = units[type] || '日';
+}
+function hxUpdateRepeatSummary() {
+  hxUpdateRepeatUnit();
+  const type = document.getElementById('hxRepeatType')?.value;
+  const interval = document.getElementById('hxRepeatInterval')?.value || 1;
+  const labels = { daily:'毎日', weekly:'毎週', monthly:'毎月', yearly:'毎年' };
+  const endByDate = document.getElementById('hxRepeatEndDate')?.checked;
+  const endDateVal = document.getElementById('hxRepeatEndDateVal')?.value;
+  const endCountVal = document.getElementById('hxRepeatEndCountVal')?.value;
+  let summary = `${labels[type] || ''}`;
+  if (interval > 1) summary += `（${interval}${document.getElementById('hxRepeatUnit')?.textContent}ごと）`;
+  if (endByDate && endDateVal) summary += `、${endDateVal}まで`;
+  else if (!endByDate && endCountVal) summary += `、${endCountVal}回`;
+  const el = document.getElementById('hxRepeatSummary');
+  if (el) el.textContent = summary;
+}
+function hxSaveRepeatSettings() {
+  const cid = _hxRepeatCid;
+  if (!cid) return;
+  const type     = document.getElementById('hxRepeatType')?.value;
+  const interval = parseInt(document.getElementById('hxRepeatInterval')?.value) || 1;
+  const endByDate = document.getElementById('hxRepeatEndDate')?.checked;
+  const endDate  = document.getElementById('hxRepeatEndDateVal')?.value || null;
+  const endCount = parseInt(document.getElementById('hxRepeatEndCountVal')?.value) || null;
+
+  // カードのyoteiに保存（新規カードはhxNewCardIdで判定）
+  let card = hxCards.find(c => c.card_id === cid);
+  if (!card && !!hxCards.find(c => c.card_id === cid && c._new)) {
+    // 新規カードのrepeat設定をDOMに反映だけ
+    const labelEl = document.getElementById(`hx-y-repeat-label-${cid}`);
+    const labels = { daily:'毎日', weekly:'毎週', monthly:'毎月', yearly:'毎年' };
+    if (labelEl) labelEl.textContent = labels[type] || '';
+    const editEl = document.getElementById(`hx-y-repeat-edit-${cid}`);
+    if (editEl) editEl.style.display = 'inline';
+    // データ属性として保持
+    const cardEl = document.getElementById(`hx-card-${cid}`);
+    if (cardEl) {
+      cardEl.dataset.repeatType = type;
+      cardEl.dataset.repeatInterval = interval;
+      cardEl.dataset.repeatEndDate = endDate || '';
+      cardEl.dataset.repeatEndCount = endCount || '';
+    }
+  } else if (card?.yotei) {
+    card.yotei.repeat_type      = type;
+    card.yotei.repeat_interval  = interval;
+    card.yotei.repeat_end_date  = endByDate ? endDate : null;
+    card.yotei.repeat_end_count = !endByDate ? endCount : null;
+    const labelEl = document.getElementById(`hx-y-repeat-label-${cid}`);
+    const labels = { daily:'毎日', weekly:'毎週', monthly:'毎月', yearly:'毎年' };
+    if (labelEl) labelEl.textContent = labels[type] || '';
+  }
+  hxCloseRepeatModal();
+}
+
+// 添付ファイル
+function hxAttachDevice(cid, input) {
+  const file = input.files[0];
+  if (!file) return;
+  hxSetAttach(cid, file.name);
+  input.value = '';
+}
+function hxAttachOpenex(cid) {
+  showToast('OPEN EXファイル選択は準備中です');
+}
+function hxSetAttach(cid, name) {
+  // カードのjissekiに保存
+  const card = hxCards.find(c => c.card_id === cid);
+  if (card?.jisseki) card.jisseki.attachment_name = name;
+  // DOM更新
+  const el = document.getElementById(`hx-j-attach-${cid}`);
+  if (el) {
+    el.innerHTML = `<div class="hx-attach-item"><i class="fa-solid fa-paperclip" style="font-size:11px;color:#888;"></i>${escHtml(name)}<button class="hx-attach-del" onclick="hxClearAttach('${cid}')">×</button></div>`;
+  }
+  // 新規カードの場合はdata属性に保存
+  const cardEl = document.getElementById(`hx-card-${cid}`);
+  if (cardEl) cardEl.dataset.attachName = name;
+}
+function hxClearAttach(cid) {
+  const card = hxCards.find(c => c.card_id === cid);
+  if (card?.jisseki) card.jisseki.attachment_name = null;
+  const el = document.getElementById(`hx-j-attach-${cid}`);
+  if (el) el.innerHTML = '<div style="color:#ccc;font-size:12px;padding:4px 0;">まだデータがありません</div>';
+}
+
+function hxAddCard() {
+  const today = new Date().toISOString().split('T')[0];
+  const newCard = {
+    card_id: hxGenerateId(),
+    yotei: { id: null, date: today, title: '', time: '10:00', end_date: today, end_time: '11:00',
+             all_day: false, repeat_type: null, repeat_interval: 1,
+             repeat_end_date: null, repeat_end_count: null, memo: '', participants: null, _new: true },
+    jisseki: { id: null, date: today, title: '', memo: '', attachment_name: null, _new: true },
+    created_at: new Date().toISOString(),
+    _new: true
+  };
+  hxCards.unshift(newCard);
+  hxRender();
+  setTimeout(() => {
+    const el = document.getElementById('hx-list');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+// 保存（新規カード専用）
+async function hxSaveNew(cid) {
+  if (!cid) return;
+
+  const yTitle = document.getElementById(`hx-y-title-${cid}`)?.value.trim() || '';
+  const yDate  = document.getElementById(`hx-y-date-${cid}`)?.value || '';
+  const yStime = document.getElementById(`hx-y-stime-${cid}`)?.value || null;
+  const yEdate = document.getElementById(`hx-y-edate-${cid}`)?.value || null;
+  const yEtime = document.getElementById(`hx-y-etime-${cid}`)?.value || null;
+  const yAllDay= document.getElementById(`hx-y-allday-${cid}`)?.checked || false;
+  const yMemo  = document.getElementById(`hx-y-memo-${cid}`)?.value.trim() || '';
+  const jTitle = document.getElementById(`hx-j-title-${cid}`)?.value.trim() || '';
+  const jDate  = document.getElementById(`hx-j-date-${cid}`)?.value || '';
+  const jMemo  = document.getElementById(`hx-j-memo-${cid}`)?.value.trim() || '';
+
+  // 参加者
+  let parts = [];
+  const tempCard = { card_id: cid, yotei: { participants: null } };
+  const chipsWrap = document.getElementById(`hx-y-chips-${cid}`);
+  if (chipsWrap) {
+    [...chipsWrap.querySelectorAll('.hx-chip')].forEach(chip => {
+      const t = chip.childNodes[0]?.textContent?.trim();
+      if (t) parts.push(t);
+    });
+  }
+
+  // 繰り返し設定（data属性から取得）
+  const cardEl = document.getElementById(`hx-card-${cid}`);
+  const repeatType     = cardEl?.dataset.repeatType     || null;
+  const repeatInterval = parseInt(cardEl?.dataset.repeatInterval) || 1;
+  const repeatEndDate  = cardEl?.dataset.repeatEndDate  || null;
+  const repeatEndCount = parseInt(cardEl?.dataset.repeatEndCount) || null;
+  const attachName     = cardEl?.dataset.attachName     || null;
+
+  const now = new Date().toISOString();
+  const promises = [];
+
+  if (yTitle || yDate) {
+    const yData = {
+      property_id: PROPERTY_ID, type: 'yotei', card_id: cid,
+      title: yTitle, date: yDate || null, time: yStime || null,
+      end_date: yEdate || null, end_time: yEtime || null,
+      all_day: yAllDay, repeat_type: repeatType || null,
+      repeat_interval: repeatType ? repeatInterval : null,
+      repeat_end_date: repeatEndDate || null,
+      repeat_end_count: repeatEndCount || null,
+      memo: yMemo || null,
+      participants: parts.length ? JSON.stringify(parts) : null,
+      created_at: now, updated_at: now
+    };
+    promises.push(fetch(`${API}/deal_histories`, { method:'POST', headers:HEADERS, body:JSON.stringify(yData) }));
+  }
+  if (jTitle) {
+    const jData = {
+      property_id: PROPERTY_ID, type: 'jisseki', card_id: cid,
+      title: jTitle, date: jDate || null, memo: jMemo || null,
+      attachment_name: attachName || null,
+      created_at: now, updated_at: now
+    };
+    promises.push(fetch(`${API}/deal_histories`, { method:'POST', headers:HEADERS, body:JSON.stringify(jData) }));
+  }
+
+  if (!promises.length) { showToast('入力内容がありません', 'error'); return; }
+
+  try {
+    const results = await Promise.all(promises);
+    if (results.some(r => !r.ok)) throw new Error();
+    // 新規カードを削除してDBから再読み込み
+    hxCards = hxCards.filter(c => c.card_id !== cid);
+    await loadHistories();
+    showToast('保存しました');
+  } catch { showToast('保存に失敗しました', 'error'); }
+}
+
+function hxAddParticipant(cid, sel) {
+  const name = sel.value;
+  if (!name) return;
+  sel.value = '';
+  const card = hxCards.find(c => c.card_id === cid);
+  if (!card) return;
+  if (card?.yotei) {
+    let parts = [];
+    try { parts = card.yotei.participants ? JSON.parse(card.yotei.participants) : []; } catch {}
+    if (parts.includes(name)) return;
+    parts.push(name);
+    card.yotei.participants = JSON.stringify(parts);
+  }
+  const chipsWrap = document.getElementById(`hx-y-chips-${cid}`);
+  if (chipsWrap) {
+    const chip = document.createElement('span');
+    chip.className = 'hx-chip';
+    chip.innerHTML = `${escHtml(name)}<button class="hx-chip-x" onclick="hxRemoveParticipant('${cid}','${escHtml(name)}')">×</button>`;
+    chipsWrap.appendChild(chip);
+  }
+}
+
+function hxRemoveParticipant(cid, name) {
+  const card = hxCards.find(c => c.card_id === cid);
+  if (card?.yotei) {
+    let parts = [];
+    try { parts = card.yotei.participants ? JSON.parse(card.yotei.participants) : []; } catch {}
+    parts = parts.filter(p => p !== name);
+    card.yotei.participants = parts.length ? JSON.stringify(parts) : null;
+  }
+  const chipsWrap = document.getElementById(`hx-y-chips-${cid}`);
+  if (chipsWrap) {
+    [...chipsWrap.querySelectorAll('.hx-chip')].forEach(chip => {
+      if (chip.childNodes[0]?.textContent?.trim() === name) chip.remove();
+    });
+  }
+}
+
+async function hxSaveCard(cid) {
+  // 保存済みカードの編集保存
+  const card = hxCards.find(c => c.card_id === cid);
+  if (!card) return;
+
+  const yTitle = document.getElementById(`hx-y-title-${cid}`)?.value.trim() || '';
+  const yDate  = document.getElementById(`hx-y-date-${cid}`)?.value || '';
+  const yStime = document.getElementById(`hx-y-stime-${cid}`)?.value || null;
+  const yEdate = document.getElementById(`hx-y-edate-${cid}`)?.value || null;
+  const yEtime = document.getElementById(`hx-y-etime-${cid}`)?.value || null;
+  const yAllDay= document.getElementById(`hx-y-allday-${cid}`)?.checked || false;
+  const yMemo  = document.getElementById(`hx-y-memo-${cid}`)?.value.trim() || '';
+  const jTitle = document.getElementById(`hx-j-title-${cid}`)?.value.trim() || '';
+  const jDate  = document.getElementById(`hx-j-date-${cid}`)?.value || '';
+  const jMemo  = document.getElementById(`hx-j-memo-${cid}`)?.value.trim() || '';
+
+  let parts = [];
+  const chipsWrap = document.getElementById(`hx-y-chips-${cid}`);
+  if (chipsWrap) {
+    [...chipsWrap.querySelectorAll('.hx-chip')].forEach(chip => {
+      const t = chip.childNodes[0]?.textContent?.trim();
+      if (t) parts.push(t);
+    });
+  }
+
+  const now = new Date().toISOString();
+  const promises = [];
+
+  if (yTitle || yDate) {
+    const yData = {
+      property_id: PROPERTY_ID, type: 'yotei', card_id: cid,
+      title: yTitle, date: yDate || null, time: yStime || null,
+      end_date: yEdate || null, end_time: yEtime || null,
+      all_day: yAllDay,
+      repeat_type: card.yotei?.repeat_type || null,
+      repeat_interval: card.yotei?.repeat_interval || null,
+      repeat_end_date: card.yotei?.repeat_end_date || null,
+      repeat_end_count: card.yotei?.repeat_end_count || null,
+      memo: yMemo || null,
+      participants: parts.length ? JSON.stringify(parts) : null,
+      updated_at: now
+    };
+    if (card.yotei?.id) {
+      promises.push(fetch(`${API}/deal_histories?id=eq.${card.yotei.id}`, { method:'PATCH', headers:HEADERS, body:JSON.stringify(yData) }));
+    } else {
+      yData.created_at = now;
+      promises.push(fetch(`${API}/deal_histories`, { method:'POST', headers:HEADERS, body:JSON.stringify(yData) }));
+    }
+  }
+  if (jTitle) {
+    const jData = {
+      property_id: PROPERTY_ID, type: 'jisseki', card_id: cid,
+      title: jTitle, date: jDate || null, memo: jMemo || null,
+      attachment_name: card.jisseki?.attachment_name || null,
+      updated_at: now
+    };
+    if (card.jisseki?.id) {
+      promises.push(fetch(`${API}/deal_histories?id=eq.${card.jisseki.id}`, { method:'PATCH', headers:HEADERS, body:JSON.stringify(jData) }));
+    } else {
+      jData.created_at = now;
+      promises.push(fetch(`${API}/deal_histories`, { method:'POST', headers:HEADERS, body:JSON.stringify(jData) }));
+    }
+  }
+
+  if (!promises.length) { showToast('入力内容がありません', 'error'); return; }
+
+  try {
+    const results = await Promise.all(promises);
+    if (results.some(r => !r.ok)) throw new Error();
+    await loadHistories();
+    showToast('保存しました');
+  } catch { showToast('保存に失敗しました', 'error'); }
+}
+
+// 新規カード削除（未保存カードをリストから除去）
+function hxDeleteNewCard(cid) {
+  if (!confirm('入力内容を破棄しますか？')) return;
+  hxCards = hxCards.filter(c => c.card_id !== cid);
+  hxRender();
+}
+
+// ボタンonclickからの振り分け（isNewはbool）
+function hxCardDel(cid, isNew) {
+  if (isNew) hxDeleteNewCard(cid);
+  else hxDeleteCard(cid);
+}
+function hxCardSave(cid, isNew) {
+  if (isNew) hxSaveNew(cid);
+  else hxSaveCard(cid);
+}
+
+async function hxDeleteCard(cid) {
+  if (!confirm('このカード（予定・実績）を削除してよろしいですか？')) return;
+  const card = hxCards.find(c => c.card_id === cid);
+  if (!card) {
+    // 新規カードのリセット
+    hxDeleteNewCard(cid);
+    return;
+  }
+  const ids = [card.yotei?.id, card.jisseki?.id].filter(Boolean);
+  try {
+    if (ids.length) {
+      await Promise.all(ids.map(id =>
+        fetch(`${API}/deal_histories?id=eq.${id}`, { method:'DELETE', headers:HEADERS })
+      ));
+    }
+    hxCards = hxCards.filter(c => c.card_id !== cid);
+    hxRender();
+    showToast('削除しました');
+  } catch { showToast('削除に失敗しました', 'error'); }
+}
+
+
+// ========== 戻る ==========
+function goBack() { window.location.href = BACK_URL; }
+
+// ========== モーダル外クリックで閉じる ==========
+['dealInfoModal','propInfoModal'].forEach(id => {
+  $(id).addEventListener('click', e => {
+    if (e.target === e.currentTarget) $(id).classList.remove('active');
+  });
+});
+
+
+  // ===== 共通ナビゲーション =====
+  const NAV_URLS = {
+    bukken: 'index.html',
+    kokyaku: 'index.html',
+    file: 'index.html',
+    shared: 'index.html',
+    estimate: 'index.html',
+    hacchu: 'index.html',
+    juchu: 'index.html',
+    shodan: 'index.html',
+    schedule: 'index.html',
+    maker: 'index.html',
+    settings: 'index.html',
+    manual: 'index.html',
+  };
+  function navClick(key) {
+    // 同じページ内のタブ切り替えがある場合はhash付きで遷移
+    // index.htmlへの遷移は sessionStorage でページを指定
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+  function setActiveNav(key) {
+    document.querySelectorAll('.nav-item[data-nav]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === key);
+    });
+  }
+
+  setActiveNav('shodan');
+  init();
+
+// ========== 契約情報 ==========
+let kyContracts = [];
+let _manualUriage = null; // 見積反映前の手入力売上予定金額を退避
+
+async function loadContracts() {
+  try {
+    const r = await fetch(`${API}/contracts?property_id=eq.${PROPERTY_ID}&order=created_at.asc`, { headers: HEADERS });
+    if (!r.ok) throw new Error();
+    kyContracts = await r.json();
+    renderContracts();
+  } catch { renderContracts(); }
+}
+
+function renderContracts() {
+  const tbody = $('kyTbody');
+  if (!kyContracts.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="ky-empty">契約データがありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = kyContracts.map((c, i) => {
+    const statusClass = c.status === '契約済' ? 'ky-status-keiyaku' : c.status === '失注' ? 'ky-status-shicchu' : 'ky-status-sakusei';
+    // DBのreflectフラグ（契約済なら自動チェック）またはローカル状態を使用
+    const isReflected = c._reflect !== undefined ? c._reflect : (c.reflect || c.status === '契約済');
+    if (c._reflect === undefined) c._reflect = isReflected;
+    return `<tr style="cursor:pointer;">
+      <td class="ky-check-col" onclick="event.stopPropagation()">
+        <input type="checkbox" ${isReflected ? 'checked' : ''} onchange="kyToggleReflect(${i},this)">
+      </td>
+      <td onclick="kyGoEdit('${c.id}')">${escHtml(c.contract_no||'—')}</td>
+      <td onclick="kyGoEdit('${c.id}')">${escHtml(c.contract_name||'—')}</td>
+      <td onclick="event.stopPropagation()">
+        <select class="ky-status-sel ${statusClass}" onchange="kyChangeStatus(${i},this)">
+          <option value="作成中" ${c.status==='作成中'?'selected':''}>作成中</option>
+          <option value="契約済" ${c.status==='契約済'?'selected':''}>契約済</option>
+          <option value="失注"   ${c.status==='失注'  ?'selected':''}>失注</option>
+        </select>
+      </td>
+      <td class="ky-num-cell" onclick="kyGoEdit('${c.id}')">${c.invoice_amount_tax!=null ? Number(c.invoice_amount_tax).toLocaleString('ja-JP') : '—'}</td>
+      <td class="ky-num-cell" onclick="kyGoEdit('${c.id}')">${c.invoice_amount!=null ? Number(c.invoice_amount).toLocaleString('ja-JP') : '—'}</td>
+      <td class="ky-num-cell" onclick="kyGoEdit('${c.id}')">${c.tax_amount!=null ? Number(c.tax_amount).toLocaleString('ja-JP') : '—'}</td>
+      <td class="ky-num-cell" onclick="kyGoEdit('${c.id}')">${c.target_estimate_cost!=null ? Number(c.target_estimate_cost).toLocaleString('ja-JP') : '—'}</td>
+      <td onclick="kyGoEdit('${c.id}')" style="font-size:11px;color:#555;">${escHtml(c.target_estimate_no||'—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function kyGoEdit(contractId) {
+  window.location.href = `keiyaku-edit.html?property_id=${encodeURIComponent(PROPERTY_ID)}&contract_id=${encodeURIComponent(contractId)}&back=${encodeURIComponent(location.href)}`;
+}
+
+function kyAddNew() {
+  // チェック済み見積IDを収集
+  const checked = [];
+  document.querySelectorAll('#estimateTbody tr').forEach(tr => {
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if (cb?.checked && tr.dataset.estimateId) checked.push(tr.dataset.estimateId);
+  });
+  const params = new URLSearchParams({ property_id: PROPERTY_ID, back: location.href });
+  if (checked.length) params.set('checked_est_ids', encodeURIComponent(JSON.stringify(checked)));
+  window.location.href = `keiyaku-edit.html?${params.toString()}`;
+}
+
+async function kyChangeStatus(idx, sel) {
+  const c = kyContracts[idx];
+  if (!c?.id) return;
+  const newStatus = sel.value;
+  sel.className = 'ky-status-sel ' + (newStatus==='契約済'?'ky-status-keiyaku':newStatus==='失注'?'ky-status-shicchu':'ky-status-sakusei');
+  try {
+    await fetch(`${API}/contracts?id=eq.${c.id}`, {
+      method: 'PATCH',
+      headers: HEADERS,
+      body: JSON.stringify({ status: newStatus, updated_at: new Date().toISOString() })
+    });
+    c.status = newStatus;
+  } catch { showToast('更新に失敗しました', 'error'); }
+}
+
+function kyToggleReflect(idx, cb) {
+  const c = kyContracts[idx];
+  c._reflect = cb.checked;
+
+  if (cb.checked && c.estimate_ids) {
+    // この契約に紐づく見積のチェックを外す
+    let removed = [];
+    try {
+      const estIds = JSON.parse(c.estimate_ids);
+      document.querySelectorAll('#estimateTbody tr').forEach(tr => {
+        const estCb = tr.querySelector('input[type="checkbox"]');
+        if (estCb?.checked && estIds.includes(tr.dataset.estimateId)) {
+          estCb.checked = false;
+          const planCell = tr.querySelector('td:nth-child(4)');
+          const no = tr.querySelector('td:nth-child(3)')?.textContent.trim() || '';
+          removed.push(no);
+        }
+      });
+    } catch {}
+    if (removed.length) {
+      showToast(
+        `見積No. ${removed.join('、')} は契約金額に含まれるため、見積一覧の反映チェックを自動で外しました。必要に応じて手動でチェックを入れることもできます。`,
+        'info'
+      );
+    }
+  }
+  applyAllReflection();
+}
+
+async function applyAllReflection() {
+  // 契約チェック済みの請負金額合計
+  let contractRevenue = 0;
+  kyContracts.forEach(c => {
+    if (c._reflect && c.invoice_amount_tax != null) contractRevenue += Number(c.invoice_amount_tax);
+  });
+
+  // 見積チェック済みの売上予定金額合計・原価合計
+  let estRevenue = 0;
+  let estCost    = 0;
+  document.querySelectorAll('#estimateTbody tr').forEach(tr => {
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if (!cb?.checked) return;
+    const cells = tr.querySelectorAll('td');
+    const amt  = parseFloat(cells[5]?.textContent.replace(/[,——\s]/g,'').trim());
+    const cost = parseFloat(cells[6]?.textContent.replace(/[,——\s]/g,'').trim());
+    if (!isNaN(amt))  estRevenue += amt;
+    if (!isNaN(cost)) estCost    += cost;
+  });
+
+  const totalRevenue = contractRevenue + estRevenue;
+  const anyChecked   = kyContracts.some(c => c._reflect) ||
+    !!document.querySelector('#estimateTbody input[type="checkbox"]:checked');
+
+  const uriageInput = document.getElementById('m-uriage');
+  if (anyChecked) {
+    if (_manualUriage === null) _manualUriage = currentDealInfo?.expected_revenue ?? null;
+    if (uriageInput) {
+      uriageInput.value    = totalRevenue;
+      uriageInput.readOnly = true;
+      uriageInput.style.background = '#f0f4f8';
+      uriageInput.style.color      = '#888';
+      uriageInput.title = '契約・見積反映中（チェックを外すと手入力に戻ります）';
+    }
+  } else {
+    if (uriageInput) {
+      uriageInput.value    = _manualUriage !== null ? _manualUriage : '';
+      uriageInput.readOnly = false;
+      uriageInput.style.background = '';
+      uriageInput.style.color      = '';
+      uriageInput.title = '';
+    }
+    _manualUriage = null;
+  }
+
+  updateModalProfit();
+
+  // deal_info更新（原価は見積から）
+  const data = {
+    property_id:      PROPERTY_ID,
+    expected_revenue: anyChecked ? totalRevenue : (_manualUriage !== null ? _manualUriage : (parseFloat(uriageInput?.value)||null)),
+    cost_amount:      estCost > 0 ? estCost : (currentDealInfo?.cost_amount ?? null),
+    updated_at:       new Date().toISOString()
+  };
+  try {
+    let res;
+    if (currentDealInfo?.id) {
+      res = await fetch(`${API}/deal_info?id=eq.${currentDealInfo.id}`, { method:'PATCH', headers:HEADERS, body:JSON.stringify(data) });
+    } else {
+      res = await fetch(`${API}/deal_info`, { method:'POST', headers:HEADERS, body:JSON.stringify(data) });
+    }
+    if (!res.ok) throw new Error();
+    const saved = await res.json();
+    currentDealInfo = saved[0] || { ...currentDealInfo, ...data };
+    renderDealInfo();
+    if (anyChecked) showToast(`売上予定金額を ${totalRevenue.toLocaleString('ja-JP')} 円に更新しました`);
+  } catch { showToast('反映に失敗しました', 'error'); }
+}
+</script>
+</body>
+</html>

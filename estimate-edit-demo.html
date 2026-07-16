@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>見積管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Helvetica Neue',Helvetica,'Hiragino Sans','Meiryo',Arial,sans-serif;
+  font-size:12px;background:#f0f2f5;color:#303133;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+
+/* ===== ナビバー ===== */
+.navbar {
+  background: #fff; border-bottom: 1px solid #e0e0e0;
+  display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+  flex: 0 0 auto;
+}
+.nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 11px; font-size: 12px; color: #555;
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  background: none; border-top: none; border-left: none; border-right: none;
+  font-family: 'Noto Sans JP', 'Helvetica Neue', sans-serif;
+}
+.nav-item:hover { color: #1a6fc4; }
+.nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+.nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+.nav-item.hacchukanri svg { color: #e53935; }
+.nav-right {
+  display: flex; align-items: center;
+  margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+}
+
+/* breadcrumb */
+.breadcrumb-bar{background:#fff;padding:8px 16px;border-bottom:1px solid #e4e7ed;flex-shrink:0;font-size:13px;}
+.breadcrumb-bar .crumb{color:#0d9488;cursor:pointer;}
+.breadcrumb-bar .crumb.current{color:#606266;cursor:default;}
+.breadcrumb-bar .sep{color:#c0c4cc;margin:0 6px;}
+
+/* page header */
+.page-header{background:#fff;padding:8px 16px 10px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #e4e7ed;flex-shrink:0;}
+.page-title{font-size:19px;font-weight:bold;color:#303133;margin-right:4px;}
+.info-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid #dcdfe6;background:#fff;color:#303133;border-radius:16px;padding:5px 14px;font-size:12px;cursor:pointer;}
+.info-btn .ic{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#1d73cc;color:#fff;font-size:9px;font-style:normal;}
+
+/* header bar */
+.header-bar{background:#fff;border-bottom:1px solid #e4e7ed;padding:8px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;}
+.hf{display:flex;align-items:center;gap:6px;}
+.hf-label{color:#606266;font-size:12px;white-space:nowrap;}
+.hf-input{height:26px;line-height:26px;padding:0 8px;font-size:12px;border:1px solid #dcdfe6;border-radius:3px;background:#fff;color:#303133;}
+.hf-input.ro{background:#f5f7fa;color:#606266;}
+.hf-select{height:26px;line-height:26px;padding:0 22px 0 8px;font-size:12px;border:1px solid #dcdfe6;border-radius:3px;background:#fff;color:#303133;position:relative;display:inline-flex;align-items:center;}
+.hf-select::after{content:'▾';position:absolute;right:7px;color:#c0c4cc;font-size:10px;}
+.q-btn{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid #c0c4cc;font-size:9px;color:#909399;cursor:pointer;flex-shrink:0;}
+.zero-wrap{display:flex;align-items:center;gap:5px;}
+.zero-wrap .cb{width:14px;height:14px;border:1px solid #c0c4cc;border-radius:2px;display:inline-block;}
+
+/* summary cards */
+.sum-cards{display:flex;gap:4px;margin-left:auto;}
+.sum-card{border:1px solid #dbeafc;border-radius:4px;min-width:96px;overflow:hidden;background:#fff;}
+.sum-head{background:#eaf4fd;color:#5b6b82;font-size:10px;padding:4px 8px;display:flex;align-items:center;justify-content:center;gap:3px;border-bottom:1px solid #dbeafc;white-space:nowrap;}
+.sum-val{padding:5px 8px;text-align:right;font-size:14px;font-weight:bold;color:#2c3e50;}
+.sum-card.emph .sum-val{color:#e02020;}
+
+/* table scroll area */
+.tbl-wrap{flex:1;overflow:auto;}
+
+/* estimate table */
+.etbl{border-collapse:collapse;min-width:1900px;width:100%;font-size:11px;table-layout:fixed;}
+.etbl th,.etbl td{border:1px solid #d8dce5;padding:0;height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* group header row */
+.g-hd{background:#606266;color:#fff;text-align:center;font-weight:normal;font-size:10px;padding:4px 3px;border-right:1px solid #7d8087;}
+.g-hd .minus{display:inline-block;width:11px;height:11px;line-height:9px;border:1px solid #9099a3;border-radius:2px;color:#dfe2e8;font-size:9px;margin-right:3px;}
+
+/* sub header row */
+.s-hd{background:#ecf0f6;color:#606266;text-align:center;font-size:10px;padding:3px;font-weight:bold;}
+
+/* row types */
+.r-sel td{background:#d6ecfb !important;}
+.r-cat td{font-weight:bold;color:#303133;background:#fff;}
+.r-sub td{background:#fff;color:#303133;}
+.r-leaf td{background:#fff;color:#404040;}
+.r-sum td{background:#f2f3f5;font-weight:bold;color:#303133;}
+.r-sum-label td{background:#e9ebef;font-weight:bold;color:#404040;}
+.r-total td{background:#c9d8ec;font-weight:bold;color:#1f2d3d;font-size:11.5px;}
+
+/* alignment */
+.ar{text-align:right;} .ac{text-align:center;} .al{text-align:left;}
+.red-text{color:#e02020;}
+
+/* hierarchy indent */
+.name-wrap{display:flex;align-items:center;height:100%;gap:2px;}
+.chev{display:inline-block;width:12px;color:#1d73cc;font-size:10px;cursor:pointer;user-select:none;flex-shrink:0;}
+.chev.empty{visibility:hidden;}
+.fic{flex-shrink:0;font-size:10px;}
+.tree{color:#c0c4cc;font-size:10px;flex-shrink:0;}
+
+/* cell inputs */
+.cell-input{width:100%;height:100%;border:none;background:transparent;font:inherit;padding:2px 4px;color:#303133;}
+.cell-input:focus{outline:2px solid #79bbff;background:#fff;}
+.cell-input.ar{text-align:right;}
+.cell-input.ac{text-align:center;}
+.cell-input.al{text-align:left;}
+.cell-input[readonly]{background:#fafafa;color:#606266;}
+.cell-input.changed{color:#d9363e;font-weight:bold;}
+.cell-input.bold{font-weight:bold;}
+
+/* button bar */
+.btn-bar{background:#f5f6f8;border-top:1px solid #e4e7ed;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;align-items:center;}
+.pbtn{height:30px;padding:0 16px;border-radius:15px;font-size:12px;font-weight:bold;cursor:pointer;border:1px solid #1d73cc;background:#f1faff;color:#1d73cc;}
+.pbtn.primary{background:#1d73cc;color:#fff;border-color:#1d73cc;margin-left:auto;padding:0 26px;}
+.sel-info{font-size:11px;color:#909399;}
+
+/* modal / toast (操作メニュー) */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;min-width:200px;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.25);padding:6px 0;}
+.modal-title{padding:8px 16px;font-weight:bold;border-bottom:1px solid #ebeef5;margin-bottom:4px;color:#1d73cc;font-size:12px;}
+.modal-box button{display:block;width:100%;text-align:left;border:none;background:none;padding:8px 16px;font-size:12px;cursor:pointer;color:#303133;}
+.modal-box button:hover{background:#f0f5fa;}
+.modal-box hr{border:none;border-top:1px solid #ebeef5;margin:4px 0;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#303133;color:#fff;padding:8px 18px;border-radius:4px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:300;}
+.toast.show{opacity:.92;}
+
+/* ─── CADから引用モーダル ─── */
+.cad-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center;}
+.cad-overlay.open{display:flex;}
+.cad-modal{background:#fff;border-radius:6px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:920px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+.cad-header{padding:12px 16px;border-bottom:1px solid #e4e7ed;display:flex;align-items:center;flex-shrink:0;}
+.cad-title{flex:1;font-size:14px;font-weight:bold;color:#303133;}
+.cad-close{border:none;background:none;font-size:18px;cursor:pointer;color:#909399;padding:0 4px;line-height:1;}
+.cad-close:hover{color:#303133;}
+.cad-body{flex:1;overflow:auto;padding:12px 16px;}
+.cad-footer{padding:10px 16px;border-top:1px solid #e4e7ed;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;}
+.cad-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.cad-tbl th{background:#f5f7fa;border-bottom:2px solid #ddd;padding:6px 8px;text-align:left;white-space:nowrap;color:#555;font-weight:bold;}
+.cad-tbl td{border-bottom:1px solid #eee;padding:5px 8px;vertical-align:middle;}
+.cad-tbl tr:hover td{background:#fafbff;}
+.cad-file-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid #ddd;border-radius:5px;margin-bottom:8px;cursor:pointer;}
+.cad-file-item:hover{background:#f0f5ff;border-color:#4a7cc7;}
+.koji-btn{padding:2px 8px;border:1px solid #1d73cc;background:#f1faff;color:#1d73cc;border-radius:3px;cursor:pointer;font-size:11px;font-family:inherit;font-weight:bold;}
+.koji-btn:hover{background:#1d73cc;color:#fff;}
+
+/* CADから引用: マスタのフォルダ階層＋フル内訳列プレビュー（export-src.dc.html準拠） */
+#cadOverlay .cad-modal{width:1450px;max-width:97vw;}
+.cad-import-tbl thead th{position:sticky;top:0;z-index:3;}
+.cad-import-tbl thead tr:first-child th{top:0;}
+.cad-import-tbl thead tr:last-child th{top:24px;}
+/* 「定価」列までウィンドウ枠を横方向に固定（左端からの累積幅で位置指定） */
+.stk-chk{position:sticky;left:0;z-index:2;}
+.stk-koji{position:sticky;left:28px;z-index:2;}
+.stk-chev{position:sticky;left:92px;z-index:2;}
+.stk-name{position:sticky;left:116px;z-index:2;}
+.stk-spec{position:sticky;left:316px;z-index:2;}
+.stk-rikcad{position:sticky;left:386px;z-index:2;}
+.stk-qty{position:sticky;left:536px;z-index:2;}
+.stk-unit{position:sticky;left:591px;z-index:2;}
+.stk-list{position:sticky;left:641px;z-index:2;border-right:2px solid #8f8f8f !important;}
+/* モーダルフッターのボタンは.pbtn.primaryのmargin-left:autoを打ち消し、隣接配置にする */
+.cad-footer .pbtn{margin-left:0;}
+
+/* 工事選択サブモーダル（工事選択.dc.html準拠） */
+.koji-lead{font-size:13px;color:#333;margin-bottom:12px;}
+.koji-tbl-wrap{border:1px solid #d5d5d5;border-radius:3px;overflow-y:auto;max-height:378px;}
+.koji-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;font-size:13px;color:#222;}
+.koji-tbl th{position:sticky;top:0;z-index:2;background:#f5f8fc;border-bottom:1px solid #d5d5d5;text-align:left;padding:6px 8px;font-weight:bold;color:#333;}
+.koji-tbl td{border-bottom:1px solid #e3e3e3;padding:6px 8px;}
+.koji-row{cursor:default;}
+.koji-row-linked td{background:#eef4fc;}
+.koji-master{font-size:11px;color:#666;}
+.koji-rikcad{font-size:11px;color:#888;}
+.koji-btn-cancel,.koji-btn-save{min-width:100px;padding:7px 22px;font-size:13px;font-weight:bold;border-radius:20px;cursor:pointer;font-family:inherit;}
+.koji-btn-cancel{color:#2f6fd6;background:#fff;border:1px solid #2f6fd6;}
+.koji-btn-cancel:hover{background:#eef4fc;}
+.koji-btn-save{color:#fff;background:#2f6fd6;border:none;}
+.koji-btn-save:hover{background:#245cb5;}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item active" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item hacchukanri" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" onclick="window.location.href='schedule.html'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+<!-- パンくず -->
+<div class="breadcrumb-bar">
+  <span class="crumb">見積管理</span><span class="sep">&gt;</span>
+  <span class="crumb" id="bcProperty">—</span><span class="sep">&gt;</span>
+  <span class="crumb current" id="bcPlan">—</span>
+</div>
+
+<!-- ページタイトル + 情報ボタン -->
+<div class="page-header">
+  <div class="page-title">見積管理</div>
+  <div class="info-btn"><i class="ic">ⓘ</i>物件情報</div>
+  <div class="info-btn"><i class="ic">ⓘ</i>顧客情報</div>
+</div>
+
+<!-- ヘッダーバー：入力欄 + サマリーカード -->
+<div class="header-bar">
+  <div class="hf">
+    <span class="hf-label">台帳No.</span>
+    <input class="hf-input ro" style="width:48px;" id="hfLedgerNo" value="—" readonly>
+  </div>
+  <div class="hf">
+    <span class="hf-label">見積No.</span>
+    <input class="hf-input" style="width:150px;" id="hfEstNo" oninput="state.estNo=this.value">
+  </div>
+  <div class="hf">
+    <span class="hf-label">プラン名</span>
+    <input class="hf-input" style="width:100px;" id="hfPlanName" oninput="state.planName=this.value">
+  </div>
+  <div class="hf">
+    <span class="hf-label">利用テンプレート</span>
+    <div class="hf-select" style="width:120px;" id="hfTemplate">—</div>
+  </div>
+  <div class="zero-wrap">
+    <span class="hf-label">０円非表示</span>
+    <span class="cb"></span>
+    <span class="q-btn">?</span>
+  </div>
+
+  <!-- サマリーカード -->
+  <div class="sum-cards">
+    <div class="sum-card">
+      <div class="sum-head">総合計金額 <span class="q-btn">?</span></div>
+      <div class="sum-val" id="sumTotal">0</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-head">原価合計 <span class="q-btn">?</span></div>
+      <div class="sum-val" id="sumCost">0</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-head">原価率 <span class="q-btn">?</span></div>
+      <div class="sum-val" id="sumCostRate">—</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-head">粗利額 <span class="q-btn">?</span></div>
+      <div class="sum-val" id="sumProfit">0</div>
+    </div>
+    <div class="sum-card emph">
+      <div class="sum-head">粗利率 <span class="q-btn">?</span></div>
+      <div class="sum-val" id="sumProfitRate">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- テーブル -->
+<div class="tbl-wrap">
+<table class="etbl" id="estTable">
+<colgroup>
+  <col style="width:24px">
+  <col style="width:200px">
+  <col style="width:70px">
+  <col style="width:55px">
+  <col style="width:50px">
+  <col style="width:70px">
+  <col style="width:55px">
+  <col style="width:65px">
+  <col style="width:70px">
+  <col style="width:65px">
+  <col style="width:70px">
+  <col style="width:55px">
+  <col style="width:65px">
+  <col style="width:70px">
+  <col style="width:65px">
+  <col style="width:75px">
+  <col style="width:110px">
+  <col style="width:75px">
+  <col style="width:58px">
+  <col style="width:88px">
+  <col style="width:88px">
+  <col style="width:110px">
+</colgroup>
+</table>
+</div>
+
+<!-- アクションボタン -->
+<div class="btn-bar">
+  <button class="pbtn" onclick="openOpMenu()">操作メニュー</button>
+  <button class="pbtn" onclick="notImplemented('CSV入出力')">CSV入出力</button>
+  <button class="pbtn" onclick="notImplemented('メーカー見積')">メーカー見積</button>
+  <button class="pbtn" onclick="notImplemented('マスタから引用')">マスタから引用</button>
+  <button class="pbtn" onclick="notImplemented('履歴から引用')">履歴から引用</button>
+  <button class="pbtn" onclick="openCadImport()">CADから引用</button>
+  <button class="pbtn" onclick="notImplemented('AI書類読込')">AI書類読込</button>
+  <button class="pbtn" onclick="notImplemented('カタログ検索')">カタログ検索</button>
+  <button class="pbtn" onclick="notImplemented('見積書式')">見積書式</button>
+  <button class="pbtn" onclick="notImplemented('帳票出力')">帳票出力</button>
+  <button class="pbtn" onclick="notImplemented('発注管理反映')">発注管理反映</button>
+  <button class="pbtn" onclick="goBackToList()">一覧へ戻る</button>
+  <span class="sel-info" id="selInfo"></span>
+  <button class="pbtn primary" onclick="saveToSupabase()">登録</button>
+</div>
+
+<!-- CADから引用 モーダル -->
+<div class="cad-overlay" id="cadOverlay">
+  <div class="cad-modal">
+    <div class="cad-header">
+      <span class="cad-title" id="cadTitle">CADから引用</span>
+      <button class="cad-close" onclick="closeCadOverlay()">✕</button>
+    </div>
+    <div class="cad-body" id="cadBody"></div>
+    <div class="cad-footer" id="cadFooter"></div>
+  </div>
+</div>
+<!-- 工事選択 サブモーダル -->
+<div class="cad-overlay" id="kojiOverlay" style="z-index:600;">
+  <div class="cad-modal" style="max-width:750px;">
+    <div class="cad-header">
+      <span class="cad-title">工事選択</span>
+      <button class="cad-close" onclick="closeKojiOverlay()">✕</button>
+    </div>
+    <div class="cad-body" id="kojiBody"></div>
+    <div class="cad-footer" id="kojiFooter"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="opMenuOverlay" onclick="closeOpMenu()">
+  <div class="modal-box" id="opMenuBox" onclick="event.stopPropagation()"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== ナビバー：index.htmlへの遷移 ===== */
+function navClick(key) {
+  sessionStorage.setItem('openex_nav_target', key);
+  window.location.href = 'index.html';
+}
+
+/* ---------- Supabase設定（fils_demo） ---------- */
+const SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const H = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };
+
+const urlParams = new URLSearchParams(location.search);
+let estimateId = urlParams.get('estimate_id') || null;
+const baseParams = {
+  property_id:    urlParams.get('property_id') || null,
+  company_id:     urlParams.get('company_id') || null,
+  koujiku:        urlParams.get('koujiku') || null,
+  sales_staff_id: urlParams.get('sales_staff_id') || null,
+  back:           urlParams.get('back') || null,
+};
+const state = { estNo: urlParams.get('estimate_no') || '', planName: urlParams.get('plan_name') || '' };
+
+function goBackToList() {
+  if (baseParams.back) { window.location.href = baseParams.back; return; }
+  if (baseParams.property_id) { window.location.href = `estimate-list.html?property_id=${baseParams.property_id}`; return; }
+  window.location.href = 'estimate-list.html';
+}
+function notImplemented(label) { toast(`「${label}」はこの再現版では未実装です`); }
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function toThousands(v) {
+  if (v === '' || v === null || v === undefined || Number.isNaN(Number(v))) return '';
+  return Math.round(Number(v)).toLocaleString();
+}
+function esc(v) { return String(v ?? '').replace(/"/g, '&quot;'); }
+
+/* ---------- state: 見積行ツリー ---------- */
+let idSeq = 100;
+const FIELD_DEFAULTS = {
+  name: '', spec: '', qty: '', unitCode: '', listPrice: '',
+  rate: '', cost: '', costAmount: '', costRate: '',
+  craftsmanPrice: '', craftsmanAmount: '',
+  bonePrice: '', boneAmount: '',
+  unitPrice: '', amount: '',
+  memo: '', interest: '', interestRate: '',
+  orderWholesaleName: '', orderCraftsmanName: '',
+  note: '',
+};
+const PERSISTED_FIELDS = ['name','spec','qty','unitCode','listPrice','rate','cost','craftsmanPrice','bonePrice','unitPrice','memo','orderWholesaleName','orderCraftsmanName','note'];
+
+function newLeaf(name) {
+  const base = { id: idSeq++, isMain: false, expanded: false, children: [], ...JSON.parse(JSON.stringify(FIELD_DEFAULTS)), name };
+  base._init = JSON.parse(JSON.stringify(base));
+  return base;
+}
+function newFolder(name, children = []) {
+  const base = { id: idSeq++, isMain: true, expanded: true, children, ...JSON.parse(JSON.stringify(FIELD_DEFAULTS)), name };
+  base._init = JSON.parse(JSON.stringify(base));
+  return base;
+}
+let tree = [];
+
+/* ---------- 計算式（estimate-edit.htmlのcalcRow/calcFromRate/calcFromPrice/calcFromCRate/calcFromPRateを再現） ----------
+ * 掛率(rate) ⇔ 単価/提示価格(unitPrice) は 定価(listPrice) を介して連動。
+ * 原価率(costRate) ・ 粗利率(interestRate) は「問屋材仕入れ(cost)＋職人手間(craftsmanPrice)＋骨材料等(bonePrice)」の
+ * 合計（baseSum）を基準に unitPrice を逆算し、そこから掛率も追随する（estimate-master-replus.htmlと同じ考え方）。
+ */
+function recalcRow(row, changedField) {
+  if (row.isMain) return;
+  const qty  = Number(row.qty) || 0;
+  const list = row.listPrice !== '' ? Number(row.listPrice) : NaN;
+  const cost = row.cost !== '' ? Number(row.cost) : NaN;
+  const craftsman = row.craftsmanPrice !== '' ? Number(row.craftsmanPrice) : NaN;
+  const bone = row.bonePrice !== '' ? Number(row.bonePrice) : NaN;
+  const hasAnyCost = row.cost !== '' || row.craftsmanPrice !== '' || row.bonePrice !== '';
+  const baseSum = (isNaN(cost) ? 0 : cost) + (isNaN(craftsman) ? 0 : craftsman) + (isNaN(bone) ? 0 : bone);
+
+  if (changedField === 'unitPrice') {
+    if (!isNaN(list) && list > 0 && row.unitPrice !== '') {
+      row.rate = (Number(row.unitPrice) / list * 100).toFixed(1);
+    }
+  } else if (changedField === 'costRate') {
+    if (row.costRate !== '' && Number(row.costRate) !== 0) {
+      row.unitPrice = Math.round(baseSum / (Number(row.costRate) / 100));
+      if (!isNaN(list) && list > 0) row.rate = (Number(row.unitPrice) / list * 100).toFixed(1);
+    }
+  } else if (changedField === 'interestRate') {
+    if (row.interestRate !== '' && Number(row.interestRate) < 100) {
+      row.unitPrice = Math.round(baseSum / (1 - Number(row.interestRate) / 100));
+      if (!isNaN(list) && list > 0) row.rate = (Number(row.unitPrice) / list * 100).toFixed(1);
+    }
+  } else {
+    // 定価・掛率・数量・原価系(単価)などの変更 → 掛率×定価で単価(提示価格)を再計算
+    if (!isNaN(list) && row.rate !== '') {
+      row.unitPrice = Math.round(list * Number(row.rate) / 100);
+    }
+  }
+
+  const uprice = row.unitPrice !== '' ? Number(row.unitPrice) : NaN;
+  row.costAmount = !isNaN(cost) ? Math.round(qty * cost) : '';
+  row.craftsmanAmount = !isNaN(craftsman) ? Math.round(qty * craftsman) : '';
+  row.boneAmount = !isNaN(bone) ? Math.round(qty * bone) : '';
+  row.amount = !isNaN(uprice) ? Math.round(qty * uprice) : '';
+  const costTotalAmt = (row.costAmount === '' ? 0 : Number(row.costAmount))
+    + (row.craftsmanAmount === '' ? 0 : Number(row.craftsmanAmount))
+    + (row.boneAmount === '' ? 0 : Number(row.boneAmount));
+  row.interest = (row.amount !== '') ? (Number(row.amount) - costTotalAmt) : '';
+
+  if (changedField !== 'costRate') {
+    row.costRate = (hasAnyCost && !isNaN(uprice) && uprice !== 0) ? (baseSum / uprice * 100).toFixed(1) : '';
+  }
+  if (changedField !== 'interestRate') {
+    row.interestRate = (hasAnyCost && !isNaN(uprice) && uprice !== 0) ? ((uprice - baseSum) / uprice * 100).toFixed(1) : '';
+  }
+}
+function recalcAll(nodes) { nodes.forEach(n => { recalcRow(n); if (n.children) recalcAll(n.children); }); }
+
+/* 大項目(フォルダ)の集計: 原価合計・提示金額合計・粗利額・粗利率（都度計算・非保存） */
+function aggregateAmounts(node) {
+  if (!node.isMain) return;
+  let costSum = 0, craftsmanSum = 0, boneSum = 0, amtSum = 0;
+  (node.children || []).forEach(c => {
+    aggregateAmounts(c);
+    costSum += Number(c.costAmount) || 0;
+    craftsmanSum += Number(c.craftsmanAmount) || 0;
+    boneSum += Number(c.boneAmount) || 0;
+    amtSum += Number(c.amount) || 0;
+  });
+  node.costAmount = costSum;
+  node.craftsmanAmount = craftsmanSum;
+  node.boneAmount = boneSum;
+  node.amount = amtSum;
+  node.interest = amtSum - (costSum + craftsmanSum + boneSum);
+  node.interestRate = amtSum ? ((node.interest / amtSum) * 100).toFixed(1) : '';
+}
+function aggregateAll(nodes) { nodes.forEach(n => { if (n.isMain) aggregateAmounts(n); }); }
+/* 総合計（問屋材仕入れ＋職人手間＋骨材料等＝原価合計、客出し金額＝総合計金額） */
+function computeGrandTotal(nodes) {
+  const t = nodes.reduce((s, n) => ({
+    costOnly: s.costOnly + (Number(n.costAmount) || 0),
+    craftsmanOnly: s.craftsmanOnly + (Number(n.craftsmanAmount) || 0),
+    boneOnly: s.boneOnly + (Number(n.boneAmount) || 0),
+    amt: s.amt + (Number(n.amount) || 0),
+  }), { costOnly: 0, craftsmanOnly: 0, boneOnly: 0, amt: 0 });
+  t.cost = t.costOnly + t.craftsmanOnly + t.boneOnly;
+  return t;
+}
+
+const SNAPSHOT_FIELDS = Object.keys(FIELD_DEFAULTS);
+function rebaseInit(nodes) {
+  nodes.forEach(n => {
+    const snap = {};
+    SNAPSHOT_FIELDS.forEach(f => { snap[f] = n[f]; });
+    n._init = snap;
+    if (n.children) rebaseInit(n.children);
+  });
+}
+function isChanged(row, field) { return String(row[field] ?? '') !== String(row._init?.[field] ?? ''); }
+
+/* ---------- Supabase読み込み・保存 ---------- */
+function genShortId() { return Math.random().toString(36).slice(2, 10); }
+
+function rowToNode(r, isMain) {
+  return {
+    id: idSeq++, isMain, expanded: true, children: [],
+    name: r.name || '', spec: r.spec || '',
+    qty: r.qty != null ? String(r.qty) : '',
+    unitCode: r.unit || '',
+    listPrice: r.list_price != null ? String(r.list_price) : '',
+    rate: r.rate != null ? String(r.rate) : '',
+    cost: r.cost != null ? String(r.cost) : '',
+    costAmount: '', costRate: '',
+    craftsmanPrice: r.craftsman_unit_price != null ? String(r.craftsman_unit_price) : '',
+    craftsmanAmount: '',
+    bonePrice: r.bone_unit_price != null ? String(r.bone_unit_price) : '',
+    boneAmount: '',
+    unitPrice: r.unit_price != null ? String(r.unit_price) : '',
+    amount: '',
+    memo: r.memo || '',
+    interest: '', interestRate: '',
+    orderWholesaleName: r.order_wholesale_name || '',
+    orderCraftsmanName: r.order_craftsman_name || '',
+    note: r.note || '',
+  };
+}
+function rowsToTree(rows) {
+  const folderNodes = new Map();
+  const folderParent = new Map();
+  rows.filter(r => r.row_type !== 'row').forEach(r => {
+    folderNodes.set(r.folder_id, rowToNode(r, true));
+    folderParent.set(r.folder_id, r.parent_id);
+  });
+  const roots = [];
+  folderNodes.forEach((node, folderId) => {
+    const parentId = folderParent.get(folderId);
+    if (parentId && folderNodes.has(parentId)) folderNodes.get(parentId).children.push(node);
+    else roots.push(node);
+  });
+  rows.filter(r => r.row_type === 'row').forEach(r => {
+    const node = rowToNode(r, false);
+    if (r.parent_id && folderNodes.has(r.parent_id)) folderNodes.get(r.parent_id).children.push(node);
+    else roots.push(node);
+  });
+  return roots;
+}
+function treeToRows(nodes, estimateIdVal, parentFolderId, level) {
+  let out = [];
+  nodes.forEach((n, idx) => {
+    if (n.isMain) {
+      const folderId = genShortId();
+      out.push({
+        estimate_id: estimateIdVal,
+        row_type: parentFolderId ? 'subcat' : 'cat',
+        name: n.name, spec: null, qty: null, unit: null,
+        list_price: null, rate: null, unit_price: null, cost: null,
+        craftsman_unit_price: null, bone_unit_price: null,
+        order_wholesale_name: null, order_craftsman_name: null,
+        memo: null, note: null,
+        level, folder_id: folderId, parent_id: parentFolderId, sort_order: idx
+      });
+      out = out.concat(treeToRows(n.children, estimateIdVal, folderId, level + 1));
+    } else {
+      out.push({
+        estimate_id: estimateIdVal,
+        row_type: 'row',
+        name: n.name,
+        spec: n.spec || null,
+        qty: n.qty !== '' ? Number(n.qty) : null,
+        unit: n.unitCode || null,
+        list_price: n.listPrice !== '' ? Number(n.listPrice) : null,
+        rate: n.rate !== '' ? Number(n.rate) : null,
+        unit_price: n.unitPrice !== '' ? Number(n.unitPrice) : null,
+        cost: n.cost !== '' ? Number(n.cost) : null,
+        craftsman_unit_price: n.craftsmanPrice !== '' ? Number(n.craftsmanPrice) : null,
+        bone_unit_price: n.bonePrice !== '' ? Number(n.bonePrice) : null,
+        order_wholesale_name: n.orderWholesaleName || null,
+        order_craftsman_name: n.orderCraftsmanName || null,
+        memo: n.memo || null,
+        note: n.note || null,
+        level, folder_id: null, parent_id: parentFolderId, sort_order: idx
+      });
+    }
+  });
+  return out;
+}
+
+async function loadFromSupabase() {
+  try {
+    if (estimateId) {
+      const [er, rr] = await Promise.all([
+        fetch(`${SB}/estimates?id=eq.${estimateId}`, { headers: H }),
+        fetch(`${SB}/estimate_rows?estimate_id=eq.${estimateId}&order=sort_order.asc`, { headers: H }),
+      ]);
+      const ed = er.ok ? await er.json() : [];
+      const est = ed[0];
+      if (!est) {
+        toast('見積データを取得できませんでした');
+        tree = [newFolder('新規大項目')];
+      } else {
+        state.estNo = est.estimate_no || state.estNo;
+        state.planName = est.plan_name || state.planName;
+        document.getElementById('bcPlan').textContent = est.plan_name || est.estimate_no || '—';
+        if (est.property_id) {
+          fetch(`${SB}/properties?id=eq.${est.property_id}&select=name`, { headers: H })
+            .then(r => r.json()).then(d => { if (d[0]) document.getElementById('bcProperty').textContent = d[0].name; })
+            .catch(() => {});
+        }
+        const rows = rr.ok ? await rr.json() : [];
+        tree = rows.length ? rowsToTree(rows) : [newFolder('新規大項目')];
+      }
+    } else {
+      tree = [newFolder('新規大項目')];
+      document.getElementById('bcPlan').textContent = state.planName || '新規見積（未保存）';
+    }
+  } catch (e) {
+    toast('読み込みに失敗しました: ' + e.message);
+    tree = [newFolder('新規大項目')];
+  }
+  recalcAll(tree);
+  rebaseInit(tree);
+  if (tree.length) {
+    anchorId = tree[0].id;
+    selectedIds = new Set(collectWithChildren(tree[0]).map(n => n.id));
+  }
+  document.getElementById('hfEstNo').value = state.estNo;
+  document.getElementById('hfPlanName').value = state.planName;
+  render();
+}
+
+async function saveToSupabase() {
+  try {
+    aggregateAll(tree);
+    const grand = computeGrandTotal(tree);
+    const payload = {
+      estimate_no: state.estNo, plan_name: state.planName,
+      property_id: baseParams.property_id, company_id: baseParams.company_id,
+      koujiku: baseParams.koujiku, sales_staff_id: baseParams.sales_staff_id,
+      total_amount: grand.amt, cost_amount: grand.cost,
+      updated_at: new Date().toISOString(),
+    };
+    if (!estimateId) {
+      const res = await fetch(`${SB}/estimates`, { method: 'POST', headers: { ...H, Prefer: 'return=representation' }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      estimateId = data[0].id;
+      const newParams = new URLSearchParams(location.search);
+      newParams.set('estimate_id', estimateId);
+      history.replaceState(null, '', `?${newParams.toString()}`);
+    } else {
+      const res = await fetch(`${SB}/estimates?id=eq.${estimateId}`, { method: 'PATCH', headers: H, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(await res.text());
+    }
+
+    const rows = treeToRows(tree, estimateId, null, 1);
+    const delRes = await fetch(`${SB}/estimate_rows?estimate_id=eq.${estimateId}`, { method: 'DELETE', headers: H });
+    if (!delRes.ok) throw new Error(await delRes.text());
+    if (rows.length) {
+      const insRes = await fetch(`${SB}/estimate_rows`, { method: 'POST', headers: H, body: JSON.stringify(rows) });
+      if (!insRes.ok) throw new Error(await insRes.text());
+    }
+    toast('保存しました');
+    await loadFromSupabase();
+  } catch (e) {
+    toast('保存に失敗しました: ' + e.message);
+  }
+}
+
+/* ---------- ヘルパー ---------- */
+function findNode(nodes, id, parent = null) {
+  for (const n of nodes) {
+    if (n.id === id) return { node: n, parent, siblings: nodes };
+    if (n.children && n.children.length) {
+      const r = findNode(n.children, id, n);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+function flattenTree(nodes) {
+  let out = [];
+  nodes.forEach(n => { out.push(n); if (n.children && n.children.length) out = out.concat(flattenTree(n.children)); });
+  return out;
+}
+function collectWithChildren(node) {
+  let out = [node];
+  (node.children || []).forEach(c => { out = out.concat(collectWithChildren(c)); });
+  return out;
+}
+
+/* ---------- 選択（クリック / Shift範囲 / Ctrl個別） ---------- */
+let selectedIds = new Set();
+let anchorId = null;
+function onRowClick(id, ev) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const node = found.node;
+  const flat = flattenTree(tree);
+  const curIdx = flat.findIndex(n => n.id === id);
+  if (ev.shiftKey && anchorId != null) {
+    const anchorIdx = flat.findIndex(n => n.id === anchorId);
+    if (anchorIdx >= 0 && curIdx >= 0) {
+      const lo = Math.min(anchorIdx, curIdx), hi = Math.max(anchorIdx, curIdx);
+      selectedIds = new Set(flat.slice(lo, hi + 1).map(n => n.id));
+    }
+  } else if (ev.ctrlKey || ev.metaKey) {
+    const group = collectWithChildren(node).map(n => n.id);
+    if (selectedIds.has(id)) group.forEach(gid => selectedIds.delete(gid));
+    else group.forEach(gid => selectedIds.add(gid));
+    anchorId = id;
+  } else {
+    selectedIds = new Set(collectWithChildren(node).map(n => n.id));
+    anchorId = id;
+  }
+  render();
+}
+function onToggleExpand(id, ev) {
+  if (ev) ev.stopPropagation();
+  const found = findNode(tree, id);
+  if (!found) return;
+  found.node.expanded = !found.node.expanded;
+  render();
+}
+function onFieldChange(id, field, value) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  found.node[field] = value;
+  recalcRow(found.node, field);
+  render();
+}
+
+/* ---------- 行操作 ---------- */
+function addTopFolder() { tree.push(newFolder('新規大項目')); render(); }
+function onRowAdd(id) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const { node, siblings } = found;
+  const targetList = node.isMain ? node.children : siblings;
+  const insertAt = node.isMain ? targetList.length : targetList.indexOf(node) + 1;
+  targetList.splice(insertAt, 0, newLeaf('新規行'));
+  if (node.isMain) node.expanded = true;
+  render();
+}
+function onHierarchyAdd(id) {
+  const found = findNode(tree, id);
+  if (!found) return;
+  const { node } = found;
+  if (!node.isMain) { toast('階層追加は大項目に対してのみ実行できます'); return; }
+  node.children.push(newFolder('新規階層'));
+  node.expanded = true;
+  render();
+}
+function onBulkDelete() {
+  if (selectedIds.size === 0) { toast('行が選択されていません'); return; }
+  const selectedNodes = flattenTree(tree).filter(n => selectedIds.has(n.id));
+  const hasFolder = selectedNodes.some(n => n.isMain);
+  const msg = hasFolder
+    ? '階層を削除すると、その階層に含まれる全ての行も一緒に削除されます。よろしいですか。'
+    : '選択した行を削除します。よろしいですか？';
+  if (!confirm(msg)) return;
+  selectedIds.forEach(id => {
+    const found = findNode(tree, id);
+    if (found) { const idx = found.siblings.indexOf(found.node); if (idx > -1) found.siblings.splice(idx, 1); }
+  });
+  selectedIds = new Set();
+  anchorId = tree.length ? tree[0].id : null;
+  render();
+}
+
+/* ---------- 操作メニュー ---------- */
+function openOpMenu() {
+  const box = document.getElementById('opMenuBox');
+  const canRow = anchorId != null;
+  box.innerHTML = '<div class="modal-title">操作メニュー</div>'
+    + `<button ${canRow ? '' : 'disabled'} onclick="onRowAdd(anchorId);closeOpMenu()">行追加</button>`
+    + `<button ${canRow ? '' : 'disabled'} onclick="onHierarchyAdd(anchorId);closeOpMenu()">階層追加</button>`
+    + `<button onclick="addTopFolder();closeOpMenu()">大項目追加</button>`
+    + `<hr>`
+    + `<button onclick="onBulkDelete();closeOpMenu()">削除</button>`;
+  document.getElementById('opMenuOverlay').classList.add('open');
+}
+function closeOpMenu() { document.getElementById('opMenuOverlay').classList.remove('open'); }
+
+/* ---------- 描画 ---------- */
+function buildCell(row, field, cls, kind) {
+  if (kind === 'amount') {
+    const changed = isChanged(row, field) ? 'changed' : '';
+    const boldCls = row.isMain ? 'bold' : '';
+    return `<input class="cell-input ${cls} ${changed} ${boldCls}" readonly value="${esc(toThousands(row[field]))}" />`;
+  }
+  if (kind === 'rate-amount') {
+    const raw = row[field];
+    const display = raw === '' || raw === null || raw === undefined ? '' : raw + '%';
+    const changed = isChanged(row, field) ? 'changed' : '';
+    const boldCls = row.isMain ? 'bold' : '';
+    return `<input class="cell-input ${cls} ${changed} ${boldCls}" readonly value="${esc(display)}" />`;
+  }
+  // 'edit'（大項目では常に空欄・編集不可）
+  const disabled = row.isMain;
+  const val = disabled ? '' : (row[field] ?? '');
+  const changed = !disabled && isChanged(row, field) ? 'changed' : '';
+  if (disabled) return `<input class="cell-input ${cls} ${changed}" readonly value="" />`;
+  return `<input class="cell-input ${cls} ${changed}" value="${esc(val)}" onclick="event.stopPropagation()" onchange="onFieldChange(${row.id}, '${field}', this.value)" />`;
+}
+function blankCell() { return '<input class="cell-input" readonly value="" />'; }
+
+function buildRow(node, depth) {
+  const indent = depth * 14 + 4;
+  const rowCls = (node.isMain ? (depth === 1 ? 'r-cat' : 'r-sub') : 'r-leaf') + (selectedIds.has(node.id) ? ' r-sel' : '');
+  let html = `<tr class="${rowCls}" onclick="onRowClick(${node.id}, event)">`;
+  const chev = node.isMain
+    ? `<span class="chev" onclick="onToggleExpand(${node.id}, event)">${node.expanded ? '⌄' : '›'}</span>`
+    : `<span class="chev empty">•</span>`;
+  html += `<td class="ac">${chev}</td>`;
+  html += `<td class="al"><div class="name-wrap" style="padding-left:${indent}px;">`;
+  html += node.isMain ? `<span class="fic">📁</span>` : `<span class="tree">├</span>`;
+  const nameChanged = isChanged(node, 'name') ? 'changed' : '';
+  html += `<input class="cell-input ${node.isMain ? 'bold' : ''} ${nameChanged}" style="flex:1;min-width:0;"
+    value="${esc(node.name)}" onclick="event.stopPropagation()" onchange="onFieldChange(${node.id}, 'name', this.value)" />`;
+  html += `</div></td>`;
+
+  html += `<td>${buildCell(node, 'spec', 'al', 'edit')}</td>`;
+  html += `<td>${buildCell(node, 'qty', 'ar', 'edit')}</td>`;
+  html += `<td>${buildCell(node, 'unitCode', 'ac', 'edit')}</td>`;
+  html += `<td>${buildCell(node, 'listPrice', 'ar', 'edit')}</td>`;
+  html += `<td>${buildCell(node, 'rate', 'ar', 'edit')}</td>`;         // 掛率
+  html += `<td>${buildCell(node, 'cost', 'ar', 'edit')}</td>`;         // 問屋材仕入れ-単価(原価)
+  html += `<td>${buildCell(node, 'costAmount', 'ar', 'amount')}</td>`; // 問屋材仕入れ-金額
+  html += `<td>${buildCell(node, 'craftsmanPrice', 'ar', 'edit')}</td>`;    // 職人手間-単価
+  html += `<td>${buildCell(node, 'craftsmanAmount', 'ar', 'amount')}</td>`; // 職人手間-金額
+  html += `<td>${buildCell(node, 'costRate', 'ar', 'edit')}</td>`;    // 原価率
+  html += `<td>${buildCell(node, 'bonePrice', 'ar', 'edit')}</td>`;         // 骨材料等-単価
+  html += `<td>${buildCell(node, 'boneAmount', 'ar', 'amount')}</td>`;      // 骨材料等-金額
+  html += `<td>${buildCell(node, 'unitPrice', 'ar', 'edit')}</td>`;    // 客出し-単価(提示価格)
+  html += `<td>${buildCell(node, 'amount', 'ar', 'amount')}</td>`;     // 客出し-金額
+  html += `<td>${buildCell(node, 'memo', 'al', 'edit')}</td>`;         // 備考
+  html += `<td>${buildCell(node, 'interest', 'ar', 'amount')}</td>`;   // 粗利額
+  html += `<td>${buildCell(node, 'interestRate', 'ac', 'edit')}</td>`; // 粗利率
+  html += `<td>${buildCell(node, 'orderWholesaleName', 'al', 'edit')}</td>`; // 発注先問屋
+  html += `<td>${buildCell(node, 'orderCraftsmanName', 'al', 'edit')}</td>`; // 発注先職人
+  html += `<td>${buildCell(node, 'note', 'al', 'edit')}</td>`;         // 社内メモ
+
+  html += '</tr>';
+  if (node.isMain && node.expanded && node.children.length) {
+    node.children.forEach(c => { html += buildRow(c, depth + 1); });
+  }
+  return html;
+}
+
+function render() {
+  aggregateAll(tree);
+  const grand = computeGrandTotal(tree);
+  const profit = grand.amt - grand.cost;
+  const profitRate = grand.amt > 0 ? (profit / grand.amt * 100) : NaN;
+  const costRate = grand.amt > 0 ? (grand.cost / grand.amt * 100) : NaN;
+  document.getElementById('sumTotal').textContent = toThousands(grand.amt) || '0';
+  document.getElementById('sumCost').textContent = toThousands(grand.cost) || '0';
+  document.getElementById('sumCostRate').textContent = isNaN(costRate) ? '—' : costRate.toFixed(1) + '%';
+  document.getElementById('sumProfit').textContent = toThousands(profit) || '0';
+  document.getElementById('sumProfitRate').textContent = isNaN(profitRate) ? '—' : profitRate.toFixed(1) + '%';
+
+  const table = document.getElementById('estTable');
+  const colgroup = table.querySelector('colgroup').outerHTML;
+  const thead = `<thead>
+<tr>
+  <th class="g-hd" rowspan="2"></th>
+  <th class="g-hd" colspan="5">内訳表</th>
+  <th class="g-hd" colspan="3">問屋材仕入れ</th>
+  <th class="g-hd" colspan="2">職人手間</th>
+  <th class="g-hd" colspan="3">骨材料 等</th>
+  <th class="g-hd" colspan="2">客出し</th>
+  <th class="g-hd" colspan="1">備考</th>
+  <th class="g-hd" colspan="2">粗利額</th>
+  <th class="g-hd" colspan="2">発注先</th>
+  <th class="g-hd" colspan="1">社内メモ</th>
+</tr>
+<tr>
+  <th class="s-hd al">名称</th><th class="s-hd">仕様</th><th class="s-hd">数量</th><th class="s-hd">単位</th><th class="s-hd">定価</th>
+  <th class="s-hd">掛率</th><th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">原価率</th><th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">備考</th>
+  <th class="s-hd">粗利額</th><th class="s-hd">粗利率</th>
+  <th class="s-hd">発注先問屋</th><th class="s-hd">発注先職人</th>
+  <th class="s-hd">備考</th>
+</tr>
+</thead>`;
+  const bodyRows = tree.map(n => buildRow(n, 1)).join('');
+  const footer = `<tr class="r-sum-label"><td colspan="22" class="ac">総計</td></tr>
+<tr class="r-total">
+  <td></td>
+  <td class="al" colspan="5" style="padding-left:6px;">総合計</td>
+  <td></td><td></td><td class="ar">${toThousands(grand.costOnly)}</td>
+  <td></td><td class="ar">${toThousands(grand.craftsmanOnly)}</td>
+  <td></td><td></td><td class="ar">${toThousands(grand.boneOnly)}</td>
+  <td></td><td class="ar">${toThousands(grand.amt)}</td>
+  <td></td>
+  <td class="ar${profit < 0 ? ' red-text' : ''}">${toThousands(profit)}</td>
+  <td class="ac">${isNaN(profitRate) ? '' : profitRate.toFixed(1) + '%'}</td>
+  <td></td><td></td><td></td>
+</tr>`;
+  table.innerHTML = colgroup + thead + `<tbody id="mainTbody">${bodyRows || '<tr><td colspan="22" style="text-align:center;padding:40px 0;color:#bbb;">行がありません</td></tr>'}${footer}</tbody>`;
+
+  const selInfo = document.getElementById('selInfo');
+  if (selInfo) selInfo.textContent = selectedIds.size ? `${selectedIds.size}行選択中` : '';
+}
+
+/* ---------- キーボードナビゲーション（Enter/↑↓で縦移動） ---------- */
+document.getElementById('estTable').addEventListener('keydown', e => {
+  const inp = e.target;
+  if (inp.tagName !== 'INPUT') return;
+  if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+
+  const currentTr = inp.closest('tr');
+  if (!currentTr) return;
+  const currentTd = inp.closest('td');
+  const allTds = [...currentTr.querySelectorAll('td')];
+  const tdIdx = allTds.indexOf(currentTd);
+
+  const allRows = [...document.querySelectorAll('#mainTbody tr')]
+    .filter(tr => tr.classList.contains('r-cat') || tr.classList.contains('r-sub') || tr.classList.contains('r-leaf'));
+  const rowIdx = allRows.indexOf(currentTr);
+  if (rowIdx === -1) return;
+
+  let targetRow = null;
+  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    targetRow = allRows[rowIdx + 1] || null;
+  } else if (e.key === 'ArrowUp') {
+    targetRow = allRows[rowIdx - 1] || null;
+  }
+  if (!targetRow) return;
+
+  const targetTds = [...targetRow.querySelectorAll('td')];
+  const targetTd = targetTds[tdIdx];
+  const targetInp = targetTd?.querySelector('input.cell-input:not([readonly])');
+  if (targetInp) {
+    e.preventDefault();
+    targetInp.focus();
+    targetInp.select?.();
+  }
+});
+
+/* ===== CADから引用 ===== */
+const STORAGE_BASE = 'https://ejxfofwavfypznjdwlpd.supabase.co/storage/v1/object/public/property-files';
+let _cadPropertyId = '';
+let _cadFiles      = [];   // property_files レコード
+let _cadItems      = [];
+let _cadAllMasterRows = []; // master_rows 全行（cat/subcat/row・価格列込み）
+let _cadMasterItemMap = {}; // master_items.id -> name
+let _cadPreviewLeaves = []; // renderCadImportTableで描画中のリーフ行（引用候補）一覧
+let _kojiTargetIdx = -1;
+
+function escHtml(v) {
+  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function cadSpec(item) {
+  const params = item.parameters || '';
+  if ([4,5,6,7].includes(item.type)) {
+    const m = params.match(/ﾒｰｶｰ[：:]\s*([^\n\r、/]+)/);
+    return m ? m[1].trim() : '';
+  }
+  return params;
+}
+
+function cadQtyDisplay(item) {
+  const t = item.type, p = item.parameters || '';
+  if (t === 4) {
+    const mh = p.match(/塀高さ:([\d.]+)m/);
+    const ma = p.match(/基準線面積:([\d.]+)㎡/);
+    const ml = p.match(/基準線長さ:([\d.]+)m/);
+    const parts = [];
+    if (mh) parts.push(`塀高:${mh[1]}m`);
+    if (ma) parts.push(`${ma[1]}㎡`);
+    if (ml) parts.push(`${ml[1]}m`);
+    return parts.join(' / ') || String(item.suuryo ?? 0);
+  }
+  if ([5,6,7].includes(t)) {
+    const ma = p.match(/3D上面積:([\d.]+)㎡/);
+    return ma ? `${ma[1]}㎡` : String(item.suuryo ?? 0);
+  }
+  return String(item.suuryo ?? 0);
+}
+
+function cadQtyUnit(item) {
+  const t = item.type, p = item.parameters || '';
+  if (t === 4) {
+    const ml = p.match(/基準線長さ:([\d.]+)m/);
+    const ma = p.match(/基準線面積:([\d.]+)㎡/);
+    if (ml) return { qty: parseFloat(ml[1]), unit: 'm' };
+    if (ma) return { qty: parseFloat(ma[1]), unit: '㎡' };
+    return { qty: item.suuryo ?? 0, unit: 'm' };
+  }
+  if ([5,6,7].includes(t)) {
+    const ma = p.match(/3D上面積:([\d.]+)㎡/);
+    return { qty: ma ? parseFloat(ma[1]) : (item.suuryo ?? 0), unit: '㎡' };
+  }
+  return { qty: item.suuryo ?? 0, unit: '個' };
+}
+
+function cadQtyRows(item) {
+  const t = item.type, p = item.parameters || '';
+  if (t === 4) {
+    const rows = [];
+    const mh = p.match(/塀高さ:([\d.]+)m/);
+    const ma = p.match(/基準線面積:([\d.]+)㎡/);
+    const ml = p.match(/基準線長さ:([\d.]+)m/);
+    if (mh) rows.push({ qty: parseFloat(mh[1]), unit: 'm', label: '塀高さ' });
+    if (ma) rows.push({ qty: parseFloat(ma[1]), unit: '㎡', label: '基準線面積' });
+    if (ml) rows.push({ qty: parseFloat(ml[1]), unit: 'm', label: '基準線長さ' });
+    return rows.length ? rows : [{ qty: item.suuryo ?? 0, unit: 'm', label: '' }];
+  }
+  if ([5,6,7].includes(t)) {
+    const ma = p.match(/3D上面積:([\d.]+)㎡/);
+    return [{ qty: ma ? parseFloat(ma[1]) : (item.suuryo ?? 0), unit: '㎡', label: '' }];
+  }
+  return [{ qty: item.suuryo ?? 0, unit: '個', label: '' }];
+}
+
+function findAllMasterMatches(name) {
+  const needle = (name || '').trim().toLowerCase();
+  if (!needle) return [];
+  return _cadAllMasterRows.filter(r => {
+    if (r.row_type !== 'row' || !r.rikcad_name) return false;
+    return r.rikcad_name.split(',').map(s => s.trim().toLowerCase()).includes(needle);
+  });
+}
+
+/* 工事行(row)からparent_idを辿ってroot直下までのフォルダ(cat/subcat)行の配列を返す */
+function getAncestorChain(row, allRows) {
+  const folderByFolderId = new Map();
+  allRows.forEach(r => { if (r.row_type !== 'row' && r.folder_id) folderByFolderId.set(r.folder_id, r); });
+  const chain = [];
+  const seen = new Set();
+  let cur = row.parent_id ? folderByFolderId.get(row.parent_id) : null;
+  while (cur && !seen.has(cur.folder_id)) {
+    seen.add(cur.folder_id);
+    chain.unshift(cur);
+    cur = cur.parent_id ? folderByFolderId.get(cur.parent_id) : null;
+  }
+  return chain;
+}
+
+/* CAD引用データ(_cadItems)とマスタ行(全列)から、マスタのフォルダ階層でグループ化したプレビュー木を作る。
+   1つのCAD要素に複数の工事がrikcad_nameで紐づいている場合は、マッチした行ごとに別リーフとして展開する。 */
+function buildCadPreviewTree(cadItems, allMasterRows) {
+  const folderByFolderId = new Map();
+  allMasterRows.forEach(r => { if (r.row_type !== 'row' && r.folder_id) folderByFolderId.set(r.folder_id, r); });
+
+  const folderNodeByFolderId = new Map();
+  const roots = [];
+  function ensureFolderNode(folderId) {
+    if (folderNodeByFolderId.has(folderId)) return folderNodeByFolderId.get(folderId);
+    const row = folderByFolderId.get(folderId);
+    const node = { row, children: [], leaves: [] };
+    folderNodeByFolderId.set(folderId, node);
+    if (row.parent_id && folderByFolderId.has(row.parent_id)) {
+      ensureFolderNode(row.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+    return node;
+  }
+
+  const leaves = [];
+  const looseLeaves = [];
+  cadItems.forEach((item, itemIdx) => {
+    const quRows = cadQtyRows(item);
+    const matches = findAllMasterMatches(item.name);
+    quRows.forEach((qu, subIdx) => {
+      const base = { itemIdx, subIdx, qty: qu.qty, unit: qu.unit, qtyLabel: qu.label, cadName: item.name || '', spec: cadSpec(item) };
+      if (matches.length === 0) {
+        const leaf = { ...base, matchedRow: null };
+        looseLeaves.push(leaf); leaves.push(leaf);
+        return;
+      }
+      matches.forEach(m => {
+        const leaf = { ...base, matchedRow: m };
+        leaves.push(leaf);
+        if (m.parent_id && folderByFolderId.has(m.parent_id)) {
+          ensureFolderNode(m.parent_id).leaves.push(leaf);
+        } else {
+          looseLeaves.push(leaf);
+        }
+      });
+    });
+  });
+
+  return { roots, looseLeaves, leaves };
+}
+
+/* マッチしたマスタ行の単価(cost/craftsman/bone/customer)から、CAD側の数量で見積もった金額・粗利をプレビュー計算する
+   （import後にrecalcAllが行う計算と同じ式。単価⇔掛率等の逆算は行わず、金額の表示のみ） */
+function cadPreviewAmounts(qty, m) {
+  if (!m) return {};
+  const cost = m.unit_price != null ? Number(m.unit_price) : NaN;
+  const craftsman = m.craftsman_unit_price != null ? Number(m.craftsman_unit_price) : NaN;
+  const bone = m.bone_unit_price != null ? Number(m.bone_unit_price) : NaN;
+  const uprice = m.customer_unit_price != null ? Number(m.customer_unit_price) : NaN;
+  const costAmount = !isNaN(cost) ? Math.round(qty * cost) : '';
+  const craftsmanAmount = !isNaN(craftsman) ? Math.round(qty * craftsman) : '';
+  const boneAmount = !isNaN(bone) ? Math.round(qty * bone) : '';
+  const amount = !isNaN(uprice) ? Math.round(qty * uprice) : '';
+  const costTotal = (costAmount === '' ? 0 : costAmount) + (craftsmanAmount === '' ? 0 : craftsmanAmount) + (boneAmount === '' ? 0 : boneAmount);
+  const interest = amount !== '' ? (amount - costTotal) : '';
+  const interestRate = (amount !== '' && amount !== 0) ? ((interest / amount) * 100).toFixed(1) : '';
+  return { costAmount, craftsmanAmount, boneAmount, amount, interest, interestRate };
+}
+
+async function openCadImport() {
+  const propertyId = baseParams.property_id;
+  if (!propertyId) { toast('物件IDが取得できません'); return; }
+  _cadPropertyId = propertyId;
+
+  const body = document.getElementById('cadBody');
+  const footer = document.getElementById('cadFooter');
+  document.getElementById('cadTitle').textContent = 'CADから引用';
+  body.innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
+  footer.innerHTML = '';
+  document.getElementById('cadOverlay').classList.add('open');
+
+  try {
+    const [rowsR, itemsR] = await Promise.all([
+      fetch(`${SB}/master_rows?select=id,master_id,row_type,name,rikcad_name,parent_id,folder_id,level,sort_order,list_price,rate,unit_price,craftsman_unit_price,bone_unit_price,cost_rate,customer_unit_price,order_wholesale_name,order_craftsman_name,line_remark&limit=1000`, { headers: H }),
+      fetch(`${SB}/master_items?select=id,name&limit=1000`, { headers: H }),
+    ]);
+    _cadAllMasterRows = rowsR.ok ? await rowsR.json() : [];
+    _cadMasterItemMap = {};
+    if (itemsR.ok) (await itemsR.json()).forEach(m => { _cadMasterItemMap[m.id] = m.name; });
+  } catch(e) { _cadAllMasterRows = []; _cadMasterItemMap = {}; }
+
+  try {
+    const r = await fetch(
+      `${SB}/property_files?property_id=eq.${propertyId}&name=ilike.*.json&order=created_at.desc&limit=100`,
+      { headers: H }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    _cadFiles = await r.json();
+  } catch(e) {
+    body.innerHTML = `<div style="padding:24px;color:#e02020;">ファイル一覧の取得に失敗しました: ${escHtml(e.message)}</div>`;
+    footer.innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">閉じる</button>';
+    return;
+  }
+
+  if (_cadFiles.length === 0) {
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:13px;">CADから引用データがありません</div>';
+    footer.innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">閉じる</button>';
+    return;
+  }
+
+  if (_cadFiles.length === 1) {
+    await loadCadFile(0);
+  } else {
+    renderFileSelect();
+  }
+}
+
+function renderFileSelect() {
+  document.getElementById('cadTitle').textContent = 'CADから引用 — ファイル選択';
+  let html = '<div style="margin-bottom:10px;font-size:12px;color:#606266;">複数のJSONファイルが見つかりました。引用するファイルを選択してください。</div>';
+  _cadFiles.forEach((f, i) => {
+    const date = f.created_at ? f.created_at.slice(0,16).replace('T',' ') : '';
+    const size = f.size ? `${(f.size/1024).toFixed(1)} KB` : '';
+    html += `<div class="cad-file-item" onclick="loadCadFile(${i})">
+      <span style="font-size:22px;line-height:1;">📄</span>
+      <div style="flex:1;">
+        <div style="font-weight:bold;font-size:12px;">${escHtml(f.name)}</div>
+        <div style="color:#999;font-size:11px;">${date}${size ? ' · ' + size : ''}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('cadBody').innerHTML = html;
+  document.getElementById('cadFooter').innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">キャンセル</button>';
+}
+
+async function loadCadFile(idx) {
+  const f = _cadFiles[idx];
+  document.getElementById('cadTitle').textContent = 'CADから引用';
+  document.getElementById('cadBody').innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
+  document.getElementById('cadFooter').innerHTML = '';
+  try {
+    const r = await fetch(`${STORAGE_BASE}/${f.storage_path}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const text = await r.text();
+    const cleaned = text.replace(/,\s*([}\]])/g, '$1');
+    const data = JSON.parse(cleaned);
+    _cadItems = data.items || (Array.isArray(data) ? data : []);
+    if (!_cadItems.length) throw new Error('データが空です');
+    renderCadImportTable();
+  } catch(e) {
+    document.getElementById('cadBody').innerHTML = `<div style="padding:20px;color:#e02020;">読み込み失敗: ${escHtml(e.message)}</div>`;
+    document.getElementById('cadFooter').innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">閉じる</button>';
+  }
+}
+
+function _cadBlankTds(n) { return '<td></td>'.repeat(n); }
+
+function _cadFolderRowHtml(node, depth) {
+  const indent = depth * 14 + 4;
+  let html = `<tr class="${depth === 1 ? 'r-cat' : 'r-sub'}">`;
+  html += `<td class="stk-chk"></td><td class="stk-koji"></td><td class="ac stk-chev"></td>`;
+  html += `<td class="al stk-name"><div class="name-wrap" style="padding-left:${indent}px;"><span class="fic">📁</span><span>${escHtml(node.row.name || '')}</span></div></td>`;
+  html += `<td class="al stk-spec"></td><td class="al stk-rikcad"></td><td class="ar stk-qty"></td><td class="ac stk-unit"></td><td class="ar stk-list"></td>`;
+  html += _cadBlankTds(16);
+  html += '</tr>';
+  node.children.forEach(c => { html += _cadFolderRowHtml(c, depth + 1); });
+  node.leaves.forEach(l => { html += _cadLeafRowHtml(l, depth + 1); });
+  return html;
+}
+
+function _cadLeafRowHtml(leaf, depth) {
+  const idx = _cadPreviewLeaves.length;
+  _cadPreviewLeaves.push(leaf);
+  const m = leaf.matchedRow;
+  const amt = cadPreviewAmounts(leaf.qty, m);
+  const indent = depth * 14 + 4;
+  const nameHtml = m
+    ? `<span class="tree">├</span><span>${escHtml(m.name || '')}</span>`
+    : `<span class="tree">├</span><span style="color:#999;font-style:italic;">${escHtml(leaf.cadName)}（未登録）</span>`;
+  const qtyHtml = `${esc(leaf.qty)}${leaf.qtyLabel ? `<br><span style="font-size:9px;color:#999;">${escHtml(leaf.qtyLabel)}</span>` : ''}`;
+  let html = '<tr class="r-leaf">';
+  html += `<td class="ac stk-chk"><input type="checkbox" class="cad-chk" data-leaf-idx="${idx}" checked></td>`;
+  html += `<td class="ac stk-koji"><button class="koji-btn" onclick="openKojiSelect(${leaf.itemIdx})">工事選択</button></td>`;
+  html += `<td class="ac stk-chev"><span class="chev empty">•</span></td>`;
+  html += `<td class="al stk-name"><div class="name-wrap" style="padding-left:${indent}px;">${nameHtml}</div></td>`;
+  html += `<td class="al stk-spec">${escHtml(leaf.spec)}</td>`;
+  html += `<td class="al stk-rikcad">${escHtml(leaf.cadName)}</td>`;
+  html += `<td class="ar stk-qty">${qtyHtml}</td>`;
+  html += `<td class="ac stk-unit">${escHtml(leaf.unit)}</td>`;
+  html += `<td class="ar stk-list">${esc(toThousands(m?.list_price))}</td>`;
+  html += `<td class="ar">${m?.rate != null ? esc(m.rate) + '%' : ''}</td>`;
+  html += `<td class="ar">${esc(toThousands(m?.unit_price))}</td>`;
+  html += `<td class="ar">${esc(toThousands(amt.costAmount))}</td>`;
+  html += `<td class="ar">${esc(toThousands(m?.craftsman_unit_price))}</td>`;
+  html += `<td class="ar">${esc(toThousands(amt.craftsmanAmount))}</td>`;
+  html += `<td class="ar">${m?.cost_rate != null ? esc(m.cost_rate) + '%' : ''}</td>`;
+  html += `<td class="ar">${esc(toThousands(m?.bone_unit_price))}</td>`;
+  html += `<td class="ar">${esc(toThousands(amt.boneAmount))}</td>`;
+  html += `<td class="ar">${esc(toThousands(m?.customer_unit_price))}</td>`;
+  html += `<td class="ar">${esc(toThousands(amt.amount))}</td>`;
+  html += `<td class="al">${escHtml(m?.line_remark || '')}</td>`;
+  html += `<td class="ar">${esc(toThousands(amt.interest))}</td>`;
+  html += `<td class="ac">${amt.interestRate !== '' && amt.interestRate !== undefined ? esc(amt.interestRate) + '%' : ''}</td>`;
+  html += `<td class="al">${escHtml(m?.order_wholesale_name || '')}</td>`;
+  html += `<td class="al">${escHtml(m?.order_craftsman_name || '')}</td>`;
+  html += `<td class="al">${escHtml(leaf.cadName)}</td>`;
+  html += '</tr>';
+  return html;
+}
+
+function renderCadImportTable() {
+  const { roots, looseLeaves } = buildCadPreviewTree(_cadItems, _cadAllMasterRows);
+  _cadPreviewLeaves = [];
+
+  let rowsHtml = '';
+  roots.forEach(r => { rowsHtml += _cadFolderRowHtml(r, 1); });
+  looseLeaves.forEach(l => { rowsHtml += _cadLeafRowHtml(l, 1); });
+  if (!rowsHtml) {
+    rowsHtml = '<tr><td colspan="25" style="text-align:center;padding:32px 0;color:#bbb;">引用できる項目がありません</td></tr>';
+  }
+
+  const colgroupHtml = `<colgroup>
+    <col style="width:28px"><col style="width:64px"><col style="width:24px">
+    <col style="width:200px"><col style="width:70px"><col style="width:150px"><col style="width:55px"><col style="width:50px">
+    <col style="width:70px"><col style="width:55px"><col style="width:65px"><col style="width:70px">
+    <col style="width:65px"><col style="width:70px"><col style="width:55px"><col style="width:65px">
+    <col style="width:70px"><col style="width:65px"><col style="width:75px"><col style="width:110px">
+    <col style="width:75px"><col style="width:58px"><col style="width:88px"><col style="width:88px">
+    <col style="width:110px">
+  </colgroup>`;
+
+  const theadHtml = `<thead>
+<tr>
+  <th class="g-hd stk-chk" rowspan="2"><input type="checkbox" checked onchange="document.querySelectorAll('.cad-chk').forEach(c=>c.checked=this.checked)"></th>
+  <th class="g-hd stk-koji" rowspan="2"></th>
+  <th class="g-hd stk-chev" rowspan="2"></th>
+  <th class="g-hd stk-name" colspan="6">内訳表</th>
+  <th class="g-hd" colspan="3">問屋材仕入れ</th>
+  <th class="g-hd" colspan="2">職人手間</th>
+  <th class="g-hd" colspan="3">骨材料 等</th>
+  <th class="g-hd" colspan="2">客出し</th>
+  <th class="g-hd" colspan="1">備考</th>
+  <th class="g-hd" colspan="2">粗利額</th>
+  <th class="g-hd" colspan="2">発注先</th>
+  <th class="g-hd" colspan="1">社内メモ</th>
+</tr>
+<tr>
+  <th class="s-hd al stk-name">名称</th><th class="s-hd al stk-spec">仕様</th><th class="s-hd al stk-rikcad">RIKCAD材料名</th><th class="s-hd stk-qty">数量</th><th class="s-hd stk-unit">単位</th><th class="s-hd stk-list">定価</th>
+  <th class="s-hd">掛率</th><th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">原価率</th><th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">単価</th><th class="s-hd">金額</th>
+  <th class="s-hd">備考</th>
+  <th class="s-hd">粗利額</th><th class="s-hd">粗利率</th>
+  <th class="s-hd">発注先問屋</th><th class="s-hd">発注先職人</th>
+  <th class="s-hd">備考</th>
+</tr>
+</thead>`;
+
+  document.getElementById('cadBody').innerHTML = `
+    <div style="margin-bottom:8px;font-size:12px;color:#606266;">引用する行を選択して「引用」をクリックしてください。マスタのフォルダに紐づいた工事はグループ表示されます。「工事選択」でマスタとの紐づけを設定できます。</div>
+    <div class="tbl-wrap" style="max-height:60vh;">
+    <table class="etbl cad-import-tbl">
+      ${colgroupHtml}
+      ${theadHtml}
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    </div>`;
+  document.getElementById('cadFooter').innerHTML =
+    '<button class="pbtn" onclick="closeCadOverlay()">キャンセル</button>' +
+    '<button class="pbtn primary" onclick="applyCadImport()">引用</button>';
+}
+
+function closeCadOverlay() {
+  document.getElementById('cadOverlay').classList.remove('open');
+}
+
+async function openKojiSelect(itemIdx) {
+  _kojiTargetIdx = itemIdx;
+  document.getElementById('kojiFooter').innerHTML = '';
+  document.getElementById('kojiOverlay').classList.add('open');
+  renderKojiTable(_cadItems[itemIdx]?.name || '');
+}
+
+function renderKojiTable(rikcadName) {
+  const needle = (rikcadName || '').trim();
+  const rows = _cadAllMasterRows.filter(r => r.row_type === 'row');
+  const tbody = rows.map(r => {
+    const linked = r.rikcad_name
+      ? r.rikcad_name.split(',').map(s => s.trim()).includes(needle)
+      : false;
+    return `<tr class="koji-row${linked ? ' koji-row-linked' : ''}">
+      <td class="ac"><input type="checkbox" class="koji-chk" data-row-id="${r.id}" ${linked ? 'checked' : ''}></td>
+      <td class="koji-master">${escHtml(_cadMasterItemMap[r.master_id] || '')}</td>
+      <td>${escHtml(r.name || '')}</td>
+      <td class="koji-rikcad">${escHtml(r.rikcad_name || '')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('kojiBody').innerHTML = `
+    <div class="koji-lead">「<strong>${escHtml(needle)}</strong>」を紐づける工事行にチェックを入れてください。</div>
+    <div class="koji-tbl-wrap">
+    <table class="koji-tbl">
+      <thead><tr>
+        <th class="ac" style="width:40px;"><input type="checkbox" onchange="document.querySelectorAll('.koji-chk').forEach(c=>c.checked=this.checked)"></th>
+        <th style="width:102px;">マスタ名</th>
+        <th style="width:270px;">工事名称</th>
+        <th>現在のRIKCAD材料名</th>
+      </tr></thead>
+      <tbody>${tbody || '<tr><td colspan="4" style="text-align:center;color:#999;padding:24px;">マスタに工事行がありません</td></tr>'}</tbody>
+    </table>
+    </div>`;
+  document.getElementById('kojiFooter').innerHTML =
+    '<button class="koji-btn-cancel" onclick="closeKojiOverlay()">キャンセル</button>' +
+    '<button class="koji-btn-save" id="kojiSaveBtn" onclick="saveKojiLinks()">選択</button>';
+}
+
+function closeKojiOverlay() {
+  document.getElementById('kojiOverlay').classList.remove('open');
+}
+
+async function saveKojiLinks() {
+  if (_kojiTargetIdx < 0) return;
+  const rikcadName = (_cadItems[_kojiTargetIdx]?.name || '').trim();
+  const btn = document.getElementById('kojiSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+
+  let errCount = 0;
+  for (const chk of document.querySelectorAll('.koji-chk')) {
+    const row = _cadAllMasterRows.find(r => String(r.id) === String(chk.dataset.rowId));
+    if (!row) continue;
+    const existing = (row.rikcad_name || '').split(',').map(s => s.trim()).filter(Boolean);
+    const hasIt = existing.includes(rikcadName);
+    let newList = [...existing];
+    if (chk.checked && !hasIt) { newList.push(rikcadName); }
+    else if (!chk.checked && hasIt) { newList = newList.filter(s => s !== rikcadName); }
+    else { continue; }
+
+    const newVal = newList.join(',');
+    try {
+      const res = await fetch(`${SB}/master_rows?id=eq.${row.id}`, {
+        method: 'PATCH', headers: H, body: JSON.stringify({ rikcad_name: newVal })
+      });
+      if (res.ok) { row.rikcad_name = newVal; }
+      else errCount++;
+    } catch(e) { errCount++; }
+  }
+
+  closeKojiOverlay();
+  toast(errCount > 0 ? `${errCount}件の保存に失敗しました` : '工事との紐づけを保存しました');
+  renderCadImportTable();
+}
+
+function applyCadImport() {
+  const checked = [...document.querySelectorAll('.cad-chk:checked')];
+  if (!checked.length) { toast('行を選択してください'); return; }
+
+  // node側フィールド(camelCase) ⇔ master_rows列(snake_case)の対応。
+  // customer_unit_price(客出し単価)はcost_rateから独立して算出済みの値なので、
+  // 後段でrecalcRow(n,'unitPrice')により明示的に再適用する（定価×掛率での上書きを防ぐ）。
+  const FIELD_MAP = {
+    listPrice: 'list_price', rate: 'rate', cost: 'unit_price',
+    craftsmanPrice: 'craftsman_unit_price', bonePrice: 'bone_unit_price',
+    costRate: 'cost_rate', unitPrice: 'customer_unit_price',
+    orderWholesaleName: 'order_wholesale_name', orderCraftsmanName: 'order_craftsman_name',
+    memo: 'line_remark',
+  };
+
+  const newNodes = [];
+  const matchedPairs = [];
+  for (const chk of checked) {
+    const leaf = _cadPreviewLeaves[parseInt(chk.dataset.leafIdx)];
+    if (!leaf) continue;
+    const m = leaf.matchedRow;
+    // マスタ未登録(m===null)の場合は、名称にCAD側のRIKCAD材料名をそのまま反映する
+    const n = newLeaf(m ? (m.name || '') : (leaf.cadName || ''));
+    n.spec = leaf.spec;
+    n.qty = String(leaf.qty);
+    n.unitCode = leaf.unit;
+    n.note = leaf.cadName || '';
+    if (m) {
+      Object.entries(FIELD_MAP).forEach(([nodeField, dbField]) => {
+        if (m[dbField] != null) n[nodeField] = String(m[dbField]);
+      });
+      if (m.customer_unit_price != null) matchedPairs.push({ node: n, customerPrice: String(m.customer_unit_price) });
+    }
+    newNodes.push(n);
+  }
+  if (!newNodes.length) { toast('挿入できる行がありません'); return; }
+
+  let target = null;
+  if (anchorId != null) {
+    const found = findNode(tree, anchorId);
+    if (found) target = found.node.isMain ? found.node : (found.parent || null);
+  }
+  if (!target) target = tree.find(n => n.isMain) || null;
+
+  if (target) {
+    newNodes.forEach(n => target.children.push(n));
+    target.expanded = true;
+  } else {
+    newNodes.forEach(n => tree.push(n));
+  }
+  recalcAll(tree);
+  matchedPairs.forEach(({ node, customerPrice }) => {
+    node.unitPrice = customerPrice;
+    recalcRow(node, 'unitPrice');
+  });
+  rebaseInit(tree); render();
+  closeCadOverlay();
+  toast(`${newNodes.length}行を追加しました`);
+}
+
+loadFromSupabase();
+</script>
+
+</body>
+</html>

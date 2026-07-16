@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <title>工事収支 - OPEN EX</title>
+  <style>
+    :root {
+      --primary-blue: #00a1e9;
+      --text-main: #333;
+      --text-muted: #666;
+      --border-color: #e0e4e8;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #f4f7f9; color: #333; min-height: 100vh; }
+
+    /* ===== ナビバー ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right {
+      display: flex; align-items: center;
+      margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+    }
+
+    /* ===== ページ本体 ===== */
+    .page-body { background: #f4f7f9; min-height: calc(100vh - 48px); margin-top: 48px; padding-bottom: 48px; }
+    .page-width { width: min(1400px, 95vw); margin: 0 auto; padding: 20px 0 0; }
+
+    /* ===== パンくず ===== */
+    .breadcrumb { font-size: 12px; color: var(--primary-blue); margin-bottom: 10px; }
+    .breadcrumb a { color: var(--primary-blue); cursor: pointer; text-decoration: none; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb span { color: #333; margin-left: 5px; }
+
+    /* ===== ヘッダー行 ===== */
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .title-block { display: flex; align-items: center; gap: 16px; }
+    .title-block h1 { font-size: 20px; font-weight: 700; }
+    .mgmt-btns { display: flex; gap: 8px; }
+    .mgmt-btn {
+      background: #fff; border: 1px solid #ccc; padding: 5px 14px;
+      border-radius: 15px; font-size: 12px; color: #666; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .mgmt-btn:hover { background: #f0f7ff; color: var(--primary-blue); border-color: var(--primary-blue); }
+    .action-right { display: flex; align-items: center; gap: 10px; }
+    .edit-btn {
+      background: #fff; border: 1px solid #ccc; padding: 8px 16px; border-radius: 4px;
+      font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px;
+      cursor: pointer; font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .edit-btn:hover { background: #f5f5f5; }
+    .more-btn {
+      background: #fff; border: 1px solid #ccc; padding: 8px 12px; border-radius: 4px;
+      font-size: 16px; color: #aaa; cursor: pointer; display: flex; align-items: center;
+      transition: background 0.15s;
+    }
+    .more-btn:hover { background: #f5f5f5; color: #555; }
+
+    /* ===== タブ ===== */
+    .tabs { width: min(1400px, 95vw); margin: 0 auto 20px; border-bottom: 1px solid #ddd; display: flex; gap: 28px; }
+    .tab {
+      padding: 10px 0; font-size: 13px; color: #666; cursor: pointer;
+      border-bottom: 3px solid transparent; font-weight: 700;
+      text-decoration: none; display: block; white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .tab.active { color: var(--primary-blue); border-bottom-color: var(--primary-blue); }
+    .tab:hover:not(.active) { color: #333; }
+
+    /* ===== コンテンツ共通 ===== */
+    .content { width: min(1400px, 95vw); margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    /* ===== セクションヘッダー ===== */
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px 15px; border-bottom: 1px solid var(--border-color);
+    }
+    .section-label { display: flex; align-items: center; gap: 10px; }
+    .section-bar { width: 4px; height: 16px; background: var(--primary-blue); border-radius: 2px; flex-shrink: 0; }
+    .section-title { font-size: 15px; font-weight: 700; color: #333; }
+    .section-sub { font-size: 12px; color: #888; margin-left: 2px; }
+
+    /* ===== サマリーカード ===== */
+    .summary-row { display: flex; gap: 16px; }
+    .summary-card {
+      flex: 1; background: #fff; border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .summary-label { font-size: 12px; color: #888; }
+    .summary-amount { font-size: 22px; font-weight: 700; color: #333; }
+    .summary-amount.positive { color: #1e7e34; }
+    .summary-sub { font-size: 12px; color: #aaa; }
+    .progress-bar { height: 6px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+    .progress-fill { background: var(--primary-blue); height: 100%; border-radius: 4px; }
+    .progress-label { display: flex; align-items: baseline; gap: 6px; }
+    .progress-main { font-size: 22px; font-weight: 700; color: #333; }
+    .progress-total { font-size: 13px; color: #aaa; }
+
+    /* ===== 工事収支タイトル行 ===== */
+    .content-title-row { display: flex; align-items: flex-end; justify-content: space-between; }
+    .content-title { font-size: 18px; font-weight: 700; color: #333; }
+    .content-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
+    .btn-row { display: flex; gap: 8px; align-items: center; }
+    .btn-outline {
+      background: #fff; border: 1px solid #ccc; padding: 7px 14px; border-radius: 4px;
+      font-size: 13px; color: #555; cursor: pointer; display: flex; align-items: center; gap: 6px;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .btn-outline:hover { background: #f5f5f5; }
+    .btn-primary {
+      background: var(--primary-blue); border: none; padding: 7px 16px; border-radius: 4px;
+      font-size: 13px; color: #fff; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'Noto Sans JP', sans-serif; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+
+    /* ===== 工期情報 ===== */
+    .kouki-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+    .kouki-dates { display: flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+    .kouki-cell {
+      flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+      border-right: 1px solid var(--border-color);
+    }
+    .kouki-cell:last-child { border-right: none; }
+    .kouki-cell.alt { background: #f8f9fa; }
+    .kouki-cell-label { font-size: 12px; color: #888; }
+    .kouki-cell-val { font-size: 17px; font-weight: 700; color: #333; }
+    .kouki-cell-val.muted { color: #aaa; font-size: 14px; }
+    .date-input {
+      font-size: 17px; font-weight: 700; color: #333;
+      border: none; border-bottom: 2px solid transparent;
+      background: transparent; outline: none;
+      font-family: 'Noto Sans JP', sans-serif;
+      width: 100%; padding: 1px 0;
+      transition: border-color 0.15s;
+    }
+    .date-input:hover { border-bottom-color: #ddd; }
+    .date-input:focus { border-bottom-color: var(--primary-blue); color: #333; }
+    .date-input::placeholder { color: #bbb; font-size: 14px; font-weight: 400; }
+    .kouki-meta { display: flex; gap: 20px; align-items: center; }
+    .kouki-meta-item { font-size: 13px; color: #666; }
+    .kouki-meta-item strong { color: #333; }
+    .kouki-meta-item.blue strong { color: var(--primary-blue); }
+    .kouki-status-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #666; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary-blue); display: inline-block; }
+    .kouki-progress-outer { display: flex; flex-direction: column; gap: 6px; }
+    .kouki-date-labels { display: flex; justify-content: space-between; }
+    .kouki-date-label { font-size: 12px; color: #888; }
+    .kouki-date-today { font-size: 12px; font-weight: 700; color: var(--primary-blue); }
+    .kouki-bar-wrap { position: relative; }
+    .kouki-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+    .kouki-bar-fill { height: 100%; background: linear-gradient(to right, var(--primary-blue), #4cbce8); border-radius: 5px; }
+    .kouki-marker { position: absolute; top: -18px; left: 64%; display: flex; flex-direction: column; align-items: center; }
+    .kouki-marker-line { width: 1px; height: 28px; background: #555; }
+
+    /* ===== テーブル共通 ===== */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      text-align: left; font-size: 12px; font-weight: 500; color: #888;
+      padding: 10px 12px; background: #f8f9fa;
+    }
+    .data-table th.r { text-align: right; }
+    .data-table td { padding: 14px 12px; font-size: 13px; color: #333; border-top: 1px solid var(--border-color); }
+    .data-table td.r { text-align: right; }
+    .data-table td.muted { color: #aaa; }
+    .data-table tfoot td { background: #f8f9fa; font-weight: 700; border-top: 2px solid var(--border-color); }
+    .data-table thead tr { border-bottom: 1px solid var(--border-color); }
+
+    /* ===== バッジ ===== */
+    .badge { font-size: 11px; padding: 3px 9px; border-radius: 3px; display: inline-block; white-space: nowrap; }
+    .badge-paid   { background: #e6f4ea; color: #1e7e34; }
+    .badge-unpaid { background: #f0f0f0; color: #888; }
+    .badge-unordered { background: #fde8e8; color: #c0392b; }
+    .badge-waiting   { background: #e8f5fe; color: var(--primary-blue); }
+    .badge-pdf       { background: #f0f0f0; color: #777; }
+
+    /* ===== 行追加 ===== */
+    .add-row-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 4px; color: var(--primary-blue);
+      font-size: 13px; background: transparent; border: none; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .add-row-btn:hover { background: #e8f5fe; }
+    .new-row-input {
+      font-size: 13px; color: #333; border: none; border-bottom: 1px solid var(--border-color);
+      background: transparent; outline: none; font-family: 'Noto Sans JP', sans-serif;
+    }
+    .new-row-input::placeholder { color: #ccc; }
+    .delete-link { font-size: 12px; color: #e53935; background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+    .delete-link:hover { opacity: 0.7; }
+
+    /* ===== 発注テーブル ===== */
+    .order-name { font-size: 12.5px; font-weight: 500; color: #333; }
+    .order-no   { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .attach-cell { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 12px; color: #888; }
+
+    /* ===== 発注フィルタ ===== */
+    .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .filter-group { display: flex; align-items: center; gap: 5px; }
+    .filter-label { font-size: 11px; color: #888; white-space: nowrap; }
+    .filter-select {
+      height: 28px; padding: 0 6px; border: 1px solid var(--border-color); border-radius: 4px;
+      font-size: 12px; color: #333; font-family: 'Noto Sans JP', sans-serif;
+      background: #fff; outline: none; cursor: pointer; max-width: 140px;
+    }
+    .filter-select:focus { border-color: var(--primary-blue); }
+    .order-total-badge {
+      display: flex; align-items: center; gap: 5px;
+      background: #f0f8ff; border: 1px solid #c8e6f8;
+      border-radius: 5px; padding: 3px 10px; font-size: 11px; color: #555; white-space: nowrap;
+    }
+    .order-total-badge strong { color: var(--primary-blue); font-size: 13px; font-weight: 700; }
+    .order-total-badge strong.diff-negative { color: #c0392b; }
+    .order-total-badge strong.diff-positive { color: #1e7e34; }
+    .order-row-hidden { display: none !important; }
+
+    /* ===== フッター ===== */
+    .page-footer { text-align: right; font-size: 11px; color: #aaa; padding: 6px 0; }
+
+    /* ===== 入金進捗ヘッダー集計 ===== */
+    .payment-summary { display: flex; gap: 10px; align-items: center; }
+    .payment-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 11px; border-radius: 5px; font-size: 12px;
+    }
+    .payment-badge.grey { background: #f0f2f4; color: #4a5158; }
+    .payment-badge.blue { background: #e8f5fe; color: var(--primary-blue); }
+    .payment-badge strong { font-size: 12px; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item" data-nav="keiyaku" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      契約管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+<div class="page-body">
+
+  <!-- ===== ヘッダー ===== -->
+  <div class="page-width">
+    <div class="breadcrumb">
+      <a href="index.html">物件一覧</a> &gt;
+      <a id="bcPropLink" href="index.html"><span id="bcPropName">物件</span></a> &gt;
+      <span>工事収支</span>
+    </div>
+    <div class="header-row">
+      <div class="title-block">
+        <h1>物件参照</h1>
+        <div class="mgmt-btns">
+          <button class="mgmt-btn" id="btnEstimate"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--primary-blue);"></i> 見積管理</button>
+          <button class="mgmt-btn"><i class="fa-solid fa-cart-shopping" style="color:var(--primary-blue);"></i> 発注管理</button>
+          <button class="mgmt-btn" id="btnShodan"><i class="fa-solid fa-clipboard-check" style="color:var(--primary-blue);"></i> 商談管理</button>
+          <button class="mgmt-btn"><i class="fa-solid fa-link" style="color:var(--primary-blue);"></i></button>
+        </div>
+      </div>
+      <div class="action-right">
+        <button class="edit-btn"><i class="fa-solid fa-pen"></i> 物件を編集</button>
+        <button class="more-btn"><i class="fa-solid fa-ellipsis-h"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== タブ ===== -->
+  <div class="tabs">
+    <a class="tab" href="index.html">ファイル</a>
+    <a class="tab" href="index.html">物件・顧客情報</a>
+    <a class="tab" href="index.html">更新履歴</a>
+    <a class="tab" href="index.html">参加者</a>
+    <a class="tab" href="index.html">物件チャット</a>
+    <a class="tab active" href="#">工事収支</a>
+  </div>
+
+  <!-- ===== メインコンテンツ ===== -->
+  <div class="content">
+
+    <!-- 工事収支タイトル行 -->
+    <div class="content-title-row">
+      <div>
+        <div class="content-title">工事収支</div>
+        <div class="content-subtitle" id="contentSubtitle">— ／ 物件コード —</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-outline" onclick="downloadGenkaDaichou()"><i class="fa-solid fa-file-export" style="color:var(--primary-blue);font-size:12px;"></i> 原価台帳出力</button>
+      </div>
+    </div>
+
+    <!-- サマリーカード4枚 -->
+    <div class="summary-row">
+      <div class="summary-card">
+        <div class="summary-label">請負金額（税抜）</div>
+        <div class="summary-amount">¥12,800,000</div>
+        <div class="summary-sub" style="display:flex;justify-content:space-between;">
+          <span>契約日 2026/03/22</span>
+          <span>税込 ¥14,080,000</span>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">原価</div>
+        <div class="summary-amount">¥9,450,000</div>
+        <div class="summary-sub">発注済 ¥4,970,000</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">粗利（予定）</div>
+        <div class="summary-amount positive">¥3,350,000</div>
+        <div class="summary-sub">粗利率 26.2%</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">入金進捗</div>
+        <div class="progress-label">
+          <span class="progress-main">¥8,800,000</span>
+          <span class="progress-total">/ ¥14,080,000</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:63%;"></div></div>
+      </div>
+    </div>
+
+    <!-- 工期情報 -->
+    <div class="card">
+      <div class="section-head">
+        <div class="section-label">
+          <div class="section-bar"></div>
+          <span class="section-title">工期情報</span>
+        </div>
+      </div>
+      <div class="kouki-body">
+        <div class="kouki-dates">
+          <div class="kouki-cell">
+            <div class="kouki-cell-label">着工予定</div>
+            <input class="date-input" type="text" value="2026/04/01" placeholder="yyyy/mm/dd">
+          </div>
+          <div class="kouki-cell alt">
+            <div class="kouki-cell-label">着工実績</div>
+            <input class="date-input" type="text" value="2026/04/05" placeholder="yyyy/mm/dd">
+          </div>
+          <div class="kouki-cell">
+            <div class="kouki-cell-label">完成予定</div>
+            <input class="date-input" type="text" value="2026/08/31" placeholder="yyyy/mm/dd">
+          </div>
+          <div class="kouki-cell alt">
+            <div class="kouki-cell-label">完成実績</div>
+            <input class="date-input" type="text" value="" placeholder="yyyy/mm/dd（進行中）">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 入金管理 -->
+    <div class="card">
+      <div class="section-head">
+        <div class="section-label">
+          <div class="section-bar"></div>
+          <span class="section-title">入金管理</span>
+        </div>
+        <div class="payment-summary">
+          <div class="payment-badge grey">
+            <span>入金予定</span>
+            <strong>¥14,080,000</strong>
+          </div>
+          <div class="payment-badge blue">
+            <span>入金実績</span>
+            <strong>¥8,800,000</strong>
+          </div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:130px; padding-left:20px;">名目</th>
+            <th class="r" style="width:160px;">予定金額</th>
+            <th style="width:140px;">予定日</th>
+            <th class="r" style="width:160px;">実績金額</th>
+            <th style="width:140px;">入金日</th>
+            <th style="width:140px;">ステータス</th>
+            <th style="width:120px; padding-right:20px;"></th>
+          </tr>
+        </thead>
+        <tbody id="payment-tbody">
+          <tr>
+            <td style="padding-left:20px;">着手金</td>
+            <td class="r">¥4,400,000</td>
+            <td class="muted">2026/04/10</td>
+            <td class="r" style="font-weight:700;">¥4,400,000</td>
+            <td class="muted">2026/04/10</td>
+            <td><span class="badge badge-paid">入金済</span></td>
+            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書</a></td>
+          </tr>
+          <tr>
+            <td style="padding-left:20px;">中間金</td>
+            <td class="r">¥4,400,000</td>
+            <td class="muted">2026/06/30</td>
+            <td class="r" style="font-weight:700;">¥4,400,000</td>
+            <td class="muted">2026/06/28</td>
+            <td><span class="badge badge-paid">入金済</span></td>
+            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書</a></td>
+          </tr>
+          <tr>
+            <td style="padding-left:20px;">完成金</td>
+            <td class="r">¥5,280,000</td>
+            <td class="muted">2026/09/15</td>
+            <td class="r muted">—</td>
+            <td class="muted">—</td>
+            <td><span class="badge badge-unpaid">未入金</span></td>
+            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書発行</a></td>
+          </tr>
+        </tbody>
+        <tbody>
+          <tr>
+            <td colspan="7" style="padding:4px 8px 4px 12px;">
+              <button class="add-row-btn" onclick="addPaymentRow()">
+                <i class="fa-solid fa-plus" style="font-size:11px;"></i> 行を追加
+              </button>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td style="padding-left:20px;">合計</td>
+            <td class="r">予定 ¥14,080,000</td>
+            <td></td>
+            <td class="r">実績 ¥8,800,000</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- 発注情報 -->
+    <div class="card">
+      <div class="section-head" style="flex-wrap:wrap; gap:10px;">
+        <div class="section-label">
+          <div class="section-bar"></div>
+          <span class="section-title">発注情報</span>
+          <span class="section-sub" id="order-count">（4件）</span>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-group">
+            <span class="filter-label">状況</span>
+            <select class="filter-select" id="filter-status" onchange="filterOrders()">
+              <option value="">すべて</option>
+              <option>未発注</option>
+              <option>発注受付待ち</option>
+              <option>発注済</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <span class="filter-label">発注先</span>
+            <select class="filter-select" id="filter-supplier" onchange="filterOrders()">
+              <option value="">すべて</option>
+              <option>(有)山田建材</option>
+              <option>(株)第一資材</option>
+              <option>鈴木電気工業</option>
+              <option>緑化ガーデン(株)</option>
+            </select>
+          </div>
+          <div class="order-total-badge">
+            発注金額合計 <strong id="order-total">¥9,450,000</strong>
+          </div>
+          <div class="order-total-badge">
+            登録済外注費 <strong id="order-registered">¥6,800,000</strong>
+            <span style="color:#ccc;">｜</span>
+            差額 <strong id="order-diff">¥2,650,000</strong>
+          </div>
+          <a href="#" style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--primary-blue);text-decoration:none;white-space:nowrap;">
+            発注管理へ <i class="fa-solid fa-chevron-right" style="font-size:11px;"></i>
+          </a>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="min-width:1110px;">
+          <thead>
+            <tr>
+              <th style="padding-left:16px; width:180px;">商品名 / 発注No</th>
+              <th class="r" style="width:55px;">数量</th>
+              <th style="width:55px;">単位</th>
+              <th style="width:85px;">工事依頼</th>
+              <th style="width:55px; text-align:center;">添付</th>
+              <th style="width:140px;">状況</th>
+              <th style="width:150px;">発注先</th>
+              <th style="width:100px;">発注日</th>
+              <th style="width:160px;">納品希望日 / 回答日</th>
+              <th class="r" style="width:120px;">発注金額</th>
+              <th class="r" style="padding-right:16px; width:130px;">外注費</th>
+            </tr>
+          </thead>
+          <tbody id="order-tbody">
+            <tr data-status="未発注" data-supplier="(有)山田建材" data-amount="3200000">
+              <td style="padding-left:16px;">
+                <div class="order-name">基礎工事一式</div>
+                <div class="order-no">No.1003-001</div>
+              </td>
+              <td class="r">1</td>
+              <td class="muted">式</td>
+              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
+              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>2</div></td>
+              <td><span class="badge badge-unordered">未発注</span></td>
+              <td style="font-size:12.5px; font-weight:500;">(有)山田建材</td>
+              <td class="muted" style="font-size:12.5px;">2026/04/20</td>
+              <td style="font-size:12.5px;">
+                <div class="muted">希望 2026/05/25</div>
+                <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 2026/05/24</div>
+              </td>
+              <td class="r" style="font-weight:600;">¥3,200,000</td>
+              <td class="r muted" style="padding-right:16px;">—</td>
+            </tr>
+            <tr data-status="未発注" data-supplier="(株)第一資材" data-amount="1980000">
+              <td style="padding-left:16px;">
+                <div class="order-name">資材一式</div>
+                <div class="order-no">No.1003-002</div>
+              </td>
+              <td class="r">1</td>
+              <td class="muted">式</td>
+              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
+              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>1</div></td>
+              <td><span class="badge badge-unordered">未発注</span></td>
+              <td style="font-size:12.5px; font-weight:500;">(株)第一資材</td>
+              <td class="muted" style="font-size:12.5px;">2026/04/15</td>
+              <td style="font-size:12.5px;">
+                <div class="muted">希望 2026/05/18</div>
+                <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 2026/05/17</div>
+              </td>
+              <td class="r" style="font-weight:600;">¥1,980,000</td>
+              <td class="r muted" style="padding-right:16px;">—</td>
+            </tr>
+            <tr data-status="発注受付待ち" data-supplier="鈴木電気工業" data-amount="2350000">
+              <td style="padding-left:16px;">
+                <div class="order-name">電気設備工事</div>
+                <div class="order-no">No.1003-003</div>
+              </td>
+              <td class="r">1</td>
+              <td class="muted">式</td>
+              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
+              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>3</div></td>
+              <td><span class="badge badge-waiting">発注受付待ち</span></td>
+              <td style="font-size:12.5px; font-weight:500;">鈴木電気工業</td>
+              <td class="muted" style="font-size:12.5px;">2026/06/10</td>
+              <td style="font-size:12.5px;">
+                <div class="muted">希望 2026/07/10</div>
+                <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 —</div>
+              </td>
+              <td class="r" style="font-weight:600;">¥2,350,000</td>
+              <td class="r" style="padding-right:16px; font-weight:600;">¥2,350,000</td>
+            </tr>
+            <tr data-status="発注受付待ち" data-supplier="緑化ガーデン(株)" data-amount="1920000">
+              <td style="padding-left:16px;">
+                <div class="order-name">外構・植栽工事</div>
+                <div class="order-no">No.1003-004</div>
+              </td>
+              <td class="r">1</td>
+              <td class="muted">式</td>
+              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
+              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>1</div></td>
+              <td><span class="badge badge-waiting">発注受付待ち</span></td>
+              <td style="font-size:12.5px; font-weight:500;">緑化ガーデン(株)</td>
+              <td class="muted" style="font-size:12.5px;">2026/07/01</td>
+              <td style="font-size:12.5px;">
+                <div class="muted">希望 2026/08/15</div>
+                <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 —</div>
+              </td>
+              <td class="r" style="font-weight:600;">¥1,920,000</td>
+              <td class="r" style="padding-right:16px; font-weight:600;">¥1,920,000</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-footer">最終更新 2026/06/24 16:28 ／ 高木 太郎</div>
+  </div>
+</div>
+
+<script>
+  // ===== 原価台帳ダウンロード =====
+  function downloadGenkaDaichou() {
+    const a = document.createElement('a');
+    a.href = '工事原価台帳.xlsx';
+    a.download = '工事原価台帳.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  // ===== URLパラメータ読み込み =====
+  const params = new URLSearchParams(location.search);
+  const propertyId = params.get('property_id') || '';
+  const propName   = params.get('prop_name')   || '物件';
+  const backUrl    = params.get('back')         || 'index.html';
+
+  document.getElementById('bcPropName').textContent = propName;
+  document.getElementById('bcPropLink').href = backUrl;
+  document.getElementById('contentSubtitle').textContent = propName + ' ／ 物件コード —';
+
+  // ===== ナビバー：index.htmlへの遷移 =====
+  function navClick(key) {
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+  function setActiveNav(key) {
+    document.querySelectorAll('.nav-item[data-nav]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === key);
+    });
+  }
+  setActiveNav('bukken');
+  filterOrders();
+
+  if (propertyId) {
+    document.getElementById('btnEstimate').onclick = () => {
+      location.href = `estimate-list.html?property_id=${encodeURIComponent(propertyId)}&back=${encodeURIComponent('index.html')}`;
+    };
+    document.getElementById('btnShodan').onclick = () => {
+      location.href = `shodan-kanri.html?property_id=${encodeURIComponent(propertyId)}&back=${encodeURIComponent('index.html')}`;
+    };
+  }
+
+  // ===== 発注情報：フィルタ =====
+  // 登録済外注費＝会計側（実績仕訳）に計上済みの外注費合計。発注状況フィルタの対象外。
+  const registeredOutsourceAmount = 6800000;
+
+  function updateOrderDiff(totalAmount) {
+    const diff = totalAmount - registeredOutsourceAmount;
+    const diffEl = document.getElementById('order-diff');
+    diffEl.textContent = '¥' + Math.abs(diff).toLocaleString('ja-JP') + (diff < 0 ? '（超過）' : '');
+    diffEl.classList.toggle('diff-negative', diff < 0);
+    diffEl.classList.toggle('diff-positive', diff >= 0);
+  }
+
+  function filterOrders() {
+    const statusVal   = document.getElementById('filter-status').value;
+    const supplierVal = document.getElementById('filter-supplier').value;
+    const rows = document.querySelectorAll('#order-tbody tr');
+    let visibleCount = 0;
+    let totalAmount  = 0;
+
+    rows.forEach(tr => {
+      const rowStatus   = tr.dataset.status   || '';
+      const rowSupplier = tr.dataset.supplier || '';
+      const rowAmount   = parseInt(tr.dataset.amount || '0', 10);
+
+      const matchStatus   = !statusVal   || rowStatus   === statusVal;
+      const matchSupplier = !supplierVal || rowSupplier === supplierVal;
+
+      if (matchStatus && matchSupplier) {
+        tr.classList.remove('order-row-hidden');
+        visibleCount++;
+        totalAmount += rowAmount;
+      } else {
+        tr.classList.add('order-row-hidden');
+      }
+    });
+
+    document.getElementById('order-count').textContent = `（${visibleCount}件）`;
+    document.getElementById('order-total').textContent =
+      '¥' + totalAmount.toLocaleString('ja-JP');
+    document.getElementById('order-registered').textContent =
+      '¥' + registeredOutsourceAmount.toLocaleString('ja-JP');
+    updateOrderDiff(totalAmount);
+  }
+
+  // ===== 入金管理：行追加 =====
+  let rowCount = 0;
+  function addPaymentRow() {
+    rowCount++;
+    const id = 'pay-row-' + rowCount;
+    const tbody = document.getElementById('payment-tbody');
+    const tr = document.createElement('tr');
+    tr.id = id;
+    tr.innerHTML = `
+      <td style="padding-left:20px;"><input class="new-row-input" placeholder="名目" style="width:90px;"></td>
+      <td class="r"><input class="new-row-input" placeholder="¥0" style="text-align:right;width:100%;"></td>
+      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:110px;"></td>
+      <td class="r muted">—</td>
+      <td class="muted">—</td>
+      <td><span class="badge badge-unpaid">未入金</span></td>
+      <td style="text-align:right;padding-right:20px;"><button class="delete-link" onclick="deleteRow('${id}')">削除</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function deleteRow(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+</script>
+</body>
+</html>

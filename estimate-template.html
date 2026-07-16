@@ -1,0 +1,2184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>見積テンプレート</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #e53935; color: #fff; font-size: 10px; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 1px;
+    }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right { display: flex; align-items: center; margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0; }
+    body {
+      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'YuGothic', 'Meiryo', sans-serif;
+      font-size: 13px; background: #fff; color: #222;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden; padding-top: 48px;
+    }
+    .header-bar {
+      display: flex; align-items: center; border-bottom: 1px solid #e5e7eb;
+      padding: 0 16px; height: 50px; gap: 16px; background: #fff; flex-shrink: 0;
+    }
+    .hf { display: flex; align-items: center; gap: 6px; }
+    .hf-label { color: #6b7280; font-size: 12px; white-space: nowrap; }
+    .hf-input {
+      border: 1px solid #e5e7eb; border-radius: 4px; padding: 4px 8px;
+      font-size: 13px; font-family: inherit; color: #111827; outline: none; height: 30px; background: #fff;
+    }
+    .hf-input:focus { border-color: #00b27d; box-shadow: 0 0 0 2px rgba(0,178,125,0.1); }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .btn {
+      height: 32px; padding: 0 16px; border-radius: 6px; font-size: 13px;
+      font-family: inherit; cursor: pointer; border: none; white-space: nowrap;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .btn-outline-green { background: #e6faf4; border: 1px solid #00b27d; color: #00b27d; }
+    .btn-outline-green:hover { background: #d1f5e8; }
+    .btn-green { background: #00b27d; color: #fff; font-weight: 500; }
+    .btn-green:hover { background: #009668; }
+    .back-bar { padding: 10px 16px; border-top: 1px solid #e5e7eb; background: #fff; flex-shrink: 0; }
+    .btn-back { height: 30px; padding: 0 20px; background: #e6faf4; border: 1px solid #00b27d; border-radius: 6px; font-size: 13px; font-family: inherit; color: #00b27d; font-weight: 500; cursor: pointer; }
+    .btn-back:hover { background: #d1f5e8; }
+    .icon-bar {
+      display: flex; align-items: center; padding: 5px 16px;
+      gap: 2px; border-bottom: 1px solid #e5e7eb; background: #fff; flex-shrink: 0;
+    }
+    .ic {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; border-radius: 4px; cursor: pointer; color: #6b7280; position: relative;
+    }
+    .ic:hover { background: #f3f4f6; }
+    .ic.active { background: #e8fff3; }
+    .ic svg { width: 15px; height: 15px; stroke: #6b7280; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .ic.active svg { stroke: #00b27d; }
+    .ic::after {
+      content: attr(title); position: absolute; bottom: calc(100% + 4px); left: 50%;
+      transform: translateX(-50%); background: #374151; color: #fff; font-size: 11px;
+      white-space: nowrap; padding: 3px 7px; border-radius: 4px; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s; z-index: 100;
+    }
+    .ic:hover::after { opacity: 1; }
+    .icon-sep { width: 1px; height: 18px; background: #e5e7eb; margin: 0 4px; }
+    .main-area { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .tbl-wrap { flex: 1; overflow: auto; position: relative; }
+    .side-panel {
+      width: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
+      border-left: 0px solid #e5e7eb; background: #fff;
+      transition: width 0.25s ease, border-width 0.25s ease; flex-shrink: 0; position: relative;
+    }
+    .side-panel.open { width: 420px; min-width: 200px; border-left-width: 1px; }
+    .side-panel.resizing { transition: none; }
+    .sp-resize-handle {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; background: transparent;
+    }
+    .sp-resize-handle:hover,
+    .sp-resize-handle.dragging { background: var(--teal, #00a99d); opacity: 0.5; }
+    /* 計測パレット列リサイズ */
+    .ks-resizer {
+      position:absolute; right:0; top:0; bottom:0; width:4px;
+      cursor:col-resize; z-index:2;
+    }
+    .ks-resizer:hover { background:rgba(0,169,157,0.5); }
+    .tb-btn.panel-active {
+      background: #e6f7f6; color: #00a99d;
+      border-color: #00a99d; font-weight: 600;
+    }
+    .side-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; background: #1a2332; color: #fff; flex-shrink: 0;
+    }
+    .side-panel-title { font-size: 13px; font-weight: 600; }
+    .side-panel-tabs {
+      display: flex; gap: 3px; padding: 5px 8px; border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0; background: #f8fafc; flex-wrap: nowrap; overflow-x: auto;
+    }
+    .sp-tab {
+      padding: 3px 8px; border-radius: 4px; border: 1px solid #e5e7eb;
+      background: #fff; font-size: 11px; cursor: pointer; color: #555;
+      font-family: inherit; white-space: nowrap; flex-shrink: 0;
+    }
+    .sp-tab.active { background: #00a99d; color: #fff; border-color: #00a99d; font-weight: 600; }
+    .side-panel-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .btn-close-panel { background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+    .btn-close-panel:hover { color: #fff; background: rgba(255,255,255,0.15); }
+    .tbl-container { min-width: max-content; width: max-content; position: relative; }
+    .tbl { width: max-content; min-width: 100%; border-collapse: collapse; table-layout: auto; }
+    .tbl thead tr { background: #fff; }
+    .tbl thead th {
+      position: sticky; top: 0; z-index: 10; background: #fff;
+      padding: 8px 6px; font-size: 12px; font-weight: 500; color: #6b7280;
+      text-align: center; border-bottom: 1px solid #e5e7eb; border-right: 1px solid #f0f0f0;
+      white-space: nowrap; vertical-align: middle; user-select: none;
+    }
+    .tbl thead th:last-child { border-right: none; }
+    col.col-genka { visibility: collapse; }
+    .show-genka col.col-genka { visibility: visible; }
+    col.col-arari { visibility: collapse; }
+    .show-arari col.col-arari { visibility: visible; }
+    .tbl tbody tr { border-bottom: 1px solid #f3f4f6; cursor: default; }
+    .tbl tbody tr:hover { background: #fafafa; }
+    .tbl tbody tr.row-selected { background: #e8fff3 !important; }
+    .tbl tbody tr.dragging { opacity: 0.4; }
+    .tbl tbody tr.drag-over-top { border-top: 2px solid #00b27d; }
+    .tbl tbody tr.drag-over-bottom { border-bottom: 2px solid #00b27d; }
+    .tbl td { padding: 5px 6px; font-size: 13px; color: #374151; border-right: 1px solid #f3f4f6; vertical-align: middle; }
+    .tbl td:last-child { border-right: none; }
+    .td-right { text-align: right; }
+    .td-center { text-align: center; }
+    .tr-cat-1 { background: #eff6ff !important; border-bottom: 1px solid #bfdbfe !important; border-left: 3px solid #3b82f6 !important; }
+    .tr-cat-1 td { padding: 6px 6px; font-weight: 600; }
+    .tr-cat-2 { background: #fefce8 !important; border-bottom: 1px solid #fde68a !important; border-left: 3px solid #f59e0b !important; }
+    .tr-cat-2 td { padding: 5px 6px; font-weight: 500; }
+    .tr-cat { background: #eff6ff !important; border-bottom: 1px solid #bfdbfe !important; border-left: 3px solid #3b82f6 !important; }
+    .tr-cat td { padding: 6px 6px; font-weight: 600; }
+    .tr-subcat { background: #fefce8 !important; border-bottom: 1px solid #fde68a !important; border-left: 3px solid #f59e0b !important; }
+    .tr-subcat td { padding: 5px 6px; }
+    .cat-cell { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+    .cat-label { font-size: 13px; color: #374151; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cat-price { text-align: right; font-size: 13px; color: #374151; }
+    .no-col { color: #b0b7c3; text-align: center; font-size: 12px; }
+    .cell-edit {
+      width: 100%; background: transparent; border: none; font-size: 13px;
+      font-family: inherit; color: inherit; outline: none; padding: 0; text-align: inherit;
+    }
+    .cell-edit:focus { background: #fff; border: 1.5px solid #00b27d; border-radius: 3px; padding: 1px 4px; box-shadow: 0 0 0 2px rgba(0,178,125,0.1); }
+    .cell-edit.td-right { text-align: right; }
+    .unit-combo { position: relative; display: inline-block; width: 100%; }
+    .unit-input { width: 100%; border: none; background: transparent; font-size: 13px; font-family: inherit; color: #374151; outline: none; text-align: center; cursor: pointer; }
+    .unit-dropdown { display: none; position: absolute; top: 100%; left: 0; z-index: 200; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); min-width: 70px; overflow: hidden; }
+    .unit-dropdown.open { display: block; }
+    .unit-opt { padding: 6px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .unit-opt:hover { background: #f0fdf9; color: #00b27d; }
+    .rate-cell { display: flex; align-items: center; justify-content: flex-end; gap: 1px; white-space: nowrap; overflow: hidden; }
+    .rate-cell .cell-edit { min-width: 0; flex: 1; text-align: right; }
+    .rate-pct { font-size: 13px; color: #374151; flex-shrink: 0; }
+    .th-plus-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #e5e7eb; border-radius: 3px; font-size: 11px; color: #6b7280; cursor: pointer; margin-left: 2px; border: none; vertical-align: middle; }
+    .th-plus-btn:hover { background: #00b27d; color: #fff; }
+    .th-minus-btn { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; background: #fee2e2; border-radius: 3px; font-size: 12px; color: #ef4444; cursor: pointer; margin-left: 2px; border: none; vertical-align: middle; font-weight: 700; }
+    .th-minus-btn:hover { background: #ef4444; color: #fff; }
+    .extra-cost-th { min-width: 90px; }
+    .footer-tbl { border-collapse: collapse; border-top: 2px solid #e5e7eb; width: max-content; min-width: 100%; table-layout: fixed; }
+    .footer-tbl td { padding: 8px 6px; font-size: 13px; border-right: 1px solid #f3f4f6; vertical-align: middle; }
+    .footer-tbl tr { border-bottom: 1px solid #f3f4f6; }
+    .grandtotal-label { font-size: 14px; font-weight: 700; color: #111827; }
+    .grandtotal-val { font-size: 14px; font-weight: 700; color: #00b27d; text-align: right; }
+    .shoukeihi-input { border: 1px solid #e5e7eb; border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: inherit; color: #374151; width: 130px; height: 28px; outline: none; }
+    .shoukeihi-input:focus { border-color: #00b27d; }
+    .plus-btn { width: 24px; height: 24px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: #6b7280; }
+    .shoukei-unit-wrap { position: relative; display: inline-block; }
+    .shoukei-unit-btn { height: 28px; padding: 0 8px; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; font-size: 13px; font-family: inherit; color: #374151; cursor: pointer; }
+    .shoukei-unit-dd { display: none; position: absolute; top: 100%; left: 0; z-index: 300; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 60px; overflow: hidden; }
+    .shoukei-unit-dd.open { display: block; }
+    .shoukei-unit-dd div { padding: 6px 14px; cursor: pointer; font-size: 13px; }
+    .shoukei-unit-dd div:hover { background: #f0fdf9; color: #00b27d; }
+    .num-input { border: 1px solid #e5e7eb; border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: inherit; color: #374151; width: 100px; height: 28px; text-align: right; outline: none; }
+    .num-input:focus { border-color: #00b27d; }
+    tr.folder-hidden { display: none !important; }
+    .col-memo th, th.col-memo { background: #fefce8 !important; color: #92400e; border-left: 2px solid #fde68a !important; }
+    .col-memo td, td.col-memo { background: #fffef5; border-left: 2px solid #fde68a; }
+    .col-memo .cell-edit { color: #78350f; }
+    /* saveas modal */
+    .saveas-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 600; justify-content: center; align-items: center; }
+    .saveas-overlay.active { display: flex; }
+    .saveas-dialog { background: #fff; border-radius: 10px; width: 420px; max-width: 96vw; box-shadow: 0 8px 40px rgba(0,0,0,0.18); overflow: hidden; }
+    .saveas-header { padding: 20px 24px 16px; border-bottom: 1px solid #e4e4e4; }
+    .saveas-title { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+    .saveas-content { padding: 24px 24px 16px; }
+    .saveas-label { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 8px; display: block; }
+    .saveas-input { width: 100%; padding: 8px 12px; border: 1px solid #e4e4e4; border-radius: 6px; font-family: inherit; font-size: 14px; color: #1a1a1a; outline: none; }
+    .saveas-input:focus { border-color: #00a99d; }
+    .saveas-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px 20px; }
+    .saveas-btn-cancel { padding: 8px 24px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: #00a99d; background: #fff; border: 1.5px solid #00a99d; }
+    .saveas-btn-save { padding: 8px 24px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: #fff; background: #00a99d; border: 1.5px solid #00a99d; }
+    /* toast */
+    .save-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a2332; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .save-toast.show { opacity: 1; }
+    .save-toast.error { background: #ef4444; }
+  </style>
+</head>
+<body>
+
+<!-- ナビバー -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item active" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item" data-nav="keiyaku" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      契約管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+<!-- ヘッダー -->
+<div class="header-bar">
+  <div class="hf">
+    <span class="hf-label">テンプレート名</span>
+    <input class="hf-input" id="templateName" style="width:280px;" placeholder="テンプレート名を入力" />
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline-green" onclick="openSaveAsDialog()">名前をつけて保存</button>
+    <button class="btn btn-outline-green" onclick="exportTemplateCsv()">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 10v3H3v-3"/><polyline points="5,7 8,10 11,7"/><line x1="8" y1="2" x2="8" y2="10"/></svg>
+      CSV出力
+    </button>
+    <button class="btn btn-green" onclick="saveTemplate()">保存</button>
+  </div>
+</div>
+
+<!-- アイコンバー -->
+<div class="icon-bar">
+  <button class="ic" id="ic-copy" title="コピー" onclick="icCopy()">
+    <svg viewBox="0 0 15 15"><rect x="4" y="4" width="9" height="9" rx="1"/><path d="M2 10V2h8"/></svg>
+  </button>
+  <button class="ic" id="ic-cut" title="切り取り" onclick="icCut()">
+    <svg viewBox="0 0 15 15"><circle cx="4" cy="11" r="2"/><circle cx="11" cy="11" r="2"/><path d="M4 9L7.5 4 11 9"/><line x1="7.5" y1="1.5" x2="7.5" y2="4"/></svg>
+  </button>
+  <button class="ic" id="ic-paste" title="貼り付け" onclick="icPaste()">
+    <svg viewBox="0 0 15 15"><rect x="3" y="5" width="9" height="8" rx="1"/><path d="M5.5 5V3.5h4V5"/></svg>
+  </button>
+  <div class="icon-sep"></div>
+  <button class="ic" id="ic-addrow" title="行追加" onclick="icAddRow()">
+    <svg viewBox="0 0 15 15"><rect x="1.5" y="1.5" width="12" height="12" rx="1.5"/><line x1="7.5" y1="4.5" x2="7.5" y2="10.5"/><line x1="4.5" y1="7.5" x2="10.5" y2="7.5"/></svg>
+  </button>
+  <button class="ic" id="ic-addcat" title="階層追加" onclick="icAddCat()">
+    <svg viewBox="0 0 15 15"><path d="M1 3.5h4l1.5 1.5H14v7.5H1z"/><line x1="7" y1="7" x2="7" y2="11"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+  </button>
+  <div class="icon-sep"></div>
+  <button class="ic" id="ic-delete" title="削除" onclick="icDelete()">
+    <svg viewBox="0 0 15 15"><line x1="3" y1="4.5" x2="12" y2="4.5"/><path d="M5.5 4.5V3h4v1.5"/><rect x="3" y="4.5" width="9" height="8" rx="1"/></svg>
+  </button>
+  <div class="icon-sep"></div>
+  <button class="ic" id="ic-undo" title="もとに戻す" onclick="icUndo()">
+    <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A4.5 4.5 0 107.5 3H4.5"/><polyline points="2,1.5 2,5.5 6,5.5"/></svg>
+  </button>
+  <button class="ic" id="ic-redo" title="やり直し" onclick="icRedo()">
+    <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5A4.5 4.5 0 107.5 3H10.5"/><polyline points="13,1.5 13,5.5 9,5.5"/></svg>
+  </button>
+  <div class="icon-sep"></div>
+  <button id="btnKeisoku" onclick="toggleKeisokuPanel()"
+    style="height:28px;padding:0 12px;background:#eff6ff;border:1px solid #3b82f6;color:#1d4ed8;font-weight:500;border-radius:5px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;">
+    📐 計測
+  </button>
+  <button id="btnQuoteInput" onclick="openSidePanel('master')"
+    style="height:28px;padding:0 14px;background:#e6faf4;border:1px solid #00a99d;color:#00a99d;font-weight:500;border-radius:5px;font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;">
+    📄 引用・入力
+  </button>
+  <div class="icon-sep"></div>
+</div>
+
+<!-- メインエリア -->
+<div class="main-area">
+
+<!-- 計測パネル（サイドパネルと独立して配置） -->
+<div id="keisokuPanel" style="display:none;width:340px;min-width:200px;max-width:500px;flex-shrink:0;flex-direction:column;border-right:1px solid #e5e7eb;background:#fff;position:relative;overflow:hidden;">
+  <!-- リサイズハンドル -->
+  <div id="ksResizeHandle" style="position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;background:transparent;"
+    onmouseenter="this.style.background='rgba(0,169,157,0.4)'" onmouseleave="this.style.background='transparent'"></div>
+  <!-- ヘッダー：図形種別のみ -->
+  <div style="padding:6px 10px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;gap:8px;flex-shrink:0;background:#f8fafc;">
+    <svg id="ksSvgIcon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;flex-shrink:0;">
+      <rect x="4" y="4" width="24" height="24" fill="rgb(200,200,200)" rx="2"/>
+    </svg>
+    <span id="ksElementType" style="font-size:11px;color:#374151;font-weight:600;white-space:nowrap;">未取得</span>
+    <button onclick="closeKeisokuPanel()" type="button" title="閉じる"
+      style="margin-left:auto;padding:2px 7px;font-size:13px;border:none;background:none;cursor:pointer;color:#9ca3af;flex-shrink:0;">×</button>
+  </div>
+  <!-- データテーブル -->
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden;" id="ksTableWrap">
+    <table id="ksTable" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;">
+      <colgroup>
+        <col id="ksCol0" style="width:100px">
+        <col id="ksCol1" style="width:80px">
+        <col id="ksCol2">
+      </colgroup>
+      <thead><tr style="position:sticky;top:0;background:#f3f4f6;z-index:1;border-bottom:1px solid #d1d5db;">
+        <th style="padding:4px 8px;text-align:left;font-weight:600;color:#374151;border-right:1px solid #d1d5db;position:relative;overflow:hidden;">項目<div class="ks-resizer" data-col="0"></div></th>
+        <th style="padding:4px 8px;text-align:right;font-weight:600;color:#374151;border-right:1px solid #d1d5db;position:relative;">値<div class="ks-resizer" data-col="1"></div></th>
+        <th style="padding:4px 4px;text-align:center;font-weight:600;color:#374151;min-width:30px;">単位</th>
+      </tr></thead>
+      <tbody id="ksTbody">
+        <tr><td colspan="3" style="padding:20px;text-align:center;color:#aaa;font-size:11px;">「取得」ボタンを押すか自動モードにしてください</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <!-- 下部操作エリア -->
+  <div style="padding:6px 10px;border-top:1px solid #e8e8e8;display:flex;flex-direction:column;gap:5px;flex-shrink:0;background:#f8fafc;">
+    <!-- 取得ボタン行 -->
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button id="ksBtnGet" onclick="ksFetch()" type="button"
+        style="flex:1;padding:5px 0;font-size:12px;background:#00a99d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:inherit;font-weight:600;">
+        📡 取得
+      </button>
+      <label style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;">
+        <input type="radio" name="ksMode" value="manual" checked onchange="ksOnModeChange()" style="cursor:pointer;"> 手動
+      </label>
+      <label style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;">
+        <input type="radio" name="ksMode" value="auto" onchange="ksOnModeChange()" style="cursor:pointer;"> 自動
+      </label>
+      <button onclick="ksReloadCsv()" type="button" title="CSVを再読み込み"
+        style="padding:3px 7px;font-size:11px;border:1px solid #d1d5db;border-radius:4px;background:#fff;cursor:pointer;font-family:inherit;color:#6b7280;">
+        🔄
+      </button>
+    </div>
+    <!-- 検索ボタン行 -->
+    <div style="display:flex;gap:5px;align-items:center;">
+      <button onclick="ksSearchMaster()" type="button"
+        style="flex:1;padding:5px 0;font-size:11px;background:#1a6fc4;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:inherit;">
+        🔍 マスタ検索
+      </button>
+      <button onclick="ksSearchCatalog()" type="button"
+        style="flex:1;padding:5px 0;font-size:11px;background:#7c3aed;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:inherit;">
+        📋 カタログ検索
+      </button>
+    </div>
+    <div id="ksStatus" style="font-size:10px;color:#6b7280;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+  </div>
+  <div style="padding:3px 10px 4px;font-size:10px;color:#aaa;background:#f8fafc;border-top:1px solid #f0f0f0;flex-shrink:0;">
+    📌 行をドラッグ → 見積表の挿入したい行の上にドロップ
+  </div>
+</div>
+
+<!-- テーブル -->
+<div class="tbl-wrap" id="tblWrap">
+  <div class="tbl-container" id="tblContainer">
+    <table class="tbl" id="mainTbl">
+      <colgroup id="mainColgroup">
+        <col style="width:36px" />
+        <col style="width:280px" />
+        <col style="width:80px" />
+        <col style="width:54px" />
+        <col style="width:54px" />
+        <col style="width:70px" />
+        <col style="width:60px" />
+        <col style="width:70px" />
+        <col style="width:90px" />
+        <col style="width:80px" />
+        <col class="col-genka" style="width:90px" />
+        <col class="col-genka" style="width:90px" />
+        <col class="col-genka" style="width:60px" />
+        <col class="col-arari" style="width:80px" />
+        <col class="col-arari" style="width:60px" />
+        <col style="width:150px" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>名称</th>
+          <th>仕様</th>
+          <th>数量</th>
+          <th>単位</th>
+          <th>定価</th>
+          <th>売価率(%)</th>
+          <th>単価</th>
+          <th>提示価格</th>
+          <th>備考</th>
+          <th class="col-genka">原価 <button class="th-plus-btn" title="追加原価を追加" onclick="addExtraCostCol()">+</button></th>
+          <th class="col-genka genka-total-th">原価合計</th>
+          <th class="col-genka">原価率(%)</th>
+          <th class="col-arari">粗利額</th>
+          <th class="col-arari">粗利率(%)</th>
+          <th class="col-memo">社内メモ</th>
+        </tr>
+      </thead>
+      <tbody id="mainTbody">
+        <tr data-type="row" draggable="true">
+          <td class="no-col"></td>
+          <td><input class="cell-edit" value=""></td>
+          <td><input class="cell-edit td-center" value=""></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="unit-combo"><input class="unit-input" value="式" readonly onclick="toggleUnit(this)"><div class="unit-dropdown"></div></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromRate(this)"><span class="rate-pct">%</span></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcFromPrice(this)"></td>
+          <td class="td-right">—</td>
+          <td><input class="cell-edit" value=""></td>
+          <td class="col-genka"><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td class="col-genka genka-total td-right">—</td>
+          <td class="col-genka genka-rate"><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromCRate(this)"><span class="rate-pct">%</span></div></td>
+          <td class="col-arari td-right">—</td>
+          <td class="col-arari"><div class="rate-cell"><input class="cell-edit td-right" value=""><span class="rate-pct">%</span></div></td>
+          <td class="col-memo"><input class="cell-edit" value="" placeholder="社内メモ"></td>
+        </tr>
+        <tr data-type="row" draggable="true">
+          <td class="no-col"></td>
+          <td><input class="cell-edit" value=""></td>
+          <td><input class="cell-edit td-center" value=""></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="unit-combo"><input class="unit-input" value="式" readonly onclick="toggleUnit(this)"><div class="unit-dropdown"></div></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromRate(this)"><span class="rate-pct">%</span></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcFromPrice(this)"></td>
+          <td class="td-right">—</td>
+          <td><input class="cell-edit" value=""></td>
+          <td class="col-genka"><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td class="col-genka genka-total td-right">—</td>
+          <td class="col-genka genka-rate"><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromCRate(this)"><span class="rate-pct">%</span></div></td>
+          <td class="col-arari td-right">—</td>
+          <td class="col-arari"><div class="rate-cell"><input class="cell-edit td-right" value=""><span class="rate-pct">%</span></div></td>
+          <td class="col-memo"><input class="cell-edit" value="" placeholder="社内メモ"></td>
+        </tr>
+        <tr data-type="row" draggable="true">
+          <td class="no-col"></td>
+          <td><input class="cell-edit" value=""></td>
+          <td><input class="cell-edit td-center" value=""></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="unit-combo"><input class="unit-input" value="式" readonly onclick="toggleUnit(this)"><div class="unit-dropdown"></div></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromRate(this)"><span class="rate-pct">%</span></div></td>
+          <td><input class="cell-edit td-right" value="" oninput="calcFromPrice(this)"></td>
+          <td class="td-right">—</td>
+          <td><input class="cell-edit" value=""></td>
+          <td class="col-genka"><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+          <td class="col-genka genka-total td-right">—</td>
+          <td class="col-genka genka-rate"><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromCRate(this)"><span class="rate-pct">%</span></div></td>
+          <td class="col-arari td-right">—</td>
+          <td class="col-arari"><div class="rate-cell"><input class="cell-edit td-right" value=""><span class="rate-pct">%</span></div></td>
+          <td class="col-memo"><input class="cell-edit" value="" placeholder="社内メモ"></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- フッター小計 -->
+    <table class="footer-tbl" id="shokeiTbl" style="border-top:none;position:sticky;bottom:0;z-index:9;background:#fff;box-shadow:0 -2px 6px rgba(0,0,0,.06);">
+      <colgroup id="shokeiColgroup">
+        <col style="width:36px"/><col style="width:180px"/><col style="width:80px"/>
+        <col style="width:54px"/><col style="width:54px"/><col style="width:70px"/>
+        <col style="width:60px"/><col style="width:70px"/><col style="width:90px"/>
+        <col style="width:80px"/>
+        <col class="col-genka" style="width:90px"/><col class="col-genka" style="width:90px"/><col class="col-genka" style="width:60px"/>
+        <col class="col-arari" style="width:80px"/><col class="col-arari" style="width:60px"/>
+        <col style="width:150px"/>
+      </colgroup>
+      <tbody>
+        <!-- 諸経費 -->
+        <tr>
+          <td></td>
+          <td colspan="2" style="padding:5px 6px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input class="shoukeihi-input" value="諸経費" id="shoukeiLabel1" />
+              <button class="plus-btn" title="諸経費を追加" onclick="addShoukeiRow()">+</button>
+            </div>
+          </td>
+          <td style="padding:5px 6px;"><input class="num-input" style="width:60px;text-align:right;" value="" placeholder="数量" id="shoukei-qty-1" oninput="updateSummary()" /></td>
+          <td style="padding:5px 6px;">
+            <div class="shoukei-unit-wrap">
+              <button class="shoukei-unit-btn" id="shoukei-unit-1" onclick="this.nextElementSibling.classList.toggle('open')">式 ▾</button>
+              <div class="shoukei-unit-dd">
+                <div onclick="document.getElementById('shoukei-unit-1').textContent='式 ▾';this.closest('.shoukei-unit-dd').classList.remove('open');updateSummary()">式</div>
+                <div onclick="document.getElementById('shoukei-unit-1').textContent='% ▾';this.closest('.shoukei-unit-dd').classList.remove('open');updateSummary()">%</div>
+              </div>
+            </div>
+          </td>
+          <td colspan="3"></td>
+          <td class="td-right" style="padding:5px 6px;" id="shoukei-val-1">¥0</td>
+          <td></td>
+          <td class="col-genka"></td><td class="col-genka"></td><td class="col-genka"></td>
+          <td class="col-arari"></td><td class="col-arari"></td>
+          <td></td>
+        </tr>
+        <!-- 小計 -->
+        <tr>
+          <td></td>
+          <td colspan="7" style="padding:5px 6px;font-weight:500;color:#374151;">小計（税抜）</td>
+          <td class="td-right" id="subtotalVal" style="padding:5px 6px;font-weight:500;">¥0</td>
+          <td></td>
+          <td class="col-genka" style="text-align:right;font-size:12px;color:#6b7280;">—</td>
+          <td class="col-genka" id="footerCostTotal" style="text-align:right;font-size:12px;color:#6b7280;">—</td>
+          <td class="col-genka" id="footerCostRate" style="text-align:right;font-size:12px;color:#6b7280;">—</td>
+          <td class="col-arari" id="footerProfit" style="text-align:right;font-size:12px;color:#059669;">—</td>
+          <td class="col-arari" id="footerProfitRate" style="text-align:right;font-size:12px;color:#059669;">—</td>
+          <td></td>
+        </tr>
+        <!-- 消費税 -->
+        <tr>
+          <td></td>
+          <td colspan="7" style="padding:5px 6px;color:#6b7280;">消費税（10%）</td>
+          <td class="td-right" id="taxVal" style="padding:5px 6px;color:#6b7280;">¥0</td>
+          <td colspan="7"></td>
+        </tr>
+        <!-- 合計 -->
+        <tr>
+          <td></td>
+          <td colspan="7" style="padding:8px 6px;"><span class="grandtotal-label">見積合計（税込）</span></td>
+          <td class="td-right" style="padding:8px 6px;"><span class="grandtotal-val" id="grandtotalVal">¥0</span></td>
+          <td colspan="7"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- サイドパネル -->
+<div class="side-panel" id="sidePanel">
+  <div class="sp-resize-handle" id="spResizeHandle"></div>
+  <div class="side-panel-header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="side-panel-title" id="sidePanelTitle">📦 マスタから引用</span>
+    </div>
+    <button class="btn-close-panel" onclick="closeSidePanel()" title="閉じる">×</button>
+  </div>
+  <div class="side-panel-tabs">
+    <button class="sp-tab active" id="spTabMaster"  onclick="switchSidePanel('master')">マスタ</button>
+    <button class="sp-tab" id="spTabCatalog" onclick="switchSidePanel('catalog')">カタログ</button>
+    <button class="sp-tab" id="spTabHistory" onclick="switchSidePanel('history')">履歴</button>
+    <button class="sp-tab" id="spTabOcr"     onclick="switchSidePanel('ocr')">OCR</button>
+    <button class="sp-tab" id="spTabCsv"     onclick="switchSidePanel('csv')">CSV</button>
+    <button class="sp-tab" id="spTabMfr"     onclick="switchSidePanel('mfr')">メーカー見積</button>
+  </div>
+  <div class="side-panel-body">
+    <!-- マスタパネル -->
+    <div id="spMasterPanel" style="display:flex;flex:1;flex-direction:column;height:100%;overflow:hidden;">
+      <div style="padding:8px 12px;border-bottom:1px solid #e8e8e8;display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex-shrink:0;">
+        <select id="mpFilterMasterName" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:inherit;background:#fff;flex-shrink:0;max-width:140px;" onchange="mpFilterByMaster()">
+          <option value="">マスタ名：すべて</option>
+        </select>
+        <div style="position:relative;flex:1;min-width:70px;display:flex;">
+          <input id="mpSearchName" type="text" placeholder="名称・仕様" style="padding:5px 28px 5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:100%;font-family:inherit;" oninput="mpSearch()">
+          <button id="mpSearchClear" onclick="mpClearSearch()" title="クリア" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;line-height:1;display:none;">✕</button>
+        </div>
+        <div style="position:relative;flex:1;min-width:70px;display:flex;">
+          <input id="mpSearchRikcad" type="text" placeholder="RIKCAD材料名" style="padding:5px 28px 5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:100%;font-family:inherit;" oninput="mpSearch()">
+          <button onclick="document.getElementById('mpSearchRikcad').value='';mpSearch();" title="クリア" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:0;line-height:1;">✕</button>
+        </div>
+        <button onclick="mpSearch()" style="padding:5px 12px;background:#00a99d;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;">検索</button>
+      </div>
+      <div style="padding:5px 12px;font-size:11px;color:#aaa;border-bottom:1px solid #f0f0f0;background:#fafafa;flex-shrink:0;">
+        📌 行をドラッグ → 見積表の挿入したい行の上にドロップ　／　ダブルクリックで末尾追加
+      </div>
+      <div style="flex:1;overflow-y:auto;" id="mpTableWrap">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:2px solid #e5e7eb;">
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">名称</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">仕様</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">RIKCAD材料名</th>
+            <th style="padding:6px 4px;text-align:right;font-weight:500;color:#6b7280;white-space:nowrap;">数量</th>
+            <th style="padding:6px 4px;text-align:center;font-weight:500;color:#6b7280;">単位</th>
+            <th style="padding:6px 8px;text-align:right;font-weight:500;color:#6b7280;white-space:nowrap;">単価</th>
+          </tr></thead>
+          <tbody id="mpTbody"><tr><td colspan="6" style="text-align:center;padding:24px;color:#aaa;">読み込み中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- カタログパネル -->
+    <div id="spCatalogPanel" style="display:none;flex:1;flex-direction:column;height:100%;overflow:hidden;">
+      <div style="padding:8px 12px;border-bottom:1px solid #e8e8e8;display:flex;gap:6px;flex-wrap:nowrap;align-items:center;flex-shrink:0;">
+        <select id="cpFilterMaker" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:inherit;background:#fff;flex-shrink:0;" onchange="cpSearch()">
+          <option value="">メーカー</option>
+        </select>
+        <select id="cpFilterCat" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;font-family:inherit;background:#fff;flex-shrink:0;" onchange="cpSearch()">
+          <option value="">カテゴリ</option>
+        </select>
+        <input id="cpSearchName" type="text" placeholder="商品名" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:90px;flex-shrink:0;font-family:inherit;" oninput="cpSearch()">
+        <input id="cpSearchSpec" type="text" placeholder="仕様" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;flex:1;min-width:50px;font-family:inherit;" oninput="cpSearch()">
+        <button onclick="cpSearch()" style="padding:5px 10px;background:#00a99d;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">検索</button>
+        <button type="button" id="btnCpCad" onclick="cpCadSearch()" title="RIKCADで選択中の要素名で検索" style="padding:5px 8px;background:#f0fdf4;color:#00b27d;border:1px solid #00b27d;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;">🏗 CAD</button>
+      </div>
+      <div style="padding:5px 12px;font-size:11px;color:#aaa;border-bottom:1px solid #f0f0f0;background:#fafafa;flex-shrink:0;">
+        📌 行をドラッグ → 見積表の挿入したい行の上にドロップ　／　ダブルクリックで末尾追加
+      </div>
+      <div style="flex:1;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px;">
+          <thead><tr style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:2px solid #e5e7eb;">
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">名称</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">仕様</th>
+            <th style="padding:6px 4px;text-align:center;font-weight:500;color:#6b7280;">単位</th>
+            <th style="padding:6px 8px;text-align:right;font-weight:500;color:#6b7280;white-space:nowrap;">定価</th>
+            <th style="padding:6px 8px;text-align:left;font-weight:500;color:#6b7280;white-space:nowrap;">メーカー</th>
+          </tr></thead>
+          <tbody id="cpTbody"><tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">読み込み中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 履歴パネル -->
+    <div id="spHistoryPanel" style="display:none;flex:1;overflow:hidden;flex-direction:column;height:100%;">
+      <div style="padding:10px 14px;border-bottom:1px solid #e8e8e8;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="hpPlanKw" type="text" placeholder="プランで検索" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:120px;font-family:inherit;">
+        <input id="hpNameKw" type="text" placeholder="名称・仕様で検索" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;flex:1;min-width:100px;font-family:inherit;">
+        <button onclick="hpSearch()" style="padding:5px 12px;background:#00a99d;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;">検索</button>
+      </div>
+      <div style="padding:6px 14px;font-size:11px;color:#aaa;border-bottom:1px solid #f0f0f0;background:#fafafa;flex-shrink:0;">
+        過去の見積行から引用できます
+      </div>
+      <div style="flex:1;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="hpTable">
+          <thead>
+            <tr style="position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid #ddd;">
+              <th style="padding:6px 8px;text-align:left;font-weight:500;color:#777;white-space:nowrap;">選</th>
+              <th style="padding:6px 8px;text-align:left;font-weight:500;color:#777;white-space:nowrap;">名称</th>
+              <th style="padding:6px 8px;text-align:left;font-weight:500;color:#777;white-space:nowrap;">仕様</th>
+              <th style="padding:6px 4px;text-align:center;font-weight:500;color:#777;white-space:nowrap;">単位</th>
+              <th style="padding:6px 8px;text-align:right;font-weight:500;color:#777;white-space:nowrap;">単価</th>
+              <th style="padding:6px 8px;text-align:left;font-weight:500;color:#777;white-space:nowrap;">プラン</th>
+            </tr>
+          </thead>
+          <tbody id="hpTbody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#aaa;">読み込み中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:8px 14px;border-top:1px solid #eee;text-align:right;flex-shrink:0;">
+        <button onclick="hpApplyChecked()" style="padding:6px 16px;background:#00a99d;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-family:inherit;">選択行を末尾に追加</button>
+      </div>
+    </div>
+
+    <!-- OCRパネル -->
+    <div id="spOcrPanel" style="display:none;flex:1;overflow-y:auto;padding:16px;">
+      <p style="font-size:13px;color:#374151;margin-bottom:12px;">画像・PDFをOCRで読み取り、見積行を生成します。</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">※ローカルAPIサーバー（rikcad_api.exe）が起動している必要があります。</p>
+      <button onclick="alert('OCR機能はローカルAPIサーバー経由で利用可能です')" style="height:34px;padding:0 16px;background:#00b27d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit;">🔍 OCRを起動</button>
+    </div>
+
+    <!-- CSVパネル -->
+    <div id="spCsvPanel" style="display:none;flex:1;overflow-y:auto;padding:16px;">
+      <p style="font-size:13px;color:#374151;margin-bottom:12px;">CSVファイルを読み込んで見積行を追加します。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="openCsvTextImport()" style="height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;text-align:left;">📂 CSV一括入力（テキスト貼り付け）</button>
+      </div>
+      <!-- テキスト貼り付けエリア（展開時に表示） -->
+      <div id="csvTextArea" style="display:none;margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:#6b7280;line-height:1.6;">形式：名称,仕様,数量,単位,定価,掛率,備考</div>
+        <textarea id="csvInput" style="width:100%;height:160px;padding:8px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical;" placeholder="名称,仕様,数量,単位,定価,掛率,備考&#10;工事A,仕様1,1,式,10000,0.8,"></textarea>
+        <button onclick="importCsvRows()" style="padding:8px 20px;background:#00b27d;color:#fff;border:none;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;">取り込む</button>
+      </div>
+    </div>
+
+    <!-- メーカー見積パネル -->
+    <div id="spMfrPanel" style="display:none;flex:1;overflow-y:auto;padding:16px;">
+      <p style="font-size:13px;color:#374151;margin-bottom:12px;">メーカーの見積サイトを開きます。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <a href="https://www.lixil.co.jp/" target="_blank" style="display:block;height:32px;line-height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;color:#374151;text-decoration:none;">LIXIL</a>
+        <a href="https://www.ykkap.co.jp/" target="_blank" style="display:block;height:32px;line-height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;color:#374151;text-decoration:none;">YKK AP</a>
+        <a href="https://www.panasonic.com/jp/brand/sumai.html" target="_blank" style="display:block;height:32px;line-height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;color:#374151;text-decoration:none;">Panasonic（住まい）</a>
+        <a href="https://www.takasho.co.jp/" target="_blank" style="display:block;height:32px;line-height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;color:#374151;text-decoration:none;">タカショー</a>
+        <a href="https://www.toto.co.jp/" target="_blank" style="display:block;height:32px;line-height:32px;padding:0 14px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;color:#374151;text-decoration:none;">TOTO</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /main-area -->
+
+<!-- ══ BACK BAR ══ -->
+<div class="back-bar">
+  <button class="btn-back" onclick="goBackToTemplateList()">戻る</button>
+</div>
+
+<!-- 名前をつけて保存ダイアログ -->
+<div class="saveas-overlay" id="saveasOverlay">
+  <div class="saveas-dialog">
+    <div class="saveas-header">
+      <div class="saveas-title">名前をつけて保存</div>
+    </div>
+    <div class="saveas-content">
+      <label class="saveas-label">テンプレート名</label>
+      <input class="saveas-input" id="saveasName" placeholder="テンプレート名を入力" />
+    </div>
+    <div class="saveas-footer">
+      <button class="saveas-btn-cancel" onclick="closeSaveAsDialog()">キャンセル</button>
+      <button class="saveas-btn-save" onclick="executeSaveAs()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div class="save-toast" id="saveToast"></div>
+
+<script>
+function navClick(key) {
+  sessionStorage.setItem('openex_nav_target', key);
+  window.location.href = 'index.html';
+}
+function goBackToTemplateList() {
+  sessionStorage.setItem('openex_nav_target', 'estimate-template');
+  window.location.href = 'index.html';
+}
+
+const SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+let _templateId = null;
+let _clipboard = null;
+let _genkaVisible = false;
+let _arariVisible = false;
+let _topStaff = null;
+
+async function _loadTopStaff() {
+  try {
+    const hd = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
+    let r = await fetch(`${SB}/staffs?account_type=eq.admin&order=id.asc&limit=1`, { headers: hd });
+    let data = r.ok ? await r.json() : [];
+    if (!data.length) {
+      r = await fetch(`${SB}/staffs?order=id.asc&limit=1`, { headers: hd });
+      data = r.ok ? await r.json() : [];
+    }
+    _topStaff = data[0] || null;
+  } catch(e) { _topStaff = null; }
+}
+function toggleGenka(forceState) {
+  _genkaVisible = forceState !== undefined ? forceState : !_genkaVisible;
+  [document.getElementById('mainTbl'), document.getElementById('shokeiTbl')].forEach(t => {
+    if (!t) return;
+    _genkaVisible ? t.classList.add('show-genka') : t.classList.remove('show-genka');
+  });
+}
+function toggleArari(forceState) {
+  _arariVisible = forceState !== undefined ? forceState : !_arariVisible;
+  [document.getElementById('mainTbl'), document.getElementById('shokeiTbl')].forEach(t => {
+    if (!t) return;
+    _arariVisible ? t.classList.add('show-arari') : t.classList.remove('show-arari');
+  });
+}
+function _applyStaffPermissions() {
+  const canGenka = _topStaff ? (_topStaff.perm_genka === true) : true;
+  const canArari = _topStaff ? (_topStaff.perm_arari === true) : true;
+  toggleGenka(canGenka);
+  toggleArari(canArari);
+}
+let _undoStack = [];
+
+
+// ══ 初期化 ══
+(async () => {
+  const p = new URLSearchParams(location.search);
+  _templateId = p.get('template_id') || null;
+  if (_templateId) await loadTemplate(_templateId);
+  renumberRows();
+  // マスタ・カタログはサイドパネルを初めて開いたときにロード（_spXxxLoadedフラグで管理）
+  await _loadTopStaff();
+  _applyStaffPermissions();
+})();
+
+// ══ テンプレート読み込み ══
+async function loadTemplate(id) {
+  try {
+    const [tRes, rRes] = await Promise.all([
+      fetch(`${SB}/estimate_templates?id=eq.${id}`, { headers: H }),
+      fetch(`${SB}/estimate_template_rows?template_id=eq.${id}&order=sort_order.asc`, { headers: H })
+    ]);
+    if (!tRes.ok) return;
+    const templates = await tRes.json();
+    if (!templates.length) return;
+    const t = templates[0];
+    document.getElementById('templateName').value = t.name || '';
+
+    if (!rRes.ok) return;
+    const rows = await rRes.json();
+    const tbody = document.getElementById('mainTbody');
+    tbody.innerHTML = '';
+    rows.forEach(row => {
+      if (row.row_type === 'cat' || row.row_type === 'subcat') {
+        const tr = makeCatRow(row.name, row.row_type);
+        tbody.appendChild(tr);
+      } else {
+        const tr = makeDataRow();
+        const tds = [...tr.querySelectorAll('td')];
+        const inputs = tr.querySelectorAll('input');
+        if (inputs[0]) inputs[0].value = row.name       || '';
+        if (inputs[1]) inputs[1].value = row.spec       || '';
+        if (inputs[2]) inputs[2].value = row.qty        != null ? row.qty        : '';
+        if (inputs[3]) inputs[3].value = row.unit       || '式';
+        if (inputs[4]) inputs[4].value = row.list_price != null ? row.list_price : '';
+        if (inputs[5]) inputs[5].value = row.rate       != null ? row.rate       : '';
+        if (inputs[6]) inputs[6].value = row.unit_price != null ? row.unit_price : '';
+        if (inputs[7]) inputs[7].value = row.biko       || '';
+        if (inputs[8]) inputs[8].value = row.cost       != null ? row.cost       : '';
+        // inputs[9]=原価率, inputs[10]=粗利率 は計算値のためスキップ
+        if (inputs[11]) inputs[11].value = row.memo     || '';
+        tbody.appendChild(tr);
+        const qtyInput = tr.querySelector('td:nth-child(4) input');
+        if (qtyInput) calcRow(qtyInput);
+      }
+    });
+    renumberRows();
+  } catch(e) {
+    console.error('[LOAD]', e);
+  }
+}
+
+// ══ テンプレート保存 ══
+async function saveTemplate() {
+  const name = document.getElementById('templateName').value.trim() || '（名称未設定）';
+  const headerData = { name, updated_at: new Date().toISOString() };
+  try {
+    if (_templateId) {
+      const res = await fetch(`${SB}/estimate_templates?id=eq.${_templateId}`, { method: 'PATCH', headers: H, body: JSON.stringify(headerData) });
+      if (!res.ok) throw new Error('更新失敗 ' + res.status);
+    } else {
+      headerData.created_at = new Date().toISOString();
+      const res = await fetch(`${SB}/estimate_templates`, { method: 'POST', headers: H, body: JSON.stringify(headerData) });
+      if (!res.ok) throw new Error('作成失敗 ' + res.status);
+      const created = await res.json();
+      _templateId = created[0]?.id;
+      if (_templateId) {
+        const np = new URLSearchParams(location.search);
+        np.set('template_id', _templateId);
+        history.replaceState(null, '', '?' + np.toString());
+      }
+    }
+    // 明細保存
+    if (_templateId) {
+      await fetch(`${SB}/estimate_template_rows?template_id=eq.${_templateId}`, { method: 'DELETE', headers: H });
+      const rows = collectRows(_templateId);
+      if (rows.length > 0) {
+        await fetch(`${SB}/estimate_template_rows`, { method: 'POST', headers: { ...H, 'Prefer': 'return=minimal' }, body: JSON.stringify(rows) });
+      }
+    }
+    sessionStorage.setItem('openex_template_reload', '1');
+    showToast('保存しました');
+  } catch(e) {
+    showToast('保存に失敗しました: ' + e.message, true);
+  }
+}
+
+function collectRows(templateId) {
+  const rows = [];
+  let order = 0;
+  document.querySelectorAll('#mainTbody tr').forEach(tr => {
+    const type = tr.dataset.type;
+    if (!type) return;
+    const tds = [...tr.querySelectorAll('td')];
+    const getInput = idx => tds[idx]?.querySelector('input')?.value.trim() || null;
+    const getNum = idx => { const v = parseFloat(getInput(idx)); return isNaN(v) ? null : v; };
+    if (type === 'cat' || type === 'subcat') {
+      rows.push({ template_id: templateId, row_type: type, name: tr.querySelector('.cat-label')?.value?.trim() || '', sort_order: order++ });
+    } else {
+      rows.push({
+        template_id: templateId, row_type: 'row',
+        name:       getInput(1), spec:       getInput(2),
+        qty:        getNum(3),   unit:       getInput(4),
+        list_price: getNum(5),   rate:       getNum(6),
+        unit_price: getNum(7),   cost:       getNum(10),
+        biko:       getInput(9), memo:       tr.querySelector('td.col-memo input')?.value.trim() || null,
+        sort_order: order++
+      });
+    }
+  });
+  return rows;
+}
+
+// ══ 名前をつけて保存 ══
+function openSaveAsDialog() {
+  document.getElementById('saveasName').value = document.getElementById('templateName').value;
+  document.getElementById('saveasOverlay').classList.add('active');
+  setTimeout(() => document.getElementById('saveasName').focus(), 100);
+}
+function closeSaveAsDialog() {
+  document.getElementById('saveasOverlay').classList.remove('active');
+}
+async function executeSaveAs() {
+  const name = document.getElementById('saveasName').value.trim();
+  if (!name) { alert('テンプレート名を入力してください'); return; }
+  document.getElementById('templateName').value = name;
+  _templateId = null;
+  history.replaceState(null, '', location.pathname);
+  closeSaveAsDialog();
+  await saveTemplate();
+}
+
+// ══ CSV出力 ══
+function exportTemplateCsv() {
+  const rows = [];
+  rows.push(['No', '名称', '仕様', '数量', '単位', '定価', '売価率(%)', '単価', '提示価格', '備考', '社内メモ']);
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach((tr, i) => {
+    const tds = [...tr.querySelectorAll('td')];
+    const g = idx => tds[idx]?.querySelector('input')?.value.trim() ?? tds[idx]?.textContent.replace(/[¥,—]/g, '').trim() ?? '';
+    rows.push([i + 1, g(1), g(2), g(3), g(4), g(5), g(6), g(7), g(8), g(9), g(14)]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const bom = '﻿';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = (document.getElementById('templateName').value || 'template') + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ══ 計算 ══
+function calcRow(inp) {
+  const tr = inp.closest('tr');
+  if (!tr) return;
+  const tds = [...tr.querySelectorAll('td')];
+  const qty       = parseFloat(tds[3]?.querySelector('input')?.value) || 0;
+  const listPrice = parseFloat(tds[5]?.querySelector('input')?.value) || 0;
+  const rateVal   = parseFloat(tds[6]?.querySelector('input')?.value);
+  const unitPrice = parseFloat(tds[7]?.querySelector('input')?.value) || 0;
+
+  // 基本原価 + 追加原価を合算
+  let totalCost = parseFloat(tds[10]?.querySelector('input')?.value) || 0;
+  tr.querySelectorAll('td.extra-cost-td input').forEach(ei => { totalCost += parseFloat(ei.value) || 0; });
+
+  let up = unitPrice;
+  if (!isNaN(rateVal) && rateVal > 0 && listPrice > 0) up = Math.round(listPrice * rateVal / 100);
+  const offer     = Math.round(up * qty);
+  const costTotal = Math.round(totalCost * qty);
+  const profit    = offer - costTotal;
+
+  if (tds[8]) tds[8].textContent = offer ? '¥' + offer.toLocaleString() : '—';
+
+  // 原価合計: genka-total クラスで検索（追加列で位置がずれるため）
+  const genkaTotal = tr.querySelector('td.genka-total');
+  if (genkaTotal) genkaTotal.textContent = costTotal ? '¥' + costTotal.toLocaleString() : '—';
+
+  // 原価率: genka-rate クラスで検索
+  const crateInp = tr.querySelector('td.genka-rate input');
+  if (crateInp && document.activeElement !== crateInp) {
+    crateInp.value = (up > 0 && totalCost > 0) ? (totalCost / up * 100).toFixed(1) : '';
+  }
+
+  // 粗利額・粗利率: col-arari クラスで検索
+  const arariTds  = [...tr.querySelectorAll('td.col-arari')];
+  const profitTd  = arariTds[0];
+  const pRateTd   = arariTds[1];
+  if (profitTd) profitTd.textContent = (offer > 0 && costTotal > 0) ? '¥' + profit.toLocaleString() : '—';
+  const prateInp = pRateTd?.querySelector('input');
+  if (prateInp) {
+    prateInp.value = (offer > 0 && costTotal > 0) ? (profit / offer * 100).toFixed(1) : '';
+  } else if (pRateTd) {
+    pRateTd.textContent = (offer > 0 && costTotal > 0) ? (profit / offer * 100).toFixed(1) + '%' : '—';
+  }
+
+  updateSummary();
+}
+function calcFromRate(inp) {
+  const tr = inp.closest('tr');
+  const tds = [...tr.querySelectorAll('td')];
+  const list = parseFloat(tds[5]?.querySelector('input')?.value) || 0;
+  const rate = parseFloat(inp.value);
+  if (!isNaN(rate) && list > 0) {
+    const up = tds[7]?.querySelector('input');
+    if (up) up.value = Math.round(list * rate / 100);
+  }
+  calcRow(inp);
+}
+function calcFromPrice(inp) { calcRow(inp); }
+function calcFromCRate(inp) {
+  const tr = inp.closest('tr');
+  const tds = [...tr.querySelectorAll('td')];
+  const up = parseFloat(tds[7]?.querySelector('input')?.value) || 0;
+  const crate = parseFloat(inp.value);
+  if (!isNaN(crate) && up > 0) {
+    const costInp = tds[10]?.querySelector('input');
+    if (costInp) costInp.value = Math.round(up * crate / 100);
+  }
+  calcRow(inp);
+}
+function updateSummary() {
+  let subtotal = 0, costTotalSum = 0;
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    const tds  = [...tr.querySelectorAll('td')];
+    const qty  = parseFloat(tds[3]?.querySelector('input')?.value) || 0;
+    const up   = parseFloat(tds[7]?.querySelector('input')?.value) || 0;
+    let cost   = parseFloat(tds[10]?.querySelector('input')?.value) || 0;
+    tr.querySelectorAll('td.extra-cost-td input').forEach(ei => { cost += parseFloat(ei.value) || 0; });
+    subtotal     += Math.round(up * qty);
+    costTotalSum += Math.round(cost * qty);
+  });
+  const tax    = Math.round(subtotal * 0.1);
+  const total  = subtotal + tax;
+  const profit = subtotal - costTotalSum;
+
+  document.getElementById('subtotalVal').textContent  = '¥' + subtotal.toLocaleString();
+  document.getElementById('taxVal').textContent       = '¥' + tax.toLocaleString();
+  document.getElementById('grandtotalVal').textContent = '¥' + total.toLocaleString();
+
+  const fCostTotal  = document.getElementById('footerCostTotal');
+  const fCostRate   = document.getElementById('footerCostRate');
+  const fProfit     = document.getElementById('footerProfit');
+  const fProfitRate = document.getElementById('footerProfitRate');
+  if (fCostTotal)  fCostTotal.textContent  = costTotalSum > 0 ? '¥' + costTotalSum.toLocaleString() : '—';
+  if (fCostRate)   fCostRate.textContent   = (subtotal > 0 && costTotalSum > 0) ? (costTotalSum / subtotal * 100).toFixed(1) + '%' : '—';
+  if (fProfit)     fProfit.textContent     = (subtotal > 0 && costTotalSum > 0) ? '¥' + profit.toLocaleString() : '—';
+  if (fProfitRate) fProfitRate.textContent = (subtotal > 0 && costTotalSum > 0) ? (profit / subtotal * 100).toFixed(1) + '%' : '—';
+}
+
+// ══ 行操作 ══
+function makeDataRow() {
+  const tr = document.createElement('tr');
+  tr.dataset.type = 'row'; tr.draggable = true;
+  tr.innerHTML = `
+    <td class="no-col"></td>
+    <td><input class="cell-edit" value=""></td>
+    <td><input class="cell-edit td-center" value=""></td>
+    <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+    <td><div class="unit-combo"><input class="unit-input" value="式" readonly onclick="toggleUnit(this)"><div class="unit-dropdown"></div></div></td>
+    <td><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+    <td><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromRate(this)"><span class="rate-pct">%</span></div></td>
+    <td><input class="cell-edit td-right" value="" oninput="calcFromPrice(this)"></td>
+    <td class="td-right">—</td>
+    <td><input class="cell-edit" value=""></td>
+    <td class="col-genka"><input class="cell-edit td-right" value="" oninput="calcRow(this)"></td>
+    <td class="col-genka genka-total td-right">—</td>
+    <td class="col-genka genka-rate"><div class="rate-cell"><input class="cell-edit td-right" value="" oninput="calcFromCRate(this)"><span class="rate-pct">%</span></div></td>
+    <td class="col-arari td-right">—</td>
+    <td class="col-arari"><div class="rate-cell"><input class="cell-edit td-right" value="" readonly><span class="rate-pct">%</span></div></td>
+    <td class="col-memo"><input class="cell-edit" value="" placeholder="社内メモ"></td>`;
+  // 既存の追加原価列があれば対応するtdを挿入
+  const thead = document.querySelector('#mainTbl thead tr');
+  if (thead) {
+    thead.querySelectorAll('th.extra-cost-th').forEach(th => {
+      const thIdx = [...thead.querySelectorAll('th')].indexOf(th);
+      const td = document.createElement('td');
+      td.dataset.extraId = th.dataset.extraId;
+      td.className = 'extra-cost-td';
+      td.innerHTML = '<input class="cell-edit td-right" value="" oninput="calcRow(this)">';
+      if (th.style.display === 'none') td.style.display = 'none';
+      const tds = [...tr.querySelectorAll('td')];
+      tr.insertBefore(td, tds[thIdx] || null);
+    });
+  }
+  setupDrag(tr);
+  return tr;
+}
+function makeCatRow(name, type) {
+  const tr = document.createElement('tr');
+  tr.dataset.type = type || 'cat';
+  tr.className = type === 'subcat' ? 'tr-subcat' : 'tr-cat tr-cat-1';
+  tr.draggable = true;
+  tr.innerHTML = `<td class="no-col"></td><td colspan="14"><div class="cat-cell"><input class="cat-label cell-edit" value="${name || ''}" style="font-weight:600;min-width:200px;"></div></td>`;
+  setupDrag(tr);
+  return tr;
+}
+function icAddRow() {
+  const tbody = document.getElementById('mainTbody');
+  const sel = getSelectedRow();
+  const tr = makeDataRow();
+  if (sel) sel.after(tr); else tbody.appendChild(tr);
+  renumberRows();
+  tr.querySelector('input')?.focus();
+}
+function icAddCat() {
+  const tbody = document.getElementById('mainTbody');
+  const sel = getSelectedRow();
+  const tr = makeCatRow('', 'cat');
+  if (sel) sel.after(tr); else tbody.appendChild(tr);
+  renumberRows();
+  tr.querySelector('input')?.focus();
+}
+function icDelete() {
+  const rows = document.querySelectorAll('#mainTbody tr.row-selected');
+  rows.forEach(r => r.remove());
+  renumberRows(); updateSummary();
+}
+function getSelectedRow() {
+  return document.querySelector('#mainTbody tr.row-selected') || null;
+}
+function icCopy() {
+  const sel = getSelectedRow();
+  if (sel) _clipboard = sel.cloneNode(true);
+}
+function icCut() {
+  const sel = getSelectedRow();
+  if (sel) { _clipboard = sel.cloneNode(true); sel.remove(); renumberRows(); updateSummary(); }
+}
+function icPaste() {
+  if (!_clipboard) return;
+  const tbody = document.getElementById('mainTbody');
+  const sel = getSelectedRow();
+  const tr = _clipboard.cloneNode(true);
+  setupDrag(tr);
+  if (sel) sel.after(tr); else tbody.appendChild(tr);
+  renumberRows(); updateSummary();
+}
+function icUndo() { showToast('元に戻す機能は準備中です'); }
+function icRedo() { showToast('やり直し機能は準備中です'); }
+
+function renumberRows() {
+  let n = 1;
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    const nc = tr.querySelector('.no-col');
+    if (nc) nc.textContent = n++;
+  });
+}
+
+// ══ ユニット選択 ══
+const UNITS = ['式', 'm', 'm²', 'm³', '本', '枚', '個', 'セット', '箱'];
+function toggleUnit(inp) {
+  const combo = inp.closest('.unit-combo');
+  const dd = combo.querySelector('.unit-dropdown');
+  if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+  dd.innerHTML = UNITS.map(u => `<div class="unit-opt" onclick="setUnit(this,'${u}')">${u}</div>`).join('');
+  dd.classList.add('open');
+}
+function setUnit(el, u) {
+  const combo = el.closest('.unit-combo');
+  combo.querySelector('.unit-input').value = u;
+  combo.querySelector('.unit-dropdown').classList.remove('open');
+  calcRow(combo.querySelector('.unit-input'));
+}
+document.addEventListener('click', e => {
+  if (!e.target.classList.contains('unit-input')) {
+    document.querySelectorAll('.unit-dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
+
+// ══ 行選択 ══
+document.getElementById('mainTbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr');
+  if (!tr || !tr.parentElement) return;
+  document.querySelectorAll('#mainTbody tr.row-selected').forEach(r => r.classList.remove('row-selected'));
+  tr.classList.add('row-selected');
+});
+
+
+// ══ 追加原価列 ══
+let extraCostCount = 0;
+
+function addExtraCostCol() {
+  extraCostCount++;
+  const id    = extraCostCount;
+  const label = `追加原価${id}`;
+
+  const thead = document.querySelector('#mainTbl thead tr');
+  if (!thead) return;
+
+  // 挿入位置: 既存追加列の後、なければ genka-total-th の前
+  const existingExtras = [...thead.querySelectorAll('th.extra-cost-th')];
+  const refTh = existingExtras.length > 0
+    ? existingExtras[existingExtras.length - 1].nextElementSibling
+    : thead.querySelector('th.genka-total-th') || null;
+
+  const newTh = document.createElement('th');
+  newTh.className = 'extra-cost-th';
+  newTh.dataset.extraId = id;
+  newTh.innerHTML = `<span contenteditable="true" onclick="event.stopPropagation()">${label}</span> <button class="th-minus-btn" onclick="hideExtraCostCol(${id})">−</button>`;
+  thead.insertBefore(newTh, refTh);
+
+  const thIdx = [...thead.querySelectorAll('th')].indexOf(newTh);
+
+  // colgroup に col 追加（main・shokei 両方）
+  ['#mainColgroup', '#shokeiColgroup'].forEach(sel => {
+    const cg = document.querySelector(sel);
+    if (!cg) return;
+    const newCol = document.createElement('col');
+    newCol.style.width = '90px';
+    newCol.dataset.extraId = id;
+    const cols = [...cg.querySelectorAll('col')];
+    cg.insertBefore(newCol, cols[thIdx] || null);
+  });
+
+  // tbody の各行に td 追加
+  document.querySelectorAll('#mainTbody tr').forEach(tr => {
+    const tds = [...tr.querySelectorAll('td')];
+    const td = document.createElement('td');
+    td.dataset.extraId = id;
+    if (tr.dataset.type === 'row') {
+      td.className = 'extra-cost-td';
+      td.innerHTML = '<input class="cell-edit td-right" value="" oninput="calcRow(this)">';
+    }
+    tr.insertBefore(td, tds[thIdx] || null);
+  });
+}
+
+function hideExtraCostCol(id) {
+  document.querySelectorAll(`[data-extra-id="${id}"]`).forEach(el => {
+    el.style.display = 'none';
+  });
+  updateSummary();
+}
+
+// ══ ドラッグ&ドロップ ══
+let _dragSrc = null;
+function setupDrag(tr) {
+  tr.addEventListener('dragstart', e => { _dragSrc = tr; tr.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+  tr.addEventListener('dragend', () => { tr.classList.remove('dragging'); document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(r => { r.classList.remove('drag-over-top'); r.classList.remove('drag-over-bottom'); }); });
+  tr.addEventListener('dragover', e => {
+    e.preventDefault();
+    if (_dragSrc === tr) return;
+    const rect = tr.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    document.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(r => { r.classList.remove('drag-over-top'); r.classList.remove('drag-over-bottom'); });
+    tr.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+  });
+  tr.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!_dragSrc || _dragSrc === tr) return;
+    const rect = tr.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    if (e.clientY < mid) tr.parentElement.insertBefore(_dragSrc, tr);
+    else tr.after(_dragSrc);
+    renumberRows();
+  });
+}
+document.querySelectorAll('#mainTbody tr').forEach(tr => setupDrag(tr));
+
+// ══ サイドパネル ══
+let _sidePanelActive = null;
+let _spMasterLoaded  = false;
+let _spCatalogLoaded = false;
+let _spHistoryLoaded = false;
+
+function openSidePanel(type) {
+  const panel = document.getElementById('sidePanel');
+  panel.classList.add('open');
+  switchSidePanel(type || 'master');
+}
+function closeSidePanel() {
+  const panel = document.getElementById('sidePanel');
+  panel.classList.remove('open');
+  panel.style.width = '';
+  _sidePanelActive = null;
+  ['spMasterPanel','spCatalogPanel','spHistoryPanel','spOcrPanel','spCsvPanel','spMfrPanel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+function switchSidePanel(type) {
+  const title = document.getElementById('sidePanelTitle');
+  _sidePanelActive = type;
+
+  ['spMasterPanel','spCatalogPanel','spHistoryPanel','spOcrPanel','spCsvPanel','spMfrPanel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  ['spTabMaster','spTabCatalog','spTabHistory','spTabOcr','spTabCsv','spTabMfr'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+
+  if (type === 'master') {
+    const p = document.getElementById('spMasterPanel');
+    if (p) p.style.display = 'flex';
+    document.getElementById('spTabMaster')?.classList.add('active');
+    if (title) title.textContent = '📦 マスタから引用';
+    if (!_spMasterLoaded) { mpLoad(); _spMasterLoaded = true; }
+    setTimeout(() => { document.getElementById('mpSearchRikcad')?.focus(); }, 300);
+  } else if (type === 'catalog') {
+    const p = document.getElementById('spCatalogPanel');
+    if (p) p.style.display = 'flex';
+    document.getElementById('spTabCatalog')?.classList.add('active');
+    if (title) title.textContent = '📋 カタログから引用';
+    if (!_spCatalogLoaded) { cpLoad(); _spCatalogLoaded = true; }
+  } else if (type === 'history') {
+    const p = document.getElementById('spHistoryPanel');
+    if (p) p.style.display = 'flex';
+    document.getElementById('spTabHistory')?.classList.add('active');
+    if (title) title.textContent = '🕐 履歴から引用';
+    if (!_spHistoryLoaded) { hpLoadHistory(); _spHistoryLoaded = true; }
+  } else if (type === 'ocr') {
+    const p = document.getElementById('spOcrPanel');
+    if (p) p.style.display = '';
+    document.getElementById('spTabOcr')?.classList.add('active');
+    if (title) title.textContent = 'OCRから引用';
+  } else if (type === 'csv') {
+    const p = document.getElementById('spCsvPanel');
+    if (p) p.style.display = '';
+    document.getElementById('spTabCsv')?.classList.add('active');
+    if (title) title.textContent = '📄 CSV入力';
+  } else if (type === 'mfr') {
+    const p = document.getElementById('spMfrPanel');
+    if (p) p.style.display = '';
+    document.getElementById('spTabMfr')?.classList.add('active');
+    if (title) title.textContent = 'メーカー見積';
+  }
+}
+
+// サイドパネルリサイズ
+(function() {
+  const MIN_W = 200, MAX_W = 900;
+  let dragging = false, startX = 0, startW = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const handle = document.getElementById('spResizeHandle');
+    const panel  = document.getElementById('sidePanel');
+    if (!handle || !panel) return;
+
+    handle.addEventListener('mousedown', e => {
+      if (!panel.classList.contains('open')) return;
+      dragging = true;
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      panel.classList.add('resizing');
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const delta = startX - e.clientX;
+      const newW = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+      panel.style.width = newW + 'px';
+    });
+
+    const stopResize = () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.classList.remove('resizing');
+      handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mouseup', stopResize);
+  });
+})();
+
+// ══ マスタパネル ══
+let _mpMasterItems = [];
+let _mpRowsCache   = {};
+
+function _mpEsc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function _normalizeKana(s) {
+  return String(s || '')
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ')
+    .replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .toLowerCase();
+}
+
+const _MP_SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const _MP_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const _MP_H   = { 'apikey': _MP_KEY, 'Authorization': 'Bearer ' + _MP_KEY };
+
+async function mpLoad() {
+  const tbody = document.getElementById('mpTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">読み込み中...</td></tr>';
+  try {
+    const r = await fetch(`${_MP_SB}/master_items?order=name.asc&limit=1000`, { headers: _MP_H });
+    if (!r.ok) throw new Error(await r.text());
+    _mpMasterItems = await r.json();
+
+    const sel = document.getElementById('mpFilterMasterName');
+    if (sel) {
+      sel.innerHTML = '<option value="">マスタ名：すべて</option>' +
+        _mpMasterItems.map(m => `<option value="${_mpEsc(m.name)}">${_mpEsc(m.name)}</option>`).join('');
+    }
+    await mpFilterByMaster();
+  } catch(e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#e53935;">取得失敗: ${e.message}</td></tr>`;
+  }
+}
+
+async function _mpGetRows(masterId) {
+  if (_mpRowsCache[masterId]) return _mpRowsCache[masterId];
+  const r = await fetch(`${_MP_SB}/master_rows?master_id=eq.${masterId}&order=sort_order.asc`, { headers: _MP_H });
+  const rows = r.ok ? await r.json() : [];
+  rows.forEach(row => { row._cacheKey = masterId; });
+  _mpRowsCache[masterId] = rows;
+  return rows;
+}
+
+async function mpFilterByMaster() {
+  const sel = document.getElementById('mpFilterMasterName');
+  const masterName = sel ? sel.value : '';
+  const tbody = document.getElementById('mpTbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:12px;color:#aaa;">読み込み中...</td></tr>';
+  try {
+    let allRows = [];
+    if (!masterName) {
+      for (const m of _mpMasterItems) {
+        const rows = await _mpGetRows(m.id);
+        rows.forEach(r => { r._cacheKey = m.id; });
+        allRows = allRows.concat(rows);
+      }
+    } else {
+      const m = _mpMasterItems.find(m => m.name === masterName);
+      if (m) {
+        const rows = await _mpGetRows(m.id);
+        rows.forEach(r => { r._cacheKey = m.id; });
+        allRows = rows;
+      }
+    }
+    mpRender(allRows.filter(r => r.row_type === 'row'));
+  } catch(e) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#e53935;">取得失敗</td></tr>`;
+  }
+}
+
+function mpRender(rows) {
+  const tbody = document.getElementById('mpTbody');
+  if (!tbody) return;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">データがありません</td></tr>';
+    return;
+  }
+  const fmtNum = n => (n != null && n !== '') ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+  tbody.innerHTML = '';
+  rows.slice(0, 300).forEach(row => {
+    let rikcadStr = '';
+    try {
+      const arr = JSON.parse(row.rikcad_names || '[]');
+      rikcadStr = Array.isArray(arr) ? arr.join(', ') : (row.rikcad_names || '');
+    } catch { rikcadStr = row.rikcad_names || ''; }
+
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #f0f0f0';
+    tr.style.cursor = 'pointer';
+    tr.innerHTML = `
+      <td style="padding:5px 8px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_mpEsc(row.name||'')}">${_mpEsc(row.name||'—')}</td>
+      <td style="padding:5px 6px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#777;font-size:11px;" title="${_mpEsc(row.spec||'')}">${_mpEsc(row.spec||'')}</td>
+      <td style="padding:5px 6px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555;font-size:11px;" title="${_mpEsc(rikcadStr)}">${_mpEsc(rikcadStr)}</td>
+      <td style="padding:5px 4px;text-align:right;font-size:11px;">${row.qty != null ? row.qty : '—'}</td>
+      <td style="padding:5px 4px;text-align:center;font-size:11px;">${_mpEsc(row.unit||'式')}</td>
+      <td style="padding:5px 6px;text-align:right;white-space:nowrap;font-size:11px;">${fmtNum(row.unit_price ?? row.list_price)}</td>`;
+    tr.addEventListener('dblclick', () => mpInsertRow(row));
+    tbody.appendChild(tr);
+  });
+}
+
+function mpSearch() {
+  const raw       = (document.getElementById('mpSearchName')?.value   || '').trim();
+  const rawRikcad = (document.getElementById('mpSearchRikcad')?.value || '').trim();
+  const clr = document.getElementById('mpSearchClear');
+  if (clr) clr.style.display = raw ? 'block' : 'none';
+
+  if (!raw && !rawRikcad) { mpFilterByMaster(); return; }
+  const kw       = _normalizeKana(raw);
+  const kwRikcad = _normalizeKana(rawRikcad);
+  const sel = document.getElementById('mpFilterMasterName');
+  const masterName = sel ? sel.value : '';
+  let pool = [];
+  if (!masterName) {
+    for (const rows of Object.values(_mpRowsCache)) pool = pool.concat(rows);
+  } else {
+    const m = _mpMasterItems.find(m => m.name === masterName);
+    if (m && _mpRowsCache[m.id]) pool = _mpRowsCache[m.id];
+  }
+  const filtered = pool.filter(r => {
+    if (r.row_type !== 'row') return false;
+    let rikcad = '';
+    try { rikcad = Array.isArray(JSON.parse(r.rikcad_names||'[]')) ? JSON.parse(r.rikcad_names||'[]').join(' ') : (r.rikcad_names||''); } catch { rikcad = r.rikcad_names||''; }
+    const nameHit   = !kw       || _normalizeKana(r.name).includes(kw)       || _normalizeKana(r.spec||'').includes(kw);
+    const rikcadHit = !kwRikcad || _normalizeKana(rikcad).includes(kwRikcad);
+    return nameHit && rikcadHit;
+  });
+  mpRender(filtered);
+}
+
+function mpClearSearch() {
+  const inp  = document.getElementById('mpSearchName');
+  const clr  = document.getElementById('mpSearchClear');
+  const inp2 = document.getElementById('mpSearchRikcad');
+  if (inp)  inp.value  = '';
+  if (clr)  clr.style.display = 'none';
+  if (inp2) inp2.value = '';
+  mpFilterByMaster();
+}
+
+function mpInsertRow(r) {
+  const tr = makeDataRow();
+  const inputs = tr.querySelectorAll('input');
+  // inputs[0]=名称 inputs[1]=仕様 inputs[2]=数量 inputs[3]=単位(unit-input) inputs[4]=定価 inputs[5]=売価率 inputs[6]=単価 inputs[7]=備考 inputs[8]=原価
+  if (inputs[0]) inputs[0].value = r.name       || '';
+  if (inputs[1]) inputs[1].value = r.spec       || '';
+  if (inputs[2]) inputs[2].value = r.qty        != null ? r.qty        : '';
+  // inputs[3] は unit-input なので .unit-input で取得
+  const unitInp = tr.querySelector('.unit-input');
+  if (unitInp)   unitInp.value   = r.unit       || '式';
+  if (inputs[4]) inputs[4].value = r.list_price != null ? r.list_price : '';
+  if (inputs[5]) inputs[5].value = r.rate       != null ? r.rate       : '';
+  if (inputs[6]) inputs[6].value = r.unit_price != null ? r.unit_price : '';
+  // inputs[7] = 備考（master_rowsにはbiko列なし）
+  if (inputs[8]) inputs[8].value = r.cost       != null ? r.cost       : '';
+  const tbody = document.getElementById('mainTbody');
+  const sel = getSelectedRow();
+  if (sel) sel.after(tr); else tbody.appendChild(tr);
+  calcRow(tr.querySelector('input'));
+  renumberRows();
+}
+
+// ══ カタログパネル ══
+let _cpAllRows = [];
+
+function _cpNormalize(str) {
+  if (!str) return '';
+  return str
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, ' ')
+    .replace(/[ァ-ヶ]/g, s => String.fromCharCode(s.charCodeAt(0) - 0x60))
+    .toLowerCase()
+    .trim();
+}
+
+async function cpLoad() {
+  const tbody = document.getElementById('cpTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">読み込み中...</td></tr>';
+  const _SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+  const _KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const _H   = { 'apikey': _KEY, 'Authorization': 'Bearer ' + _KEY };
+  try {
+    const PAGE = 1000;
+    let allData = [], offset = 0;
+    while (true) {
+      const r = await fetch(
+        `${_SB}/catalog_items?order=category.asc,name.asc&limit=${PAGE}&offset=${offset}`,
+        { headers: _H }
+      );
+      if (!r.ok) throw new Error(await r.text());
+      const page = await r.json();
+      allData = allData.concat(page);
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
+    _cpAllRows = allData;
+    cpBuildFilters();
+    cpRender(_cpAllRows);
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:#e53935;">取得失敗: ${e.message}</td></tr>`;
+  }
+}
+
+function cpBuildFilters() {
+  const cats   = [...new Set(_cpAllRows.map(r => r.category).filter(Boolean))].sort();
+  const makers = [...new Set(_cpAllRows.map(r => r.maker).filter(Boolean))].sort();
+  const catSel   = document.getElementById('cpFilterCat');
+  const makerSel = document.getElementById('cpFilterMaker');
+  if (catSel) {
+    catSel.innerHTML = '<option value="">カテゴリ</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+  if (makerSel) {
+    makerSel.innerHTML = '<option value="">メーカー</option>' + makers.map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+}
+
+function cpSearch() {
+  const cat    = document.getElementById('cpFilterCat')?.value   || '';
+  const maker  = document.getElementById('cpFilterMaker')?.value || '';
+  const nameKw = _cpNormalize(document.getElementById('cpSearchName')?.value || '');
+  const specKw = _cpNormalize(document.getElementById('cpSearchSpec')?.value || '');
+
+  let filtered = _cpAllRows;
+  if (cat)   filtered = filtered.filter(r => r.category === cat);
+  if (maker) filtered = filtered.filter(r => r.maker    === maker);
+  if (nameKw) {
+    filtered = filtered.filter(r => {
+      const n  = _cpNormalize(r.name   || '');
+      const rc = _cpNormalize(r.rikcad || '');
+      return n.includes(nameKw) || rc.includes(nameKw);
+    });
+  }
+  if (specKw) {
+    filtered = filtered.filter(r => {
+      const specs = [r.spec1,r.spec2,r.spec3,r.spec4,r.spec5,r.spec6,r.spec7,r.spec8,r.spec9,r.catalog_page];
+      return specs.some(s => _cpNormalize(s || '').includes(specKw));
+    });
+  }
+  cpRender(filtered);
+}
+
+function cpRender(rows) {
+  const tbody = document.getElementById('cpTbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;">データがありません</td></tr>';
+    return;
+  }
+  const fmtNum = n => n != null ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+  tbody.innerHTML = '';
+  rows.forEach(row => {
+    const specStr = [row.spec1,row.spec2,row.spec3,row.spec4,row.spec5].filter(Boolean).join(' ');
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px dashed #eee';
+    tr.innerHTML = `
+      <td style="padding:6px 8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${row.name||'—'}</td>
+      <td style="padding:6px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#777;font-size:11px;">${specStr}</td>
+      <td style="padding:6px 4px;text-align:center;">${row.unit||'式'}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;">${fmtNum(row.list_price)}</td>
+      <td style="padding:6px 8px;white-space:nowrap;color:#888;font-size:11px;">${row.maker||''}</td>`;
+    tr.addEventListener('dblclick', () => cpInsertRow(row));
+    tbody.appendChild(tr);
+  });
+}
+
+async function cpCadSearch() {
+  const btn = document.getElementById('btnCpCad');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('http://localhost:8767/api/cad/name', { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.ok) { showToast(data.error || 'RIKCADで要素を選択してください'); return; }
+    let name = (data.name || '').trim();
+    if (!name && data.logbikou) {
+      const m = data.logbikou.match(/工事名[:：]([^,、]+)/);
+      name = m ? m[1].trim() : data.logbikou.split(/[,、]/)[0].trim();
+    }
+    if (!name) { showToast('名称が取得できません'); return; }
+    const nameEl = document.getElementById('cpSearchName');
+    if (nameEl) { nameEl.value = name; cpSearch(); }
+    showToast(`検索: ${name}`);
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      showToast('タイムアウト（Tapirアドオンが有効か確認してください）');
+    } else {
+      showToast('APIサーバーに接続できません（start_server.batを起動してください）');
+    }
+  } finally {
+    if (btn) { btn.textContent = '🏗 CAD'; btn.disabled = false; }
+  }
+}
+
+function cpInsertRow(r) {
+  const tr = makeDataRow();
+  const inputs = tr.querySelectorAll('input');
+  // inputs[0]=名称 inputs[1]=仕様 inputs[4]=定価
+  if (inputs[0]) inputs[0].value = r.name || '';
+  if (inputs[1]) inputs[1].value = [r.spec1, r.spec2, r.spec3].filter(Boolean).join(' ') || '';
+  if (inputs[4]) inputs[4].value = r.list_price != null ? r.list_price : '';
+  const tbody = document.getElementById('mainTbody');
+  const sel = getSelectedRow();
+  if (sel) sel.after(tr); else tbody.appendChild(tr);
+  calcRow(tr.querySelector('input'));
+  renumberRows();
+}
+
+// ══ 履歴パネル ══
+let _hpAllRows = [];
+
+async function hpLoadHistory() {
+  const tbody = document.getElementById('hpTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#aaa;">読み込み中...</td></tr>';
+  const _SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+  const _KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const _H   = { 'apikey': _KEY, 'Authorization': 'Bearer ' + _KEY };
+  try {
+    const url = `${_SB}/estimate_rows?select=*,estimates(plan_name,created_at)&row_type=eq.row&order=created_at.desc&limit=500`;
+    const r = await fetch(url, { headers: _H });
+    if (!r.ok) throw new Error(r.status + ': ' + await r.text());
+    _hpAllRows = await r.json();
+    hpRenderHistory(_hpAllRows);
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#e53935;">取得失敗: ${e.message}</td></tr>`;
+  }
+}
+
+function hpRenderHistory(rows) {
+  const tbody = document.getElementById('hpTbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#aaa;">データがありません</td></tr>';
+    return;
+  }
+  const fmtNum = n => n != null ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+  tbody.innerHTML = rows.slice(0, 300).map((row, i) => {
+    const est = row.estimates || {};
+    return `<tr data-hp-idx="${i}" style="border-bottom:1px dashed #eee;cursor:pointer;">
+      <td style="padding:6px 8px;text-align:center;"><input type="checkbox" style="cursor:pointer;"></td>
+      <td style="padding:6px 8px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${row.name||'—'}</td>
+      <td style="padding:6px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#777;font-size:11px;">${row.spec||''}</td>
+      <td style="padding:6px 4px;text-align:center;white-space:nowrap;">${row.unit||'式'}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;">${fmtNum(row.unit_price)}</td>
+      <td style="padding:6px 8px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aaa;font-size:11px;">${est.plan_name||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr[data-hp-idx]').forEach(tr => {
+    tr.addEventListener('dblclick', () => {
+      const idx = parseInt(tr.dataset.hpIdx);
+      if (!isNaN(idx) && _hpAllRows[idx]) {
+        const row = _hpAllRows[idx];
+        const newTr = makeDataRow();
+        const inputs = newTr.querySelectorAll('input');
+        if (inputs[0]) inputs[0].value = row.name       || '';
+        if (inputs[1]) inputs[1].value = row.spec       || '';
+        if (inputs[2]) inputs[2].value = row.qty        != null ? row.qty        : '';
+        const unitInp = newTr.querySelector('.unit-input');
+        if (unitInp)   unitInp.value   = row.unit       || '式';
+        if (inputs[4]) inputs[4].value = row.list_price != null ? row.list_price : '';
+        if (inputs[5]) inputs[5].value = row.rate       != null ? row.rate       : '';
+        if (inputs[6]) inputs[6].value = row.unit_price != null ? row.unit_price : '';
+        if (inputs[8]) inputs[8].value = row.cost       != null ? row.cost       : '';
+        const mainTbody = document.getElementById('mainTbody');
+        mainTbody.appendChild(newTr);
+        calcRow(newTr.querySelector('input'));
+        renumberRows();
+      }
+    });
+  });
+}
+
+function hpSearch() {
+  const planKw = (document.getElementById('hpPlanKw')?.value || '').trim().toLowerCase();
+  const nameKw = (document.getElementById('hpNameKw')?.value || '').trim().toLowerCase();
+  let filtered = _hpAllRows;
+  if (planKw) filtered = filtered.filter(r => (r.estimates?.plan_name||'').toLowerCase().includes(planKw));
+  if (nameKw) filtered = filtered.filter(r => (r.name||'').toLowerCase().includes(nameKw) || (r.spec||'').toLowerCase().includes(nameKw));
+  hpRenderHistory(filtered);
+}
+
+function hpApplyChecked() {
+  const checked = [];
+  document.querySelectorAll('#hpTbody tr[data-hp-idx]').forEach(tr => {
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if (cb && cb.checked) {
+      const idx = parseInt(tr.dataset.hpIdx);
+      if (!isNaN(idx) && _hpAllRows[idx]) checked.push(_hpAllRows[idx]);
+    }
+  });
+  if (!checked.length) { alert('チェックボックスで行を選択してください'); return; }
+  const mainTbody = document.getElementById('mainTbody');
+  checked.forEach(row => {
+    const newTr = makeDataRow();
+    const inputs = newTr.querySelectorAll('input');
+    if (inputs[0]) inputs[0].value = row.name       || '';
+    if (inputs[1]) inputs[1].value = row.spec       || '';
+    if (inputs[2]) inputs[2].value = row.qty        != null ? row.qty        : '';
+    const unitInp = newTr.querySelector('.unit-input');
+    if (unitInp)   unitInp.value   = row.unit       || '式';
+    if (inputs[4]) inputs[4].value = row.list_price != null ? row.list_price : '';
+    if (inputs[5]) inputs[5].value = row.rate       != null ? row.rate       : '';
+    if (inputs[6]) inputs[6].value = row.unit_price != null ? row.unit_price : '';
+    if (inputs[8]) inputs[8].value = row.cost       != null ? row.cost       : '';
+    mainTbody.appendChild(newTr);
+    calcRow(newTr.querySelector('input'));
+  });
+  renumberRows();
+}
+
+// ══ CSV取り込み ══
+function openCsvTextImport() {
+  const area = document.getElementById('csvTextArea');
+  if (area) area.style.display = area.style.display === 'none' ? 'flex' : 'none';
+}
+
+function importCsvRows() {
+  const text = document.getElementById('csvInput').value.trim();
+  if (!text) return;
+  const lines = text.split('\n').filter(l => l.trim());
+  const tbody = document.getElementById('mainTbody');
+  lines.forEach(line => {
+    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 2) return;
+    const tr = makeDataRow();
+    const inputs = tr.querySelectorAll('input');
+    if (inputs[0]) inputs[0].value = cols[0] || '';
+    if (inputs[1]) inputs[1].value = cols[1] || '';
+    if (inputs[2]) inputs[2].value = cols[2] || '';
+    if (inputs[3]) inputs[3].value = cols[3] || '式';
+    if (inputs[4]) inputs[4].value = cols[4] || '';
+    if (inputs[5]) inputs[5].value = cols[5] || '';
+    if (inputs[8]) inputs[8].value = cols[6] || '';
+    tbody.appendChild(tr);
+    calcRow(tr.querySelector('input'));
+  });
+  renumberRows();
+  document.getElementById('csvInput').value = '';
+  showToast(lines.length + '行を追加しました');
+}
+
+// ══ 諸経費追加 ══
+let _shoukeiCount = 1;
+function addShoukeiRow() {
+  _shoukeiCount++;
+  const id = _shoukeiCount;
+  const tbody = document.getElementById('shokeiTbl').querySelector('tbody');
+  const firstRow = tbody.querySelector('tr');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td></td>
+    <td colspan="2" style="padding:5px 6px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <input class="shoukeihi-input" value="諸経費${id}" id="shoukeiLabel${id}" />
+        <button class="shoukei-pm-btn minus" onclick="this.closest('tr').remove();updateSummary()" title="削除">−</button>
+      </div>
+    </td>
+    <td style="padding:5px 6px;"><input class="num-input" style="width:60px;text-align:right;" value="" id="shoukei-qty-${id}" oninput="updateSummary()" /></td>
+    <td style="padding:5px 6px;">
+      <div class="shoukei-unit-wrap">
+        <button class="shoukei-unit-btn" id="shoukei-unit-${id}" onclick="this.nextElementSibling.classList.toggle('open')">式 ▾</button>
+        <div class="shoukei-unit-dd">
+          <div onclick="document.getElementById('shoukei-unit-${id}').textContent='式 ▾';this.closest('.shoukei-unit-dd').classList.remove('open');updateSummary()">式</div>
+          <div onclick="document.getElementById('shoukei-unit-${id}').textContent='% ▾';this.closest('.shoukei-unit-dd').classList.remove('open');updateSummary()">%</div>
+        </div>
+      </div>
+    </td>
+    <td colspan="3"></td>
+    <td class="td-right" style="padding:5px 6px;" id="shoukei-val-${id}">¥0</td>
+    <td></td><td class="col-genka"></td><td class="col-genka"></td><td class="col-genka"></td><td class="col-arari"></td><td class="col-arari"></td><td></td>`;
+  if (firstRow) firstRow.after(tr); else tbody.appendChild(tr);
+}
+
+/* ════════════════════════════════
+   計測パネル（keisoku）
+════════════════════════════════ */
+
+function toggleKeisokuPanel() {
+  const panel = document.getElementById('keisokuPanel');
+  const btn   = document.getElementById('btnKeisoku');
+  if (!panel) return;
+  const isOpen = panel.style.display === 'flex';
+  if (isOpen) {
+    panel.style.display = 'none';
+    if (btn) { btn.style.background='#eff6ff'; btn.style.borderColor='#3b82f6'; btn.style.color='#1d4ed8'; }
+    clearInterval(_ksTimer); _ksTimer = null;
+  } else {
+    panel.style.display = 'flex';
+    if (btn) { btn.style.background='#dbeafe'; btn.style.borderColor='#1d4ed8'; btn.style.color='#1d4ed8'; }
+    _initKsResize();
+  }
+}
+
+function openKeisokuPanel() {
+  const panel = document.getElementById('keisokuPanel');
+  const btn   = document.getElementById('btnKeisoku');
+  if (panel) { panel.style.display = 'flex'; _initKsResize(); }
+  if (btn)   { btn.style.background='#dbeafe'; btn.style.borderColor='#1d4ed8'; }
+}
+function closeKeisokuPanel() {
+  const panel = document.getElementById('keisokuPanel');
+  const btn   = document.getElementById('btnKeisoku');
+  if (panel) panel.style.display = 'none';
+  if (btn)   { btn.style.background='#eff6ff'; btn.style.borderColor='#3b82f6'; btn.style.color='#1d4ed8'; }
+  clearInterval(_ksTimer); _ksTimer = null;
+}
+
+let _ksResizeInited = false;
+function _initKsResize() {
+  if (_ksResizeInited) return;
+  _ksResizeInited = true;
+  const handle = document.getElementById('ksResizeHandle');
+  const panel  = document.getElementById('keisokuPanel');
+  if (!handle || !panel) return;
+  let startX, startW;
+  handle.addEventListener('mousedown', e => {
+    startX = e.pageX; startW = panel.offsetWidth;
+    handle.style.background = 'rgba(0,169,157,0.6)';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  });
+  function onMove(e) {
+    const w = Math.max(200, Math.min(600, startW + e.pageX - startX));
+    panel.style.width = w + 'px';
+  }
+  function onUp() {
+    handle.style.background = 'transparent';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+}
+
+const KS_API  = 'http://localhost:8767';
+const KS_POLL = 2000;
+
+const KS_ICONS = {
+  Wall: `<rect x="0" y="0" width="32" height="7" fill="#A07820" rx="1"/><rect x="3" y="9" width="32" height="7" fill="#C09030" rx="1"/><rect x="0" y="18" width="32" height="7" fill="#A07820" rx="1"/>`,
+  Slab: `<polygon points="2,26 12,12 30,12 20,26" fill="#7EC8E3" stroke="#5AAEC8" stroke-width="0.8"/><polygon points="12,12 30,12 30,19 12,19" fill="#5AAEC8"/>`,
+  Mesh: `<polygon points="2,27 14,7 30,14 18,30" fill="#E8A040" stroke="#C88020" stroke-width="0.8"/>`,
+  Object: `<rect x="6" y="17" width="20" height="12" fill="none" stroke="#555" stroke-width="1.2" rx="1"/><rect x="11" y="8" width="10" height="9" fill="none" stroke="#555" stroke-width="1" rx="1"/><line x1="16" y1="8" x2="16" y2="3" stroke="#555" stroke-width="1"/><circle cx="16" cy="2" r="2" fill="#555"/>`,
+  Unknown: `<rect x="4" y="4" width="24" height="24" fill="rgb(200,200,200)" rx="2"/>`
+};
+
+let _ksData     = null;
+let _ksFetching = false;
+let _ksTimer    = null;
+
+const CAD_TYPE_JP = { Wall:'壁', Slab:'スラブ', Roof:'屋根', Mesh:'メッシュ',
+                      Morph:'モルフ', Object:'オブジェクト', Lamp:'ランプ' };
+
+function ksSetStatus(msg, isError = false) {
+  const el = document.getElementById('ksStatus');
+  if (el) { el.textContent = msg; el.style.color = isError ? '#dc2626' : '#6b7280'; }
+}
+
+function ksRender(data) {
+  _ksData = data;
+  const icon   = document.getElementById('ksSvgIcon');
+  const typeEl = document.getElementById('ksElementType');
+  const etype  = data?.elementType || 'Unknown';
+  if (icon)   icon.innerHTML = KS_ICONS[etype] || KS_ICONS.Unknown;
+  if (typeEl) typeEl.textContent = etype === 'Unknown' ? '未取得' : (CAD_TYPE_JP[etype] || etype);
+
+  const tbody = document.getElementById('ksTbody');
+  if (!tbody) return;
+
+  const rows = data?.rows;
+  if (!data || !rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:20px;text-align:center;color:#aaa;font-size:11px;">データなし</td></tr>';
+    return;
+  }
+
+  const baseName = data.materialName || rows.find(r => r.label === '名称')?.value || etype;
+
+  tbody.innerHTML = '';
+  rows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #f0f0f0';
+    tr.style.background = i % 2 === 0 ? '#fff' : '#f9fafb';
+    tr.style.cursor = 'grab';
+    tr.draggable = true;
+    const numVal = parseFloat(String(row.value));
+    const isNumeric = !isNaN(numVal) && row.value !== '' && row.value !== null;
+    tr.innerHTML = `
+      <td style="padding:4px 8px;color:#374151;border-right:1px solid #e5e7eb;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${row.label}">${row.label}</td>
+      <td style="padding:4px 8px;text-align:right;font-weight:${isNumeric?'600':'400'};color:#111;border-right:1px solid #e5e7eb;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${row.value}">${row.value}</td>
+      <td style="padding:4px 4px;text-align:center;color:#6b7280;font-size:10px;white-space:nowrap;">${row.unit || ''}</td>`;
+
+    const item = (row.is_qty && !isNaN(numVal))
+      ? { name: baseName, spec: row.label, qty: numVal, unit: row.unit || '式',
+          unit_price: null, list_price: null, rate: null }
+      : { name: row.label === '名称' ? String(row.value) : baseName,
+          spec: row.label === '名称' ? '' : `${row.label}: ${row.value}`,
+          qty: null, unit: '式', unit_price: null, list_price: null, rate: null };
+
+    tr.addEventListener('dragstart', e => {
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', JSON.stringify(item));
+      tr.style.opacity = '0.6';
+    });
+    tr.addEventListener('dragend', () => { tr.style.opacity = ''; });
+    tr.addEventListener('dblclick', () => {
+      const newTr = makeDataRow();
+      const inputs = newTr.querySelectorAll('input');
+      if (inputs[0]) inputs[0].value = item.name || '';
+      if (inputs[1]) inputs[1].value = item.spec || '';
+      if (item.qty != null && inputs[2]) inputs[2].value = item.qty;
+      const unitInp = newTr.querySelector('.unit-input');
+      if (unitInp) unitInp.value = item.unit || '式';
+      document.getElementById('mainTbody').appendChild(newTr);
+      calcRow(newTr.querySelector('input'));
+      renumberRows();
+    });
+    tbody.appendChild(tr);
+  });
+
+  requestAnimationFrame(() => _initKsColumnResize());
+}
+
+async function ksFetch() {
+  if (_ksFetching) return;
+  _ksFetching = true;
+  const btn = document.getElementById('ksBtnGet');
+  if (btn) btn.disabled = true;
+  ksSetStatus('取得中...');
+  try {
+    const res = await fetch(`${KS_API}/rikcad/keisoku`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.ok) {
+      ksSetStatus(json.error || 'エラー', true);
+      ksRender(null);
+    } else {
+      ksRender(json.data);
+      const et = json.data?.elementType || '不明';
+      const mn = json.data?.materialName ? ` / ${json.data.materialName}` : '';
+      ksSetStatus(`取得完了 (${CAD_TYPE_JP[et]||et}${mn})`);
+    }
+  } catch(e) {
+    ksSetStatus(`接続エラー: ${e.message}`, true);
+  } finally {
+    _ksFetching = false;
+    const isAuto = document.querySelector('input[name="ksMode"]:checked')?.value === 'auto';
+    if (!isAuto && btn) btn.disabled = false;
+  }
+}
+
+function ksOnModeChange() {
+  const isAuto = document.querySelector('input[name="ksMode"]:checked')?.value === 'auto';
+  const btn = document.getElementById('ksBtnGet');
+  if (btn) btn.disabled = isAuto;
+  if (isAuto) {
+    ksFetch();
+    _ksTimer = setInterval(ksFetch, KS_POLL);
+  } else {
+    clearInterval(_ksTimer);
+    _ksTimer = null;
+  }
+}
+
+async function ksReloadCsv() {
+  ksSetStatus('CSV再読み込み中...');
+  try {
+    const res = await fetch(`${KS_API}/api/keisoku/reload`);
+    const json = await res.json();
+    if (json.ok) {
+      ksSetStatus(`CSV読込完了: GUID${json.guid_count}件 / メーカー${json.material_count}件`);
+    } else {
+      ksSetStatus(`CSV読込失敗: ${json.error || ''}`, true);
+    }
+  } catch(e) {
+    ksSetStatus(`接続エラー: ${e.message}`, true);
+  }
+}
+
+function _initKsColumnResize() {
+  const table = document.getElementById('ksTable');
+  if (!table) return;
+  table.querySelectorAll('.ks-resizer').forEach(resizer => {
+    resizer.onmousedown = null;
+    resizer.addEventListener('mousedown', e => {
+      const th  = resizer.closest('th');
+      const col = parseInt(resizer.dataset.col);
+      const colEl = document.getElementById(`ksCol${col}`);
+      if (!colEl) return;
+      const startX = e.pageX;
+      const startW = th.offsetWidth;
+      resizer.style.background = 'rgba(0,169,157,0.6)';
+      const onMove = mv => {
+        const w = Math.max(40, startW + mv.pageX - startX);
+        colEl.style.width = w + 'px';
+      };
+      const onUp = () => {
+        resizer.style.background = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
+  });
+}
+
+function ksSearchMaster() {
+  if (!_ksData) { ksSetStatus('先に取得してください', true); return; }
+  const rikcadKw = _ksData.materialName || _ksData.rows?.find(r=>r.label==='名称')?.value || '';
+  if (!rikcadKw) { ksSetStatus('名称が取得されていません', true); return; }
+  const rikcadInp = document.getElementById('mpSearchRikcad');
+  if (rikcadInp) rikcadInp.value = rikcadKw;
+  const nameInp = document.getElementById('mpSearchName');
+  if (nameInp) nameInp.value = '';
+  const panel = document.getElementById('sidePanel');
+  panel.classList.add('open');
+  switchSidePanel('master');
+  if (!_spMasterLoaded) { mpLoad(); _spMasterLoaded = true; }
+  window._ksQtyMap = _ksData.qtyMap || {};
+  setTimeout(() => mpSearch(), 200);
+}
+
+function ksSearchCatalog() {
+  if (!_ksData) { ksSetStatus('先に取得してください', true); return; }
+  const kw = _ksData.materialName || _ksData.rows?.find(r=>r.label==='名称')?.value || '';
+  if (!kw) { ksSetStatus('名称が取得されていません', true); return; }
+  const nameInp = document.getElementById('cpSearchName');
+  if (nameInp) nameInp.value = kw;
+  const specInp = document.getElementById('cpSearchSpec');
+  if (specInp) specInp.value = '';
+  const panel = document.getElementById('sidePanel');
+  panel.classList.add('open');
+  switchSidePanel('catalog');
+  if (!_spCatalogLoaded) { cpLoad(); _spCatalogLoaded = true; }
+  setTimeout(() => cpSearch(), 200);
+}
+
+// 計測パネルからのドロップ受け付け
+(function setupKsDrop() {
+  document.addEventListener('DOMContentLoaded', () => {
+    const tbody = document.getElementById('mainTbody');
+    if (!tbody) return;
+    tbody.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    tbody.addEventListener('drop', e => {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      let item;
+      try { item = JSON.parse(raw); } catch { return; }
+      if (!item || typeof item !== 'object') return;
+      e.preventDefault();
+      const targetTr = e.target.closest('#mainTbody tr');
+      const newTr = makeDataRow();
+      const inputs = newTr.querySelectorAll('input');
+      if (inputs[0]) inputs[0].value = item.name || '';
+      if (inputs[1]) inputs[1].value = item.spec || '';
+      if (item.qty != null && inputs[2]) inputs[2].value = item.qty;
+      const unitInp = newTr.querySelector('.unit-input');
+      if (unitInp) unitInp.value = item.unit || '式';
+      if (item.list_price != null && inputs[4]) inputs[4].value = item.list_price;
+      if (item.rate       != null && inputs[5]) inputs[5].value = item.rate;
+      if (item.unit_price != null && inputs[6]) inputs[6].value = item.unit_price;
+      if (targetTr) tbody.insertBefore(newTr, targetTr);
+      else tbody.appendChild(newTr);
+      calcRow(newTr.querySelector('input'));
+      renumberRows();
+      newTr.style.transition = 'background 0s';
+      newTr.style.background = '#b2f0eb';
+      setTimeout(() => { newTr.style.transition = 'background 0.8s'; newTr.style.background = ''; }, 50);
+    });
+  });
+})();
+
+// ══ トースト ══
+function showToast(msg, isError) {
+  const t = document.getElementById('saveToast');
+  t.textContent = msg; t.className = 'save-toast' + (isError ? ' error' : '') + ' show';
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

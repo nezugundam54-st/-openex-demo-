@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カタログから引用</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00a99d;
+      --teal-hover: #008c82;
+      --teal-light: #e6f7f6;
+      --text-primary: #1a1a1a;
+      --text-secondary: #777777;
+      --text-muted: #aaaaaa;
+      --border: #e8e8e8;
+      --border-dashed: #dedede;
+      --bg: #ffffff;
+      --bg-sub: #f7f7f7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 400;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .dialog {
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    /* HEADER */
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .dialog-title { font-size: 16px; font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; }
+    .btn-close {
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%; border: none;
+      background: transparent; color: var(--text-muted); font-size: 18px;
+      cursor: pointer; transition: background 0.15s, color 0.15s; line-height: 1;
+    }
+    .btn-close:hover { background: #f0f0f0; color: var(--text-primary); }
+
+    /* FILTER BAR */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .filter-label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+    .filter-select {
+      padding: 6px 28px 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M0 0l4.5 5L9 0z' fill='%23aaa'/%3E%3C/svg%3E") no-repeat right 9px center;
+      appearance: none; cursor: pointer; outline: none; min-width: 150px;
+      transition: border-color 0.15s;
+    }
+    .filter-select:focus { border-color: var(--teal); }
+
+    /* 検索ボックス2種 */
+    .search-wrap {
+      position: relative;
+      min-width: 180px;
+      flex: 1;
+    }
+    .search-wrap.spec-wrap { flex: 1.4; }
+
+    .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 13px; pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 32px;
+      border: 1.5px solid var(--teal);
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+
+    /* キーワード変換バッジ */
+    .conv-badge {
+      display: none;
+      position: absolute;
+      bottom: -20px;
+      left: 36px;
+      font-size: 10px;
+      color: var(--teal);
+      background: var(--teal-light);
+      border: 1px solid var(--teal);
+      border-radius: 3px;
+      padding: 1px 6px;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .conv-badge.visible { display: block; }
+
+    .search-input:focus { box-shadow: 0 0 0 3px rgba(0,169,157,0.12); }
+
+    /* 仕様検索ボックス */
+    .search-input.spec-input {
+      border-color: #7a9ec7;
+    }
+    .search-input.spec-input:focus {
+      box-shadow: 0 0 0 3px rgba(122,158,199,0.15);
+      border-color: #5580a8;
+    }
+    .search-icon.spec-icon { color: #7a9ec7; }
+
+    /* 検索ラベル（小） */
+    .search-label {
+      position: absolute;
+      top: -8px; left: 8px;
+      font-size: 10px;
+      color: var(--text-muted);
+      background: white;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .search-label.spec { color: #7a9ec7; }
+
+
+    .filter-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+    .btn-sub {
+      display: flex; align-items: center; gap: 5px; padding: 6px 13px;
+      border-radius: 5px; font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12px; font-weight: 400; color: var(--text-secondary);
+      background: var(--bg); border: 1px solid var(--border);
+      cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-sub:hover { background: var(--bg-sub); border-color: #ccc; color: var(--text-primary); }
+    .btn-sub.loading { opacity: 0.6; pointer-events: none; }
+
+    /* 件数バッジ */
+    .result-count {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      padding: 2px 8px;
+      background: var(--bg-sub);
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* TABLE */
+    .table-wrap {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      padding: 0 24px;
+      min-height: 200px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 900px;
+    }
+
+    .data-table thead tr { border-bottom: 1px solid var(--border); }
+
+    .data-table thead th {
+      padding: 11px 10px;
+      text-align: left;
+      font-size: 11.5px; font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 1;
+    }
+    .data-table thead th.center { text-align: center; }
+    .data-table thead th.right  { text-align: right; }
+    .data-table thead th.th-select {
+      background: var(--teal); color: white; text-align: center;
+      width: 44px; border-radius: 4px 0 0 0;
+    }
+
+
+    .data-table tbody tr[draggable] { cursor: grab; }
+    .data-table tbody tr.dragging-row { opacity: 0.4; }
+    .drag-hint {
+      text-align:center; padding:6px; font-size:11px; color:#aaa;
+      border-top:1px solid #f0f0f0; background:#fafafa; flex-shrink:0;
+    }
+    .data-table tbody tr {
+      border-bottom: 1px dashed var(--border-dashed);
+      transition: background 0.1s;
+    }
+    .data-table tbody tr:hover { background: #fafefe; }
+    .data-table tbody tr.selected { background: var(--teal-light); }
+    .data-table tbody tr.selected:hover { background: #d0f0ee; }
+
+    .data-table tbody td {
+      padding: 10px 10px; color: var(--text-primary);
+      vertical-align: middle; white-space: nowrap;
+    }
+    .data-table tbody td.center { text-align: center; }
+    .data-table tbody td.right  { text-align: right; }
+    .data-table tbody td.muted  { color: var(--text-muted); font-size: 12px; }
+    .data-table tbody td.spec   { color: var(--text-secondary); font-size: 12px; }
+
+    .td-price { font-size: 12.5px; color: var(--text-primary); font-weight: 500; }
+    .td-code  { font-size: 12px; color: var(--text-secondary); font-family: 'Courier New', monospace; }
+
+    input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--teal); cursor: pointer; }
+
+    /* 空状態 */
+    .empty-row td {
+      text-align: center;
+      padding: 48px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* FOOTER */
+    .dialog-footer {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 10px; padding: 14px 24px 18px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .btn {
+      padding: 7px 22px; border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-cancel { background: var(--bg); color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-cancel:hover { background: var(--bg-sub); border-color: #bbb; }
+    .btn-apply { background: var(--teal); color: white; border: 1px solid var(--teal); min-width: 90px; }
+    .btn-apply:hover { background: var(--teal-hover); border-color: var(--teal-hover); }
+
+    /* 検索ボタン */
+    .btn-search {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 16px;
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px; font-weight: 500;
+      color: white;
+      background: var(--teal);
+      border: 1px solid var(--teal);
+      cursor: pointer; white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-search:hover { background: var(--teal-hover); border-color: var(--teal-hover); }
+    .btn-search:active { transform: scale(0.97); }
+
+    /* Enterキーヒント */
+    .search-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    /* hidden file input */
+    #csvFileInput { display: none; }
+
+    /* CADパラメータパネル */
+    #cadParamsPanel {
+      display: none;
+      background: #f0fdf4;
+      border: 1px solid #00b27d;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 6px 24px;
+      font-size: 11px;
+    }
+    #cadParamsPanel .panel-title {
+      font-weight: 600;
+      color: #00875a;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #cadParamsPanel .params-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+    }
+    #cadParamsPanel .param-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      transition: background .1s;
+    }
+    #cadParamsPanel .param-item:hover { background: #dcfce7; }
+    #cadParamsPanel .param-item.selected {
+      background: #bbf7d0;
+      border-color: #00b27d;
+    }
+    #cadParamsPanel .param-key { color: #555; }
+    #cadParamsPanel .param-val { color: #00875a; font-weight: 500; }
+    #cadParamsPanel .clear-btn {
+      font-size: 10px; color: #999; cursor: pointer;
+      background: none; border: none; padding: 0;
+    }
+    #cadParamsPanel .clear-btn:hover { color: #ef4444; }
+
+    /* クリアボタン */
+    .clear-input-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #aaa;
+      font-size: 14px;
+      padding: 2px 4px;
+      line-height: 1;
+      border-radius: 3px;
+      display: none;
+    }
+    .clear-input-btn:hover { color: #555; background: #f0f0f0; }
+    .search-input:not(:placeholder-shown) ~ .clear-input-btn { display: block; }
+
+    /* タブバー */
+    .tab-bar { display:flex; border-bottom:2px solid var(--border); flex-shrink:0; padding:0 24px; }
+    .tab-btn { padding:10px 16px; border:none; background:none; font-family:'Noto Sans JP',sans-serif; font-size:13px; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:color .15s,border-color .15s; }
+    .tab-btn:hover { color:var(--text-primary); }
+    .tab-btn.active { color:var(--teal); border-bottom-color:var(--teal); font-weight:500; }
+
+    /* パラメータ設定ビュー */
+    #paramSettingsView { display:none; flex:1; overflow-y:auto; padding:20px 24px; flex-direction:column; gap:28px; }
+    .pm-section-title { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .pm-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .pm-table th { background:var(--bg-sub); padding:7px 10px; text-align:left; border-bottom:1px solid var(--border); font-weight:500; color:var(--text-secondary); font-size:11px; white-space:nowrap; }
+    .pm-table td { padding:5px 6px; border-bottom:1px dashed #eee; vertical-align:middle; }
+    .pm-input { width:100%; padding:4px 6px; border:1px solid #e0e0e0; border-radius:3px; font-family:inherit; font-size:12px; background:#fff; }
+    .pm-input.mono { font-family:monospace; font-size:11px; }
+    .pm-input:focus { outline:none; border-color:var(--teal); }
+    .pm-del-btn { padding:3px 8px; background:none; border:1px solid #fca5a5; color:#ef4444; border-radius:3px; font-size:11px; cursor:pointer; }
+    .pm-del-btn:hover { background:#fef2f2; }
+    .pm-add-btn { margin-top:8px; padding:5px 12px; background:#f0fdf4; border:1px solid #00b27d; color:#00b27d; border-radius:4px; font-size:12px; cursor:pointer; font-family:inherit; }
+    .pm-add-btn:hover { background:#dcfce7; }
+  </style>
+</head>
+<body>
+
+<input type="file" id="csvFileInput" accept=".csv" multiple>
+<input type="file" id="indexFolderInput" webkitdirectory style="display:none">
+<input type="file" id="pmCsvInput" accept=".csv" style="display:none">
+<input type="file" id="vmCsvInput" accept=".csv" style="display:none">
+
+<div class="dialog">
+
+  <!-- HEADER -->
+  <div class="dialog-header">
+    <button onclick="history.length > 1 ? history.back() : window.location.href='index.html'" 
+      style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:2px 8px 2px 2px;font-size:13px;display:flex;align-items:center;gap:4px;font-family:inherit;">
+      <svg viewBox="0 0 15 15" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="9,2 4,7.5 9,13"/></svg>
+      戻る
+    </button>
+    <span class="dialog-title">建材マスタ設定</span>
+    <button class="btn-close" onclick="parent.postMessage({type:'closePanel'},'*')">×</button>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabCatalog" onclick="switchTab('catalog')">カタログ</button>
+    <button class="tab-btn" id="tabParam" onclick="switchTab('param')">⚙️ パラメータ設定</button>
+    <button class="tab-btn" id="tabMaker" onclick="switchTab('maker')">🏗 材料メーカー</button>
+  </div>
+
+  <!-- CATALOG VIEW -->
+  <div id="catalogView" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="filter-label">メーカー名:</span>
+      <select class="filter-select" id="categorySelect">
+        <option value="">すべて</option>
+      </select>
+    </div>
+
+    <!-- 商品名検索 -->
+    <div class="search-wrap" style="position:relative;padding-bottom:8px;">
+      <span class="search-label">商品名</span>
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="text" id="nameSearch" placeholder="商品名・メーカー名で検索...">
+      <button class="clear-input-btn" onclick="document.getElementById('nameSearch').value='';applyFilters();" title="クリア">✕</button>
+    </div>
+
+    <!-- 仕様検索 -->
+    <div class="search-wrap spec-wrap" style="position:relative;">
+      <span class="search-label spec">仕様</span>
+      <span class="search-icon spec-icon">⚙️</span>
+      <input class="search-input spec-input" type="text" id="specSearch"
+             placeholder="例: ﾀｲﾌﾟ:両開き 寸法:700*1400 錠ﾀｲﾌﾟ:ﾉｰﾏﾙ錠">
+      <button class="clear-input-btn" onclick="document.getElementById('specSearch').value='';applyFilters();" title="クリア">✕</button>
+    </div>
+
+    <!-- 検索ボタン -->
+    <button class="btn-search" id="btnSearch">
+      🔍 検索
+    </button>
+
+    <div class="filter-actions">
+      <span class="result-count" id="resultCount">0 件</span>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table class="data-table" id="dataTable">
+      <thead>
+        <tr>
+          <th class="th-select"><input type="checkbox" id="checkAll" onchange="toggleAllCheck(this)" title="全選択"></th>
+          <th style="min-width:100px;">商品カテゴリ</th>
+          <th style="min-width:80px;">メーカー名</th>
+          <th style="min-width:140px;">RIKCAD材料名</th>
+          <th style="min-width:160px;">名称</th>
+          <th class="center" style="width:50px;">単位</th>
+          <th style="min-width:80px;">仕様１</th>
+          <th style="min-width:80px;">仕様２</th>
+          <th style="min-width:80px;">仕様３</th>
+          <th style="min-width:80px;">仕様４</th>
+          <th style="min-width:80px;">仕様５</th>
+          <th style="min-width:100px;">仕様６</th>
+          <th style="min-width:60px;">仕様７</th>
+          <th style="min-width:60px;">仕様８</th>
+          <th style="min-width:60px;">仕様９</th>
+          <th style="min-width:80px;">カラー１</th>
+          <th style="min-width:80px;">カラー２</th>
+          <th class="right" style="width:90px;">定価</th>
+          <th style="min-width:120px;">備考</th>
+          <th style="min-width:80px;">カタログページ</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <tr class="empty-row"><td colspan="20">CSVを読み込んでください（マスタ更新）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CADパラメータパネル -->
+  <div id="cadParamsPanel">
+    <div class="panel-title">
+      <span>🏗 CADパラメータ <span style="font-weight:400;color:#777;">（クリックで検索キーワードに追加）</span></span>
+      <button class="clear-btn" onclick="clearCadParams()">✕ クリア</button>
+    </div>
+    <div class="params-grid" id="paramsGrid"></div>
+  </div>
+
+  </div><!-- /catalogView -->
+
+  <!-- MAKER VIEW -->
+  <div id="makerView" style="display:none;flex:1;overflow-y:auto;padding:24px;flex-direction:column;gap:16px;">
+    <div style="font-size:13px;color:#374151;line-height:1.7;">
+      <b>MaterialMaker.csv</b>（列1=メーカー名、列2=材料名）を読み込んで Supabase に登録します。<br>
+      登録後、計測パレットで取得した材料名に対してメーカー名が自動表示されます。
+    </div>
+    <div id="makerStatus" style="font-size:12px;color:#6b7280;min-height:20px;"></div>
+    <div id="makerStats" style="font-size:12px;color:#374151;"></div>
+  </div>
+
+  <!-- PARAM SETTINGS VIEW -->
+  <div id="paramSettingsView" style="display:none;flex:1;overflow-y:auto;padding:20px 24px;flex-direction:column;gap:28px;">
+    <div class="pm-section">
+      <div class="pm-section-title">
+        <span>🗂 パラメータマッピング</span>
+        <span style="font-size:11px;color:var(--text-muted);">パターンは部分一致・長い方を優先</span>
+      </div>
+      <table class="pm-table">
+        <thead>
+          <tr>
+            <th style="width:180px;">パターン（部分一致）</th>
+            <th>SPECパラメータ（; 区切り）</th>
+            <th style="width:220px;">カラーパラメータ（; 区切り）</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody id="pmTbody"></tbody>
+      </table>
+      <button class="pm-add-btn" onclick="pmAddRow()">＋ 行追加</button>
+    </div>
+    <div class="pm-section">
+      <div class="pm-section-title">
+        <span>🔄 値置き換え</span>
+        <span style="font-size:11px;color:var(--text-muted);">RIKCADの値 → カタログの値</span>
+      </div>
+      <table class="pm-table">
+        <thead>
+          <tr>
+            <th style="width:200px;">RIKCAD値</th>
+            <th style="width:200px;">カタログ値</th>
+            <th>備考</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody id="vmTbody"></tbody>
+      </table>
+      <button class="pm-add-btn" onclick="vmAddRow()">＋ 行追加</button>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="dialog-footer">
+    <!-- カタログタブ用 -->
+    <div id="footerCatalog" style="display:flex;gap:8px;align-items:center;width:100%;">
+      <button class="btn btn-cancel" onclick="parent.postMessage({type:'closePanel'},'*')">閉じる</button>
+      <button class="btn btn-sub" id="btnUpdate" onclick="document.getElementById('csvFileInput').click()" style="background:#fff;border:1px solid #d1d5db;color:#374151;">📥 CSV追記読込</button>
+      <button class="btn" id="btnIndexLoad" onclick="loadFromIndexCsv()" style="background:#f0fdf4;border:1px solid #00b27d;color:#00b27d;">📂 index.csv一括読込</button>
+      <span id="cadStatusMsg" style="display:none;font-size:11px;color:#ef4444;margin-left:8px;"></span>
+      <button class="btn" onclick="catalogBulkDelete()" style="background:#fff;border:1px solid #e53935;color:#e53935;">🗑️ 選択削除</button>
+      <button class="btn" onclick="catalogDeleteAll()" style="background:#fff;border:1px solid #b91c1c;color:#b91c1c;">🗑️ 全件削除</button>
+      <button class="btn btn-apply" id="btnSave" onclick="saveToDB()" style="background:#1a6fc4;border-color:#1a6fc4;">💾 保存</button>
+    </div>
+    <!-- パラメータ設定タブ用 -->
+    <div id="footerParam" style="display:none;gap:8px;align-items:center;width:100%;">
+      <button class="btn btn-cancel" onclick="parent.postMessage({type:'closePanel'},'*')">閉じる</button>
+      <button class="btn btn-sub" onclick="document.getElementById('pmCsvInput').click()" style="background:#fff;border:1px solid #d1d5db;color:#374151;">📥 マッピングCSV読込</button>
+      <button class="btn btn-sub" onclick="document.getElementById('vmCsvInput').click()" style="background:#fff;border:1px solid #d1d5db;color:#374151;">📥 値置き換えCSV読込</button>
+      <button class="btn btn-apply" id="btnParamSave" onclick="saveParamMaps()" style="background:#1a6fc4;border-color:#1a6fc4;">💾 保存</button>
+    </div>
+    <!-- 材料メーカータブ用 -->
+    <div id="footerMaker" style="display:none;gap:8px;align-items:center;width:100%;">
+      <button class="btn btn-cancel" onclick="parent.postMessage({type:'closePanel'},'*')">閉じる</button>
+      <input type="file" id="makerCsvInput" accept=".csv" style="display:none">
+      <button class="btn" onclick="document.getElementById('makerCsvInput').click()" style="background:#f0fdf4;border:1px solid #00b27d;color:#00b27d;">📥 MaterialMaker.csv 読込・登録</button>
+      <button class="btn" onclick="makerDeleteAll()" style="background:#fff;border:1px solid #b91c1c;color:#b91c1c;">🗑️ 全件削除</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// データストア
+// ============================================================
+let allRows = [];      // 全CSVデータ（ヘッダー除く）
+let _cadParams = {};   // CADから取得したパラメータ（キー:値）
+let csvHeader = [];    // ヘッダー行
+
+const LS_KEY_ROWS   = 'catalogPopup_allRows';
+const LS_KEY_HEADER = 'catalogPopup_csvHeader';
+const LS_KEY_FILE   = 'catalogPopup_fileName';
+
+function saveToLocalStorage(fileName) {
+  try {
+    localStorage.setItem(LS_KEY_ROWS,   JSON.stringify(allRows));
+    localStorage.setItem(LS_KEY_HEADER, JSON.stringify(csvHeader));
+    localStorage.setItem(LS_KEY_FILE,   fileName || '');
+  } catch(e) { console.warn('localStorage保存失敗:', e); }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const rows   = localStorage.getItem(LS_KEY_ROWS);
+    const header = localStorage.getItem(LS_KEY_HEADER);
+    const file   = localStorage.getItem(LS_KEY_FILE);
+    if (rows) {
+      allRows   = JSON.parse(rows);
+      refreshActiveGroups();
+      csvHeader = header ? JSON.parse(header) : [];
+      buildCategoryOptions();
+      renderTable(allRows);
+      const btn = document.getElementById('btnUpdate');
+      if (btn && file) btn.textContent = `✅ ${file}（保存済）`;
+    }
+  } catch(e) { console.warn('localStorage復元失敗:', e); }
+}
+
+// ============================================================
+// エイリアス辞書（RIKCADの検索語 → CSV上の表記）
+// ============================================================
+const ALIAS = {
+  'ﾉｰﾏﾙ錠':       'レバーハンドル錠',
+  'ノーマル錠':     'レバーハンドル錠',
+  'プッシュプル':   'プッシュプル錠',
+  'ﾌﾟｯｼｭﾌﾟﾙ':     'プッシュプル錠',
+  'ﾌﾟｯｼｭﾌﾟﾙ錠':   'プッシュプル錠',
+};
+
+
+// ============================================================
+// キーワード変換テーブル（検索語 → 置換語）
+//   管理画面: keyword-conv.html
+//   localStorageキー: 'catalogKeywordConv'
+// ============================================================
+const CONV_LS_KEY = 'catalogKeywordConv';
+
+function loadKeywordConv() {
+  try {
+    const raw = localStorage.getItem(CONV_LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+// キーワードに変換テーブルを適用（完全一致 or 部分置換）
+// エントリ: { from, to, matchType: 'exact'|'partial', enabled: true }
+function applyKeywordConv(keyword) {
+  const table = loadKeywordConv();
+  let result = keyword;
+  for (const entry of table) {
+    if (!entry.enabled || !entry.from || !entry.to) continue;
+    if (entry.matchType === 'exact') {
+      if (result === entry.from) { result = entry.to; break; }
+    } else {
+      // partial: 部分置換（全出現箇所）
+      result = result.split(entry.from).join(entry.to);
+    }
+  }
+  return result;
+}
+
+// localStorageの変化を検知して再検索（管理画面での変更を即反映）
+window.addEventListener('storage', function(e) {
+  if (e.key === 'catalogGroupDefs') applyFilters();
+});
+
+// ============================================================
+// 商品グループ定義（catalog-settings.html で管理）
+//   localStorageキー: 'catalogGroupDefs'
+// ============================================================
+function loadGroupDefs() {
+  try {
+    const raw = localStorage.getItem('catalogGroupDefs');
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+let _activeGroups = [];
+
+function refreshActiveGroups() {
+  const defs = loadGroupDefs();
+  if (!allRows || allRows.length === 0 || defs.length === 0) {
+    _activeGroups = [];
+    return;
+  }
+  const rikcadsInCsv = new Set(allRows.map(r => (r[2] || '').trim()).filter(Boolean));
+  _activeGroups = defs.filter(g => {
+    if (!g.rikcadKey) return false;
+    const key = g.rikcadKey.trim();
+    return [...rikcadsInCsv].some(r => r.startsWith(key) || key.startsWith(r));
+  });
+}
+
+// グループ定義からオプション行判定
+function isOptionRowByDef(row) {
+  if (_activeGroups.length === 0) return false;
+  const FIELD_MAP = { name: 3, rikcad: 2, spec1: 5 };
+  return _activeGroups.some(g =>
+    (g.optionRules || []).some(rule => {
+      const colIdx = FIELD_MAP[rule.field] != null ? FIELD_MAP[rule.field] : 3;
+      return (row[colIdx] || '').includes(rule.contains);
+    })
+  );
+}
+
+// グループ定義からカラー値リストを取得（nullはデフォルト動作）
+function getColorValuesByDef(row) {
+  if (_activeGroups.length === 0) return null;
+  const g = _activeGroups[0];
+  const cols = g.colorCols || [14, 15];
+  const raw = cols.map(ci => row[ci] || '').filter(Boolean).join('\u30fb');
+  return raw.split(/[\u30fb\/\uff0f]/).map(v => v.trim()).filter(Boolean);
+}
+
+// グループ定義から開きタイプ値リストを取得（nullはデフォルト動作）
+function getOpenTypesByDef() {
+  if (_activeGroups.length === 0) return null;
+  const types = [...new Set(_activeGroups.flatMap(g => g.openTypes || []))];
+  return types.length > 0 ? types : null;
+}
+
+// CADパラメータをグループ定義に基づいてCSV検索値に変換
+function applyGroupParamMap(cadParams) {
+  const converted = {};
+  const colorMappings = [];
+  for (const g of _activeGroups) {
+    for (const rule of (g.paramMap || [])) {
+      if (!rule.cadParam) continue;
+      const cadVal = cadParams[rule.cadParam];
+      if (cadVal === undefined) continue;
+      if (rule.colIndex != null) {
+        colorMappings.push({ colIndex: rule.colIndex, value: cadVal });
+        continue;
+      }
+      const target = rule.csvValue || cadVal;
+      if (rule.cadValue === '*' || rule.cadValue === cadVal) {
+        converted[rule.cadParam] = target;
+      }
+    }
+  }
+  return { convertedParams: converted, colorMappings };
+}
+
+// ============================================================
+// 文字列正規化
+//   ・半角カタカナ → 全角カタカナ に統一（ﾛﾝｸﾞ = ロング）
+//   ・英数字の全角/半角は区別する（変換しない）
+//   ・全角スペース → 半角スペース（区切り文字として扱うため）
+//   ・大文字/小文字は区別しない（toLowerCase）
+// ============================================================
+
+// 半角カタカナ→全角カタカナ変換テーブル（濁点・半濁点の合成も処理）
+const HANKAKU_KANA_MAP = {
+  'ｦ':'ヲ','ｧ':'ァ','ｨ':'ィ','ｩ':'ゥ','ｪ':'ェ','ｫ':'ォ',
+  'ｬ':'ャ','ｭ':'ュ','ｮ':'ョ','ｯ':'ッ','ｰ':'ー',
+  'ｱ':'ア','ｲ':'イ','ｳ':'ウ','ｴ':'エ','ｵ':'オ',
+  'ｶ':'カ','ｷ':'キ','ｸ':'ク','ｹ':'ケ','ｺ':'コ',
+  'ｻ':'サ','ｼ':'シ','ｽ':'ス','ｾ':'セ','ｿ':'ソ',
+  'ﾀ':'タ','ﾁ':'チ','ﾂ':'ツ','ﾃ':'テ','ﾄ':'ト',
+  'ﾅ':'ナ','ﾆ':'ニ','ﾇ':'ヌ','ﾈ':'ネ','ﾉ':'ノ',
+  'ﾊ':'ハ','ﾋ':'ヒ','ﾌ':'フ','ﾍ':'ヘ','ﾎ':'ホ',
+  'ﾏ':'マ','ﾐ':'ミ','ﾑ':'ム','ﾒ':'メ','ﾓ':'モ',
+  'ﾔ':'ヤ','ﾕ':'ユ','ﾖ':'ヨ',
+  'ﾗ':'ラ','ﾘ':'リ','ﾙ':'ル','ﾚ':'レ','ﾛ':'ロ',
+  'ﾜ':'ワ','ｦ':'ヲ','ﾝ':'ン','ﾞ':'゛','ﾟ':'゜',
+};
+// 濁点・半濁点付き合成テーブル
+const DAKUTEN_MAP = {
+  'カ':'ガ','キ':'ギ','ク':'グ','ケ':'ゲ','コ':'ゴ',
+  'サ':'ザ','シ':'ジ','ス':'ズ','セ':'ゼ','ソ':'ゾ',
+  'タ':'ダ','チ':'ヂ','ツ':'ヅ','テ':'デ','ト':'ド',
+  'ハ':'バ','ヒ':'ビ','フ':'ブ','ヘ':'ベ','ホ':'ボ',
+  'ウ':'ヴ',
+};
+const HANDAKUTEN_MAP = {
+  'ハ':'パ','ヒ':'ピ','フ':'プ','ヘ':'ペ','ホ':'ポ',
+};
+
+function hankakuToZenkakuKana(str) {
+  // まず1文字ずつ変換し、その後に後続の濁点・半濁点を合成
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    const next = str[i + 1];
+    const zen = HANKAKU_KANA_MAP[c];
+    if (zen) {
+      if (next === 'ﾞ' && DAKUTEN_MAP[zen]) {
+        result += DAKUTEN_MAP[zen];
+        i++;
+      } else if (next === 'ﾟ' && HANDAKUTEN_MAP[zen]) {
+        result += HANDAKUTEN_MAP[zen];
+        i++;
+      } else {
+        result += zen;
+      }
+    } else {
+      result += c;
+    }
+  }
+  return result;
+}
+
+function normalize(str) {
+  if (!str) return '';
+  return hankakuToZenkakuKana(str)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))  // 全角英数 → 半角
+    .replace(/　/g, ' ')   // 全角スペース → 半角スペース
+    .toLowerCase();
+}
+
+// ============================================================
+// 寸法表記の変換
+//   ○○○*○○○  →  表示: ○○○×○○○  /  短縮コード: ○○-○○ (先頭2桁ずつ)
+//   例: 700*1400 → "700×1400" (表示用) / "07-14" (コード用)
+// ============================================================
+function convertDimension(str) {
+  if (!str) return str;
+  return str.replace(/(\d+)\*(\d+)/g, (_, w, h) => `${w}×${h}`);
+}
+
+function dimensionToCode(w, h) {
+  const wc = String(Number(w) / 100).padStart(2, '0');
+  const hc = String(Number(h) / 100).padStart(2, '0');
+  return wc + '-' + hc;
+}
+
+// ============================================================
+// 「なし」判定（全角・半角・ひらがな・カタカナ表記に対応）
+// ============================================================
+const NASHI_PATTERN = /^(なし|ナシ|ﾅｼ|nashi|-)$/i;
+function isNashi(val) {
+  return NASHI_PATTERN.test(val.trim());
+}
+
+// ============================================================
+// 仕様検索の検索値パース
+//   "ﾀｲﾌﾟ:両開き 寸法:700*1400" → ['両開き', 'W700', 'H1400']
+//   "両開き W700 H1400"          → ['両開き', 'W700', 'H1400']（コロンなし直接指定も可）
+//   「なし」は検索条件として無視
+// ============================================================
+function parseSpecQuery(raw) {
+  if (!raw.trim()) return [];
+
+  const tokens = [];
+  // コロンがある → 右側を抽出
+  const colonParts = raw.match(/[^\s　:：]+[:：][^\s　]+/g) || [];
+
+  colonParts.forEach(part => {
+    const idx = part.indexOf(':') !== -1 ? part.indexOf(':') : part.indexOf('：');
+    const val = part.slice(idx + 1);
+    tokens.push(val);
+  });
+
+  // コロンがない部分（スペース区切りの値をそのまま使用）
+  const noColon = raw.replace(/[^\s　:：]+[:：][^\s　]+/g, '').trim();
+  if (noColon) {
+    noColon.split(/[\s　]+/).filter(Boolean).forEach(v => tokens.push(v));
+  }
+
+  // 展開・エイリアス解決
+  const expanded = [];
+  tokens.forEach(t => {
+    // 「なし」は検索条件から除外
+    if (isNashi(t)) return;
+
+    const resolved = ALIAS[t] || t;
+
+    // 寸法パターン: 数字*数字 または 数字×数字
+    const dimMatch = resolved.match(/^(\d+)[*×](\d+)$/);
+    if (dimMatch) {
+      const [, w, h] = dimMatch;
+      const code = dimensionToCode(w, h);
+      // W幅・H高さ・短縮コード・×表記 すべてをトークンとして登録
+      expanded.push({ raw: t, value: `W${w}`,        expanded: true });
+      expanded.push({ raw: t, value: `H${h}`,        expanded: true });
+      expanded.push({ raw: t, value: `${w}×${h}`,    expanded: true });
+      expanded.push({ raw: t, value: code,            expanded: true });
+    } else {
+      expanded.push({ raw: t, value: resolved, expanded: false });
+    }
+  });
+
+  return expanded;
+}
+
+// ============================================================
+// CSV パース（Shift-JIS対応）
+// ============================================================
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  return lines.map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else if (c === '\r') { /* \r は無視 */ }
+      else { cur += c; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+// ============================================================
+// ファイル選択（FileReader）でCSVを読み込み（ローカルAPI不要）
+// UTF-8（BOM有無両対応）・Shift-JIS を自動判別
+// 複数ファイル選択でマージ可能
+// ============================================================
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const buffer = e.target.result;
+      const uint8 = new Uint8Array(buffer);
+      const hasUtf8Bom = uint8[0] === 0xEF && uint8[1] === 0xBB && uint8[2] === 0xBF;
+      try {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        resolve(hasUtf8Bom ? text.slice(1) : text);
+      } catch {
+        resolve(new TextDecoder('shift-jis').decode(buffer));
+      }
+    };
+    reader.onerror = () => reject(new Error(`ファイル読み込み失敗: ${file.name}`));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('csvFileInput').addEventListener('change', async function(e) {
+    const files = Array.from(e.target.files);
+    this.value = '';
+    if (!files.length) return;
+
+    const btn = document.getElementById('btnUpdate');
+    btn.textContent = '⏳ 読み込み中...';
+    btn.classList.add('loading');
+
+    try {
+      const mergedRows = [];
+      let mergedHeader = [];
+      const loadedNames = [];
+
+      for (const file of files) {
+        const text = await readFileAsText(file);
+        const rows = parseCSV(text).filter(r => r.some(c => c));
+        if (rows.length < 2) continue;
+        if (mergedHeader.length === 0) mergedHeader = rows[0];
+        mergedRows.push(...rows.slice(1).filter(r => r.some(c => c.trim())));
+        loadedNames.push(file.name);
+      }
+
+      if (mergedRows.length === 0) throw new Error('CSVからデータを読み込めませんでした');
+
+      // 入れ替え確認（_sbBaseRowsの状態によらず常に確認する）
+      if (!confirm(`Supabaseの既存データを全て削除し、CSVの${mergedRows.length}件に入れ替えます。よろしいですか？`)) {
+        btn.textContent = '📥 CSV追記読込';
+        btn.classList.remove('loading');
+        return;
+      }
+
+      // Supabase既存データを全削除（ローカル状態に依存しない確実な全件削除）
+      showStatusMsg('⏳ 既存データを削除中...');
+      const delResp = await fetch(`${_SB_URL}/catalog_items?id=not.is.null`, {
+        method: 'DELETE', headers: _SB_H
+      });
+      if (!delResp.ok && delResp.status !== 404) {
+        throw new Error('既存データ削除失敗: ' + await delResp.text());
+      }
+
+      // 新データをINSERT
+      showStatusMsg(`⏳ ${mergedRows.length}件を保存中...`);
+      csvHeader = mergedHeader;
+      const payload = mergedRows.map(row => ({
+        category:     row[0]  || null, maker:        row[1]  || null,
+        rikcad:       row[2]  || null, name:         row[3]  || null,
+        unit:         row[4]  || null, spec1:        row[5]  || null,
+        spec2:        row[6]  || null, spec3:        row[7]  || null,
+        spec4:        row[8]  || null, spec5:        row[9]  || null,
+        spec6:        row[10] || null, spec7:        row[11] || null,
+        spec8:        row[12] || null, spec9:        row[13] || null,
+        color1:       row[14] || null, color2:       row[15] || null,
+        list_price:   row[16] !== '' && row[16] != null ? Number(String(row[16]).replace(/[¥￥,]/g,'')) || null : null,
+        note:         row[17] || null, catalog_page: row[18] || null,
+      })).filter(r => r.name);
+
+      const INS_CHUNK = 100;
+      for (let i = 0; i < payload.length; i += INS_CHUNK) {
+        const chunk = payload.slice(i, i + INS_CHUNK);
+        const r = await fetch(`${_SB_URL}/catalog_items`, {
+          method: 'POST',
+          headers: { ..._SB_H, 'Prefer': 'return=minimal' },
+          body: JSON.stringify(chunk)
+        });
+        if (!r.ok) throw new Error('INSERT失敗: ' + await r.text());
+        showStatusMsg(`⏳ 保存中... ${Math.min(i + INS_CHUNK, payload.length)}/${payload.length}件`);
+      }
+
+      // 保存完了後にSupabaseから再取得して表示
+      showStatusMsg('⏳ データを再取得中...');
+      await loadFromSupabase();
+      showStatusMsg(`✅ ${payload.length}件を入れ替えました（${loadedNames.join('、')}）`);
+
+    } catch(e) {
+      btn.textContent = '❌ 読み込み失敗';
+      btn.classList.remove('loading');
+      console.error(e);
+      showStatusMsg('カタログ読み込みエラー: ' + e.message);
+    }
+  });
+
+  // index.csv一括読込（フォルダ選択）
+  document.getElementById('indexFolderInput').addEventListener('change', async function(e) {
+    const files = Array.from(e.target.files);
+    this.value = '';
+    if (!files.length) return;
+
+    const btn = document.getElementById('btnIndexLoad');
+    btn.textContent = '⏳ 読み込み中...';
+    btn.disabled = true;
+
+    try {
+      // 選択フォルダのルート名を取得して index.csv を探す
+      const rootName = files[0].webkitRelativePath.split('/')[0];
+      const indexFile = files.find(f => f.webkitRelativePath === `${rootName}/index.csv`);
+      if (!indexFile) throw new Error('選択フォルダ内に index.csv が見つかりません');
+
+      const idxText = await readFileAsText(indexFile);
+      const idxRows = parseCSV(idxText).filter(r => r.some(c => c));
+      if (idxRows.length < 2) throw new Error('index.csvにデータがありません');
+
+      // 列: ID, メーカー, 商品名, ファイルパス, 有効, 更新年月
+      const validRows = idxRows.slice(1).filter(r => (r[4] || '').trim() === '1');
+      if (validRows.length === 0) throw new Error('有効列=1のCSVファイルがありません');
+
+      // webkitRelativePath からルート名を除いたパス（バックスラッシュ正規化）→ Fileのマップ
+      const fileMap = new Map();
+      for (const f of files) {
+        const rel = f.webkitRelativePath.slice(rootName.length + 1).replace(/\//g, '\\');
+        fileMap.set(rel.toLowerCase(), f);
+      }
+
+      // 有効な各CSVを読み込みマージ
+      const mergedRows = [];
+      let mergedHeader = [];
+      const loadedNames = [];
+      const failedNames = [];
+
+      for (const idxRow of validRows) {
+        const filePath = (idxRow[3] || '').trim();
+        if (!filePath) continue;
+        const file = fileMap.get(filePath.toLowerCase());
+        if (!file) { failedNames.push(filePath); continue; }
+        const text = await readFileAsText(file);
+        const rows = parseCSV(text).filter(r => r.some(c => c));
+        if (rows.length < 2) continue;
+        if (mergedHeader.length === 0) mergedHeader = rows[0];
+        mergedRows.push(...rows.slice(1).filter(r => r.some(c => c.trim())));
+        loadedNames.push(idxRow[2] || filePath);
+      }
+
+      if (mergedRows.length === 0) throw new Error('読み込めたデータが0件です');
+
+      // 確認ダイアログ
+      let confirmMsg = `Supabaseの既存データを全て削除し、${mergedRows.length}件に入れ替えます。\n\n読込ファイル:\n${loadedNames.join('\n')}`;
+      if (failedNames.length > 0) confirmMsg += `\n\n※フォルダ内に見つからなかったファイル:\n${failedNames.join('\n')}`;
+      confirmMsg += '\n\nよろしいですか？';
+      if (!confirm(confirmMsg)) {
+        btn.textContent = '📂 index.csv一括読込';
+        btn.disabled = false;
+        return;
+      }
+
+      // Supabase全件削除
+      showStatusMsg('⏳ 既存データを削除中...');
+      const delResp = await fetch(`${_SB_URL}/catalog_items?id=not.is.null`, { method: 'DELETE', headers: _SB_H });
+      if (!delResp.ok && delResp.status !== 404) throw new Error('既存データ削除失敗: ' + await delResp.text());
+
+      // INSERT（100件チャンク）
+      showStatusMsg(`⏳ ${mergedRows.length}件を保存中...`);
+      csvHeader = mergedHeader;
+      const payload = mergedRows.map(row => ({
+        category:     row[0]  || null, maker:        row[1]  || null,
+        rikcad:       row[2]  || null, name:         row[3]  || null,
+        unit:         row[4]  || null, spec1:        row[5]  || null,
+        spec2:        row[6]  || null, spec3:        row[7]  || null,
+        spec4:        row[8]  || null, spec5:        row[9]  || null,
+        spec6:        row[10] || null, spec7:        row[11] || null,
+        spec8:        row[12] || null, spec9:        row[13] || null,
+        color1:       row[14] || null, color2:       row[15] || null,
+        list_price:   row[16] !== '' && row[16] != null ? Number(String(row[16]).replace(/[¥￥,]/g, '')) || null : null,
+        note:         row[17] || null, catalog_page: row[18] || null,
+      })).filter(r => r.name);
+
+      const INS_CHUNK = 100;
+      for (let i = 0; i < payload.length; i += INS_CHUNK) {
+        const chunk = payload.slice(i, i + INS_CHUNK);
+        const r = await fetch(`${_SB_URL}/catalog_items`, {
+          method: 'POST',
+          headers: { ..._SB_H, 'Prefer': 'return=minimal' },
+          body: JSON.stringify(chunk)
+        });
+        if (!r.ok) throw new Error('INSERT失敗: ' + await r.text());
+        showStatusMsg(`⏳ 保存中... ${Math.min(i + INS_CHUNK, payload.length)}/${payload.length}件`);
+      }
+
+      showStatusMsg('⏳ データを再取得中...');
+      await loadFromSupabase();
+      showStatusMsg(`✅ ${payload.length}件を入れ替えました（${loadedNames.join('、')}）`);
+
+    } catch(e) {
+      console.error(e);
+      showStatusMsg('index.csv読込エラー: ' + e.message);
+    } finally {
+      btn.textContent = '📂 index.csv一括読込';
+      btn.disabled = false;
+    }
+  });
+});
+
+// ============================================================
+// カテゴリ選択肢の構築（商品カテゴリから）
+// ============================================================
+function buildCategoryOptions() {
+  const sel = document.getElementById('categorySelect');
+  sel.innerHTML = '<option value="">すべて</option>';
+  const categories = [...new Set(allRows.map(r => r[1]).filter(Boolean))].sort();
+  categories.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+// ============================================================
+// テーブル描画
+// ============================================================
+function renderTable(rows) {
+  const tbody = document.getElementById('tableBody');
+  document.getElementById('resultCount').textContent = rows.length + ' 件';
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="20">該当する商品がありません</td></tr>';
+    return;
+  }
+
+  const SPEC_COLS = [5, 6, 7, 8, 9, 10, 11, 12, 13]; // 仕様1-9のインデックス（商品カテゴリ追加で+1）
+
+  // allRows内の実インデックスを保持するためにindexOfで検索
+  tbody.innerHTML = rows.map((row, i) => {
+    const realIdx = allRows.indexOf(row);
+    const specs = SPEC_COLS.map(ci => {
+      const raw = row[ci] || '';
+      if (!raw || isNashi(raw)) return `<td class="muted center">—</td>`;
+      const v = convertDimension(raw); // ○○*○○ → ○○×○○
+      return `<td class="spec">${escHtml(v)}</td>`;
+    }).join('');
+
+    // カラー1（列14）・カラー2（列15）
+    const raw1 = row[14] || '';
+    const raw2 = row[15] || '';
+    const tdColor1 = (!raw1 || isNashi(raw1))
+      ? `<td class="muted center">—</td>`
+      : `<td class="spec">${escHtml(convertDimension(raw1))}</td>`;
+    const tdColor2 = (!raw2 || isNashi(raw2))
+      ? `<td class="muted center">—</td>`
+      : `<td class="spec">${escHtml(convertDimension(raw2))}</td>`;
+
+    // 定価（列16）
+    const priceRaw = (row[16] || '').toString().replace(/[¥￥,\r\n\t ]/g, '');
+    const priceNum = priceRaw !== '' ? Number(priceRaw) : NaN;
+    const price = (!isNaN(priceNum) && priceRaw !== '') ? '¥' + priceNum.toLocaleString() : '—';
+
+    // 備考（列17）
+    const biko = escHtml(row[17] || '');
+
+    // カタログページ（列18）
+    const catalogPage = escHtml(row[18] || '');
+
+    return `<tr data-idx="${realIdx}" draggable="true"
+      ondragstart="onCatalogDragStart(event, ${realIdx})"
+      ondragend="this.classList.remove('dragging-row')">
+      <td class="center"><input type="checkbox" onchange="onCheck(this, ${realIdx})"></td>
+      <td>${escHtml(row[0] || '')}</td>
+      <td>${escHtml(row[1] || '')}</td>
+      <td class="td-code">${escHtml(row[2] || '')}</td>
+      <td>${escHtml(row[3] || '')}</td>
+      <td class="center">${escHtml(row[4] || '')}</td>
+      ${specs}
+      ${tdColor1}
+      ${tdColor2}
+      <td class="right td-price">${price}</td>
+      <td class="muted">${biko}</td>
+      <td class="center">${catalogPage}</td>
+      <td class="center" style="white-space:nowrap;">
+        <button onclick="catalogEditRow(${realIdx})" title="編集"
+          style="border:none;background:none;cursor:pointer;color:#1a6fc4;font-size:14px;padding:2px 4px;">✏️</button>
+        <button onclick="catalogDeleteRow(${realIdx})" title="削除"
+          style="border:none;background:none;cursor:pointer;color:#e53935;font-size:14px;padding:2px 4px;">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// 行を検索用テキストに変換
+//   ・「なし」相当の値は空文字に（検索条件から除外）
+//   ・○○*○○ → ○○×○○ および短縮コード ○○-○○ を両方含める
+// ============================================================
+// 「キー:値」形式かどうか判定
+function _parseKV(cell) {
+  const m = cell && cell.match(/^([^:：]+)[:：](.+)$/);
+  return m ? { key: m[1].trim(), val: m[2].trim() } : null;
+}
+
+// 行内の全「キー:値」形式セルを抽出 { key: val, ... }
+function getRowConds(row) {
+  const conds = {};
+  row.forEach(cell => {
+    if (!cell) return;
+    const kv = _parseKV(cell);
+    if (kv) conds[kv.key] = kv.val;
+  });
+  return conds;
+}
+
+// 行が条件セルかどうか（検索テキスト除外用）
+// 「キー:値」形式のセルは常に除外（_cadParams の有無に関わらず）
+// ただし「材質:めっき鋼板」等の一般的な仕様表記も除外されるが、
+// これらは仕様列として直接検索テキストに含まれているため問題なし
+function isCondCell(cell) {
+  if (!cell) return false;
+  return !!_parseKV(cell);
+}
+
+function rowToSearchText(row) {
+  return row.map(cell => {
+    if (cell == null || cell === '') return '';
+    const s = String(cell);  // 数値等を文字列化（list_priceは数値で来るため必須）
+    if (isNashi(s)) return '';
+    // 条件セル（キー:値 形式）はキーを除いた値部分のみ含める
+    const kv = _parseKV(s);
+    if (kv) return kv.val;
+    // 寸法パターンを変換し、元の表記・×表記・コード表記をすべて含める
+    return s.replace(/(\d+)\*(\d+)/g, (_, w, h) => {
+      const code = dimensionToCode(w, h);
+      return `${w}*${h} ${w}×${h} W${w} H${h} ${code}`;
+    });
+  }).join(' ');
+}
+
+// ============================================================
+// オプション行判定
+//   仕様1列が「オプション」の行をオプション行とみなす
+// ============================================================
+function isOptionRow(row) {
+  // ① グループ定義のoptionRulesで判定（優先）
+  if (isOptionRowByDef(row)) return true;
+  // ② フォールバック：仕様1列が「オプション」
+  if (normalize(row[5] || '') === 'オプション') return true;
+  return false;
+}
+
+// ============================================================
+// トークンがオプション行にしか存在しないか判定
+//   本体行（非オプション行）のどこにも含まれない → オプション専用トークン
+// ============================================================
+function isOptionOnlyToken(normValue) {
+  const existsInBody   = allRows.some(r => !isOptionRow(r) && normalize(rowToSearchText(r)).includes(normValue));
+  const existsInOption = allRows.some(r =>  isOptionRow(r) && normalize(rowToSearchText(r)).includes(normValue));
+  return !existsInBody && existsInOption;
+}
+
+// ============================================================
+// カラー列（カラー1・カラー2）の「・/」区切り値リストを返す
+// ============================================================
+function getColorValues(row) {
+  // グループ定義のcolorColsが設定されていればそちらを優先
+  const fromDef = getColorValuesByDef(row);
+  if (fromDef !== null) return fromDef;
+  // フォールバック：14・15列固定
+  const raw = [row[14] || '', row[15] || ''].join('・');
+  return raw.split(/[・\/／]/).map(v => v.trim()).filter(Boolean);
+}
+
+// ============================================================
+// フィルタリング（商品名 AND 仕様）
+//
+// 【オプション連動ヒットの仕組み】
+//
+//   仕様1="オプション" の行（オプション行）には本体の
+//   型番・カラー・開きタイプ等の情報が入っていない。
+//   そのため「シリンダーPB錠」のようにオプション行にしか
+//   存在しない検索値は通常のAND検索では本体行とオプション行を
+//   同時にヒットさせることができない。
+//
+//   解決策：
+//     ① オプション専用トークン（オプション行にしか存在しない値）を識別
+//     ② 本体行はオプション専用トークンを除いた条件で検索
+//     ③ ヒットした本体行の RIKCAD材料名・開きタイプ に合致する
+//        オプション行をグループとして自動付帯
+//
+//   例：
+//     検索条件：片開き, 08-10, ダスクグレー, シリンダーPB錠, ブラック
+//     ① シリンダーPB錠 → オプション専用トークン
+//     ② 本体検索：片開き AND 08-10 AND ダスクグレー AND ブラック → 本体行ヒット
+//     ③ 本体行の RIKCAD材料名="開き門扉AB_TM1型"・開きタイプ="片開き" に一致し
+//        かつ「シリンダーPB錠」AND「片開き加算」を含むオプション行を付帯
+// ============================================================
+function applyFilters() {
+  const category  = document.getElementById('categorySelect').value;
+  const rawKeyword = document.getElementById('nameSearch').value;
+  const nameQuery = normalize(rawKeyword);
+  const specTokens = parseSpecQuery(document.getElementById('specSearch').value);
+
+
+  // ── CAD条件フィルタ ──────────────────────────────────────────
+  // _cadParams がある場合：行内の「キー:値」条件セルと照合して絞り込む
+  //   条件セルのキーが _cadParams にあり値が一致する行のみ通過（AND）
+  //   _cadParams にないキーは無視（常に通過）
+  // _cadParams がない場合（手動検索）：条件セルを無視して全行を検索対象にする
+  const hasCadParams = Object.keys(_cadParams).length > 0;
+  let filtered = hasCadParams
+    ? allRows.filter(r => {
+        const rowConds = getRowConds(r);
+        return Object.entries(rowConds).every(([key, val]) => {
+          if (!(key in _cadParams)) return true;
+          return normalize(_cadParams[key]) === normalize(val);
+        });
+      })
+    : allRows;
+
+  // カテゴリ（商品カテゴリ）
+  if (category) {
+    filtered = filtered.filter(r => r[1] === category);
+  }
+
+  // 商品名検索（商品カテゴリ + メーカー名 + RIKCAD材料名 + 名称）
+  // ※ オプション行（取付可能錠等）は名称列で「開き門扉AA 取付可能錠」のように
+  //   商品グループ名を含むため、型名（FM1型等）ではヒットしない。
+  //   → 本体行のRIKCAD材料名がオプション行のRIKCAD材料名（グループキー）で
+  //     始まる関係があれば通過させる（後段の連動付帯で正確に絞り込む）
+  if (nameQuery) {
+    const words = nameQuery.split(/\s+/).filter(Boolean);
+    // まず本体行でヒットするRIKCAD材料名を収集
+    const hitBodyRikcads = new Set(
+      filtered
+        .filter(r => !isOptionRow(r) && words.every(w => normalize([r[0],r[1],r[2],r[3],r[5],r[6],r[7],r[8],r[9],r[10],r[11],r[12],r[13]].join(' ')).includes(w)))
+        .map(r => normalize(r[2]))
+        .filter(Boolean)
+    );
+    filtered = filtered.filter(r => {
+      if (isOptionRow(r)) {
+        if (!r[2]) return true; // RIKCAD材料名が空なら常に通過
+        // オプション行のRIKCAD材料名（例:「開き門扉AA」）が
+        // 本体ヒット行のRIKCAD材料名（例:「開き門扉AA FM1型」）の先頭と一致するなら通過
+        const optKey = normalize(r[2]);
+        return [...hitBodyRikcads].some(bodyKey => bodyKey.startsWith(optKey) || optKey.startsWith(bodyKey));
+      }
+      const text = normalize([r[0], r[1], r[2], r[3], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13]].join(' '));
+      return words.every(w => text.includes(w));
+    });
+  }
+
+  // 仕様検索（CAD取得時はスキップ：条件フィルタだけで絞り込み済みのため）
+  // 本体行・オプション行の両方を全列AND全文検索。
+  // オプション行がヒットした場合は紐づく本体行も含め、
+  // ヒットした本体行に対応するオプション行をすべて付帯する。
+  if (specTokens.length > 0 && !hasCadParams) {
+    const isMatch = r => {
+      const text = normalize(rowToSearchText(r));
+      return specTokens.every(t => text.includes(normalize(t.value)));
+    };
+    const rikcadRelated = (aKey, bKey) =>
+      aKey === bKey || aKey.startsWith(bKey) || bKey.startsWith(aKey);
+
+    const bodyRows = filtered.filter(r => !isOptionRow(r));
+    const optRows  = filtered.filter(r =>  isOptionRow(r));
+
+    // 本体行でヒット
+    const hitBody = bodyRows.filter(isMatch);
+
+    // オプション行でヒット → 紐づく本体行を追加
+    const hitOptRikcads = new Set(optRows.filter(isMatch).map(r => normalize(r[2])).filter(Boolean));
+    const bodyFromOpt = bodyRows.filter(r => {
+      const k = normalize(r[2]);
+      return k && [...hitOptRikcads].some(ok => rikcadRelated(k, ok));
+    });
+
+    // 結果本体行（重複排除）
+    const resultBodyMap = new Map();
+    [...hitBody, ...bodyFromOpt].forEach(r => resultBodyMap.set(r.join(','), r));
+    const resultBody = [...resultBodyMap.values()];
+
+    // ヒットした本体行に対応するオプション行を全付帯
+    const resultRikcads = new Set(resultBody.map(r => normalize(r[2])).filter(Boolean));
+    const result = [...resultBody];
+    const resultKeys = new Set(result.map(r => r.join(',')));
+    optRows.forEach(r => {
+      if (!r[2] || [...resultRikcads].some(bk => rikcadRelated(bk, normalize(r[2])))) {
+        const key = r.join(',');
+        if (!resultKeys.has(key)) { result.push(r); resultKeys.add(key); }
+      }
+    });
+
+    filtered = result;
+  }
+
+  // specTokens が空の場合も、本体ヒット行に対応するオプション行を付帯
+  if (specTokens.length === 0) {
+    const bodyFiltered = filtered.filter(r => !isOptionRow(r));
+    const hitBodyRikcads = new Set(bodyFiltered.map(r => normalize(r[2])).filter(Boolean));
+    const commonOptions = filtered.filter(r => {
+      if (!isOptionRow(r)) return false;
+      if (!r[2]) return true;
+      const optKey = normalize(r[2]);
+      return [...hitBodyRikcads].some(bodyKey =>
+        bodyKey === optKey || bodyKey.startsWith(optKey) || optKey.startsWith(bodyKey)
+      );
+    });
+    const result = [...bodyFiltered];
+    const resultKeys = new Set(result.map(r => r.join(',')));
+    commonOptions.forEach(r => {
+      const key = r.join(',');
+      if (!resultKeys.has(key)) { result.push(r); resultKeys.add(key); }
+    });
+    filtered = result;
+  }
+
+  renderTable(filtered);
+}
+
+// ============================================================
+// 仕様トークン表示
+
+// ============================================================
+// チェックボックス
+// ============================================================
+function onCheck(cb, idx) {
+  const row = cb.closest('tr');
+  if (cb.checked) row.classList.add('selected');
+  else row.classList.remove('selected');
+  // 全選択チェックボックスの状態を更新
+  const allCbs = document.querySelectorAll('#tableBody input[type=checkbox]');
+  const allChecked = [...allCbs].every(c => c.checked);
+  const anyChecked = [...allCbs].some(c => c.checked);
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) { checkAll.checked = allChecked; checkAll.indeterminate = !allChecked && anyChecked; }
+}
+
+function toggleAllCheck(cb) {
+  document.querySelectorAll('#tableBody input[type=checkbox]').forEach(c => {
+    c.checked = cb.checked;
+    const row = c.closest('tr');
+    if (row) { cb.checked ? row.classList.add('selected') : row.classList.remove('selected'); }
+  });
+}
+
+async function catalogBulkDelete() {
+  // 選択行のインデックスを取得
+  const checked = [];
+  document.querySelectorAll('#tableBody tr.selected').forEach(tr => {
+    const idx = parseInt(tr.dataset.idx);
+    if (!isNaN(idx)) checked.push(idx);
+  });
+  if (checked.length === 0) { alert('削除する行を選択してください'); return; }
+  if (!confirm(`選択した${checked.length}件を削除しますか？`)) return;
+
+  // Supabase保存済み行のIDを取得
+  const sbIds = checked.map(idx => allRows[idx]?.[19]).filter(Boolean);
+
+  // Supabase削除（IDがある行のみ）
+  if (sbIds.length > 0) {
+    try {
+      // 50件ずつ削除
+      for (let i = 0; i < sbIds.length; i += 50) {
+        const chunk = sbIds.slice(i, i + 50);
+        const inStr = chunk.map(id => `"${id}"`).join(',');
+        const r = await fetch(`${_SB_URL}/catalog_items?id=in.(${inStr})`, {
+          method: 'DELETE',
+          headers: _SB_H
+        });
+        if (!r.ok) throw new Error(await r.text());
+      }
+    } catch(e) {
+      showStatusMsg('❌ 削除失敗: ' + e.message);
+      return;
+    }
+  }
+
+  // ローカルから削除（インデックスを降順に削除して番号ずれを防ぐ）
+  const sortedDesc = [...checked].sort((a, b) => b - a);
+  sortedDesc.forEach(idx => {
+    const sbId = allRows[idx]?.[19];
+    allRows.splice(idx, 1);
+    if (sbId && window._sbBaseRows) {
+      const bi = window._sbBaseRows.findIndex(r => r[19] === sbId);
+      if (bi >= 0) window._sbBaseRows.splice(bi, 1);
+    }
+  });
+
+  // 全選択チェックをリセット
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+
+  showStatusMsg(`🗑️ ${checked.length}件を削除しました`);
+  renderTable(allRows);
+  applyFilters();
+}
+
+// ============================================================
+// イベントリスナー
+// ============================================================
+
+// 親ウィンドウからの検索ワード受信
+window.addEventListener('message', function(e) {
+  if (e.data && e.data.type === 'search') {
+    if (e.data.keyword    != null) document.getElementById('nameSearch').value = e.data.keyword;
+    if (e.data.specKeyword != null) document.getElementById('specSearch').value = e.data.specKeyword.replace(/[,、]/g, ' ').replace(/\s+/g, ' ').trim();
+    applyFilters();
+  }
+});
+
+// フォーカス時にクリップボードを読み取って商品名検索欄に反映
+let _clipboardDenied = false;
+
+async function _applyClipboardToSearch() {
+  if (_clipboardDenied) return;
+  try {
+    const perm = await navigator.permissions.query({ name: 'clipboard-read' });
+    if (perm.state === 'denied') { _clipboardDenied = true; return; }
+    perm.onchange = () => { if (perm.state === 'denied') _clipboardDenied = true; };
+    const text = await navigator.clipboard.readText();
+    if (text && text.trim()) {
+      document.getElementById('nameSearch').value = text.trim();
+      applyFilters();
+    }
+  } catch (e) {
+    _clipboardDenied = true;
+  }
+}
+
+// RIKCADから直接値を受け取るためクリップボード自動読み取りは無効化
+// window.addEventListener('focus', _applyClipboardToSearch);
+
+// 検索ボタン
+document.getElementById('btnSearch').addEventListener('click', applyFilters);
+
+// EnterキーでもJust検索（入力中はリアルタイム検索しない）
+document.getElementById('nameSearch').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') applyFilters();
+});
+document.getElementById('specSearch').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') applyFilters();
+});
+
+// カテゴリ変更は即時反映
+document.getElementById('categorySelect').addEventListener('change', applyFilters);
+
+// ============================================================
+// CADパラメータパネル
+// ============================================================
+// スキップするパラメータ名（内部用・表示不要）
+const CAD_PARAM_SKIP = new Set([
+  'ZZYZX','AC_show','AC_zone_color','AC_zone_category',
+  'ac_show_hotspot','HOTSPOT_PREC',
+]);
+
+function renderCadParams() {
+  const panel = document.getElementById('cadParamsPanel');
+  const grid  = document.getElementById('paramsGrid');
+  if (!panel || !grid) return;
+
+  const keys = Object.keys(_cadParams).filter(k =>
+    !CAD_PARAM_SKIP.has(k) && _cadParams[k] && _cadParams[k] !== '0' && _cadParams[k] !== ''
+  );
+
+  if (keys.length === 0) { panel.style.display = 'none'; return; }
+
+  panel.style.display = 'block';
+  grid.innerHTML = keys.map(k => {
+    const val = _cadParams[k];
+    return `<div class="param-item" data-key="${escHtml(k)}" data-val="${escHtml(val)}"
+      onclick="toggleParamItem(this)">
+      <span class="param-key">${escHtml(k)}:</span>
+      <span class="param-val">${escHtml(val)}</span>
+    </div>`;
+  }).join('');
+}
+
+function toggleParamItem(el) {
+  el.classList.toggle('selected');
+  _syncParamSelectionToSearch();
+}
+
+function _syncParamSelectionToSearch() {
+  const selected = [...document.querySelectorAll('#paramsGrid .param-item.selected')];
+  if (selected.length === 0) return;
+
+  // 名称検索: data-key が NAME の場合は nameSearch へ
+  const nameItem = selected.find(el => el.dataset.key === 'NAME');
+  if (nameItem) {
+    document.getElementById('nameSearch').value = nameItem.dataset.val;
+  }
+
+  // 仕様検索: NAME以外を「キー:値」形式でスペース区切りで追加
+  const specItems = selected.filter(el => el.dataset.key !== 'NAME');
+  if (specItems.length > 0) {
+    const specStr = specItems.map(el => `${el.dataset.key}:${el.dataset.val}`).join(' ');
+    document.getElementById('specSearch').value = specStr;
+  }
+
+  applyFilters();
+}
+
+function clearCadParams() {
+  _cadParams = {};
+  const panel = document.getElementById('cadParamsPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+// ステータスメッセージ（alertの代替）
+function showStatusMsg(msg) {
+  const el = document.getElementById('cadStatusMsg');
+  if (!el) { console.warn(msg); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ============================================================
+// index.csv一括読込（CatalogMasterフォルダを選択 → 有効列=1を全件入れ替え）
+// ============================================================
+function loadFromIndexCsv() {
+  document.getElementById('indexFolderInput').click();
+}
+
+// ============================================================
+// Supabase 定数
+// ============================================================
+const _SB_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const _SB_H   = {
+  'apikey': _SB_KEY,
+  'Authorization': 'Bearer ' + _SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+// ページ読み込み時：Supabaseから読み込む（CSVはインポート専用）
+(async function initLoad() {
+  await loadFromSupabase();
+})();
+
+async function loadFromSupabase() {
+  const btn = document.getElementById('btnUpdate');
+  if (btn) { btn.textContent = '⏳ 読み込み中...'; btn.classList.add('loading'); }
+  // 再読み込み時は追加待ちバッファをリセット
+  window._newRows = [];
+  try {
+    // ページネーションで全件取得（Freeプランは1000件/回上限）
+    const PAGE = 1000;
+    let data = [], offset = 0;
+    while (true) {
+      const r = await fetch(
+        `${_SB_URL}/catalog_items?order=category.asc,name.asc&limit=${PAGE}&offset=${offset}`,
+        { headers: _SB_H }
+      );
+      if (!r.ok) throw new Error(await r.text());
+      const page = await r.json();
+      data = data.concat(page);
+      if (page.length < PAGE) break;  // 最終ページ
+      offset += PAGE;
+      if (btn) btn.textContent = `⏳ 読み込み中... ${data.length}件`;
+    }
+    // Supabase行 → allRows（CSV列順に変換）
+    allRows = data.map(row => [
+      row.category||'', row.maker||'', row.rikcad||'', row.name||'', row.unit||'',
+      row.spec1||'', row.spec2||'', row.spec3||'', row.spec4||'', row.spec5||'',
+      row.spec6||'', row.spec7||'', row.spec8||'', row.spec9||'',
+      row.color1||'', row.color2||'',
+      row.list_price!=null ? row.list_price : '',
+      row.note||'', row.catalog_page||'',
+      row.id || ''  // 列19: Supabase id（更新・削除用）
+    ]);
+    // idMapを保持（CSV列19にidを格納）
+    window._sbIdMap = {};
+    data.forEach((row, i) => { window._sbIdMap[i] = row.id; });
+    // Supabaseデータのベースとして保存（CSV追記時のリセット用）
+    window._sbBaseRows = [...allRows];
+    window._newRows = [];
+    refreshActiveGroups();
+    buildCategoryOptions();
+    renderTable(allRows);
+    if (btn) { btn.textContent = `📥 CSV追記読込`; btn.classList.remove('loading'); }
+  } catch(e) {
+    if (btn) { btn.textContent = '❌ 読み込み失敗'; btn.classList.remove('loading'); }
+    showStatusMsg('Supabase読み込みエラー: ' + e.message);
+    console.error(e);
+  }
+}
+
+// テーブル内容をSupabaseに保存（追加INSERT方式）
+// _newRowsに格納されたCSV読み込み分のみをINSERT。既存データは削除しない。
+
+// ── 行編集 ──────────────────────────────────────────────
+let _ceEditIdx = null; // 編集中のallRows index
+
+function catalogEditRow(idx) {
+  _ceEditIdx = idx;
+  const row = allRows[idx];
+  if (!row) return;
+  // フィールドに値をセット
+  [[0,'ceF0'],[1,'ceF1'],[2,'ceF2'],[3,'ceF3'],[4,'ceF4'],
+   [5,'ceF5'],[6,'ceF6'],[7,'ceF7'],[16,'ceF16'],[17,'ceF17']
+  ].forEach(([col, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = row[col] || '';
+  });
+  document.getElementById('ceEditModal').style.display = 'flex';
+}
+
+async function catalogSaveEdit() {
+  if (_ceEditIdx === null) return;
+  const row = allRows[_ceEditIdx];
+  if (!row) return;
+
+  // フィールドから値を取得
+  const fields = [[0,'ceF0'],[1,'ceF1'],[2,'ceF2'],[3,'ceF3'],[4,'ceF4'],
+                  [5,'ceF5'],[6,'ceF6'],[7,'ceF7'],[16,'ceF16'],[17,'ceF17']];
+  fields.forEach(([col, id]) => {
+    const el = document.getElementById(id);
+    if (el) row[col] = el.value.trim();
+  });
+
+  const sbId = row[19]; // Supabase ID（保存済み行のみ）
+  if (sbId) {
+    // Supabase更新
+    try {
+      const data = {
+        category: row[0]||null, maker: row[1]||null, rikcad: row[2]||null,
+        name: row[3]||null, unit: row[4]||null,
+        spec1: row[5]||null, spec2: row[6]||null, spec3: row[7]||null,
+        list_price: row[16]!=='' ? Number(row[16])||null : null,
+        note: row[17]||null,
+      };
+      const r = await fetch(`${_SB_URL}/catalog_items?id=eq.${sbId}`, {
+        method: 'PATCH',
+        headers: { ..._SB_H, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(data)
+      });
+      if (!r.ok) throw new Error(await r.text());
+      showStatusMsg('✅ 更新しました');
+    } catch(e) {
+      showStatusMsg('❌ 更新失敗: ' + e.message);
+      return;
+    }
+  } else {
+    // 未保存行（CSVインポート分）はローカルのみ更新
+    showStatusMsg('✅ 編集しました（保存ボタンで確定してください）');
+  }
+
+  document.getElementById('ceEditModal').style.display = 'none';
+  renderTable(allRows);
+  applyFilters();
+}
+
+// ── 行削除 ──────────────────────────────────────────────
+async function catalogDeleteRow(idx) {
+  const row = allRows[idx];
+  if (!row) return;
+  const name = row[3] || '（名称なし）';
+  if (!confirm(`「${name}」を削除しますか？`)) return;
+
+  const sbId = row[19];
+  if (sbId) {
+    // Supabase削除
+    try {
+      const r = await fetch(`${_SB_URL}/catalog_items?id=eq.${sbId}`, {
+        method: 'DELETE',
+        headers: _SB_H
+      });
+      if (!r.ok) throw new Error(await r.text());
+    } catch(e) {
+      showStatusMsg('❌ 削除失敗: ' + e.message);
+      return;
+    }
+  }
+
+  // ローカルから削除
+  allRows.splice(idx, 1);
+  if (window._sbBaseRows) {
+    const baseIdx = window._sbBaseRows.findIndex(r => r[19] === sbId);
+    if (baseIdx >= 0) window._sbBaseRows.splice(baseIdx, 1);
+  }
+  showStatusMsg('🗑️ 削除しました');
+  renderTable(allRows);
+  applyFilters();
+}
+
+async function catalogDeleteAll() {
+  const total = window._sbBaseRows ? window._sbBaseRows.length : allRows.filter(r => r[19]).length;
+  if (total === 0) { alert('削除するデータがありません。'); return; }
+  if (!confirm(`Supabaseに保存されている全${total}件を削除します。\nこの操作は元に戻せません。よろしいですか？`)) return;
+  if (!confirm('本当に全件削除しますか？')) return;
+
+  showStatusMsg('⏳ 全件削除中...');
+  try {
+    // 明細行を先に全削除
+    const sbIds = allRows.map(r => r[19]).filter(Boolean);
+    if (sbIds.length > 0) {
+      // estimate_rowsのようなFK制約はないのでcatalog_itemsを直接削除
+      // Supabaseは条件なしDELETEを拒否するのでid=in(...)で削除
+      const CHUNK = 100;
+      for (let i = 0; i < sbIds.length; i += CHUNK) {
+        const chunk = sbIds.slice(i, i + CHUNK);
+        const inStr = chunk.map(id => `"${id}"`).join(',');
+        const r = await fetch(`${_SB_URL}/catalog_items?id=in.(${inStr})`, {
+          method: 'DELETE', headers: _SB_H
+        });
+        if (!r.ok) throw new Error(await r.text());
+        showStatusMsg(`⏳ 削除中... ${Math.min(i + CHUNK, sbIds.length)}/${sbIds.length}件`);
+      }
+    }
+
+    // ローカルもクリア
+    allRows = [];
+    window._sbBaseRows = [];
+    window._newRows = [];
+    renderTable([]);
+    showStatusMsg(`✅ ${total}件を削除しました`);
+  } catch(e) {
+    showStatusMsg('❌ 削除失敗: ' + e.message);
+    console.error(e);
+  }
+}
+
+async function saveToDB() {
+  const btn = document.getElementById('btnSave');
+  if (btn) { btn.textContent = '⏳ 保存中...'; btn.disabled = true; }
+  try {
+    // 追加対象は_newRowsのみ（CSVインポート分）
+    const targetRows = window._newRows ?? [];
+
+    const payload = targetRows.map(row => ({
+      category:     row[0]  || null,
+      maker:        row[1]  || null,
+      rikcad:       row[2]  || null,
+      name:         row[3]  || null,
+      unit:         row[4]  || null,
+      spec1:        row[5]  || null,
+      spec2:        row[6]  || null,
+      spec3:        row[7]  || null,
+      spec4:        row[8]  || null,
+      spec5:        row[9]  || null,
+      spec6:        row[10] || null,
+      spec7:        row[11] || null,
+      spec8:        row[12] || null,
+      spec9:        row[13] || null,
+      color1:       row[14] || null,
+      color2:       row[15] || null,
+      list_price:   row[16] !== '' && row[16] != null ? Number(String(row[16]).replace(/[¥￥,]/g,'')) || null : null,
+      note:         row[17] || null,
+      catalog_page: row[18] || null,
+    })).filter(r => r.name);
+
+    if (payload.length === 0) { alert('保存するデータがありません'); return; }
+
+    // 100件ずつチャンクでINSERT（追加のみ・既存データは削除しない）
+    const CHUNK = 100;
+    for (let i = 0; i < payload.length; i += CHUNK) {
+      const chunk = payload.slice(i, i + CHUNK);
+      const r = await fetch(`${_SB_URL}/catalog_items`, {
+        method: 'POST',
+        headers: { ..._SB_H, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(chunk)
+      });
+      if (!r.ok) throw new Error(await r.text());
+    }
+
+    // 保存済みフラグをリセット
+    window._newRows = [];
+
+    if (btn) { btn.textContent = '💾 保存'; btn.disabled = false; }
+    showStatusMsg(`${payload.length}件を追加しました`);
+    // リロード（最新データを再取得）
+    await loadFromSupabase();
+  } catch(e) {
+    if (btn) { btn.textContent = '💾 保存'; btn.disabled = false; }
+    showStatusMsg('保存失敗: ' + e.message);
+    console.error(e);
+  }
+}
+
+// ============================================================
+// タブ切り替え
+// ============================================================
+function switchTab(tab) {
+  ['tabCatalog','tabParam','tabMaker'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+  });
+  const cv = document.getElementById('catalogView');
+  cv.style.display = tab === 'catalog' ? 'flex' : 'none';
+  cv.style.flexDirection = 'column'; cv.style.flex = '1'; cv.style.overflow = 'hidden';
+  document.getElementById('paramSettingsView').style.display = tab === 'param'   ? 'flex' : 'none';
+  document.getElementById('makerView').style.display         = tab === 'maker'   ? 'flex' : 'none';
+  document.getElementById('footerCatalog').style.display     = tab === 'catalog' ? 'flex' : 'none';
+  document.getElementById('footerParam').style.display       = tab === 'param'   ? 'flex' : 'none';
+  document.getElementById('footerMaker').style.display       = tab === 'maker'   ? 'flex' : 'none';
+  if (tab === 'param' && !_pmLoaded) { pmLoad(); vmLoad(); _pmLoaded = true; }
+  if (tab === 'maker') makerLoadStats();
+}
+
+// ============================================================
+// パラメータ設定 共通
+// ============================================================
+let _pmRows   = [];
+let _vmRows   = [];
+let _pmLoaded = false;
+
+function _pmEsc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+// ============================================================
+// パラメータマッピング (rikcad_param_map)
+// ============================================================
+async function pmLoad() {
+  try {
+    const r = await fetch(`${_SB_URL}/rikcad_param_map?order=id.asc`, { headers: _SB_H });
+    if (!r.ok) throw new Error(await r.text());
+    _pmRows = await r.json();
+    pmRender();
+  } catch(e) {
+    console.error('pmLoad:', e);
+    showStatusMsg('パラメータマッピング読込失敗: ' + e.message);
+  }
+}
+
+function pmRender() {
+  const tbody = document.getElementById('pmTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  _pmRows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="pm-input" value="${_pmEsc(row.pattern)}" placeholder="例：門扉"></td>
+      <td><input class="pm-input mono" value="${_pmEsc(row.spec_params)}" placeholder="例：NO;TYPE;SIZE_W;SIZE_H"></td>
+      <td><input class="pm-input mono" value="${_pmEsc(row.color_params)}" placeholder="例：IRO_S;IRO"></td>
+      <td><button class="pm-del-btn" onclick="pmDeleteRow(${i})">🗑</button></td>
+    `;
+    const [inpPattern, inpSpec, inpColor] = tr.querySelectorAll('input');
+    inpPattern.addEventListener('input', e => { _pmRows[i].pattern     = e.target.value; });
+    inpSpec.addEventListener(   'input', e => { _pmRows[i].spec_params  = e.target.value; });
+    inpColor.addEventListener(  'input', e => { _pmRows[i].color_params = e.target.value; });
+    tbody.appendChild(tr);
+  });
+}
+
+function pmAddRow() {
+  _pmRows.push({ id: null, pattern: '', spec_params: '', color_params: '' });
+  pmRender();
+  document.querySelector('#pmTbody tr:last-child input')?.focus();
+}
+
+function pmDeleteRow(i) { _pmRows.splice(i, 1); pmRender(); }
+
+// ============================================================
+// 値置き換え (rikcad_value_map)
+// ============================================================
+async function vmLoad() {
+  try {
+    const r = await fetch(`${_SB_URL}/rikcad_value_map?order=id.asc`, { headers: _SB_H });
+    if (!r.ok) throw new Error(await r.text());
+    _vmRows = await r.json();
+    vmRender();
+  } catch(e) {
+    console.error('vmLoad:', e);
+    showStatusMsg('値置き換え読込失敗: ' + e.message);
+  }
+}
+
+function vmRender() {
+  const tbody = document.getElementById('vmTbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  _vmRows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input class="pm-input" value="${_pmEsc(row.gdl_value)}" placeholder="例：柱あり"></td>
+      <td><input class="pm-input" value="${_pmEsc(row.catalog_value)}" placeholder="例：柱使用"></td>
+      <td><input class="pm-input" value="${_pmEsc(row.note)}" placeholder="備考（任意）"></td>
+      <td><button class="pm-del-btn" onclick="vmDeleteRow(${i})">🗑</button></td>
+    `;
+    const [inpGdl, inpCat, inpNote] = tr.querySelectorAll('input');
+    inpGdl.addEventListener( 'input', e => { _vmRows[i].gdl_value     = e.target.value; });
+    inpCat.addEventListener( 'input', e => { _vmRows[i].catalog_value = e.target.value; });
+    inpNote.addEventListener('input', e => { _vmRows[i].note          = e.target.value; });
+    tbody.appendChild(tr);
+  });
+}
+
+function vmAddRow() {
+  _vmRows.push({ id: null, gdl_value: '', catalog_value: '', note: '' });
+  vmRender();
+  document.querySelector('#vmTbody tr:last-child input')?.focus();
+}
+
+function vmDeleteRow(i) { _vmRows.splice(i, 1); vmRender(); }
+
+// ============================================================
+// パラメータ設定 Supabase保存（DELETE全件 → INSERT）
+// ============================================================
+async function saveParamMaps() {
+  const btn = document.getElementById('btnParamSave');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 保存中...'; btn.disabled = true;
+  try {
+    // ── param_map ──
+    await fetch(`${_SB_URL}/rikcad_param_map?id=not.is.null`, { method: 'DELETE', headers: _SB_H });
+    const pmPayload = _pmRows.filter(r => r.pattern.trim()).map(r => ({
+      pattern:      r.pattern.trim(),
+      spec_params:  r.spec_params.trim(),
+      color_params: r.color_params.trim()
+    }));
+    if (pmPayload.length) {
+      const r = await fetch(`${_SB_URL}/rikcad_param_map`, {
+        method: 'POST', headers: _SB_H, body: JSON.stringify(pmPayload)
+      });
+      if (!r.ok) throw new Error('param_map保存失敗: ' + await r.text());
+    }
+    // ── value_map ──
+    await fetch(`${_SB_URL}/rikcad_value_map?id=not.is.null`, { method: 'DELETE', headers: _SB_H });
+    const vmPayload = _vmRows.filter(r => r.gdl_value.trim() && r.catalog_value.trim()).map(r => ({
+      gdl_value:     r.gdl_value.trim(),
+      catalog_value: r.catalog_value.trim(),
+      note:          r.note.trim()
+    }));
+    if (vmPayload.length) {
+      const r = await fetch(`${_SB_URL}/rikcad_value_map`, {
+        method: 'POST', headers: _SB_H, body: JSON.stringify(vmPayload)
+      });
+      if (!r.ok) throw new Error('value_map保存失敗: ' + await r.text());
+    }
+    await pmLoad(); await vmLoad();
+    btn.textContent = '✓ 保存完了';
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  } catch(e) {
+    alert('保存エラー: ' + e.message);
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
+
+// ============================================================
+// パラメータ設定 CSV読込
+// CSV形式:
+//   param_map:  pattern,spec_params,color_params  (;区切り)
+//   value_map:  gdl_value,catalog_value,note
+// ============================================================
+// ============================================================
+// 材料メーカー（material_maker テーブル）
+// ============================================================
+function _makerSetStatus(msg) {
+  const el = document.getElementById('makerStatus');
+  if (el) { el.textContent = msg; }
+}
+
+async function makerLoadStats() {
+  _makerSetStatus('件数確認中...');
+  try {
+    const r = await fetch(`${_SB_URL}/material_maker?select=material&limit=1`, {
+      headers: { ..._SB_H, 'Prefer': 'count=exact' }
+    });
+    const count = r.headers.get('content-range')?.split('/')[1] ?? '?';
+    const el = document.getElementById('makerStats');
+    if (el) el.textContent = `現在の登録件数: ${count} 件`;
+    _makerSetStatus('');
+  } catch(e) {
+    _makerSetStatus('件数取得失敗: ' + e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('makerCsvInput').addEventListener('change', async function(e) {
+    const file = e.target.files[0]; if (!file) return; this.value = '';
+    try {
+      const text = await readFileAsText(file);
+      const rows = parseCSV(text).filter(r => r.length >= 2 && r[0] && r[1]);
+      if (rows.length === 0) { _makerSetStatus('データが読み込めませんでした'); return; }
+
+      if (!confirm(`Supabaseの既存データを全て削除し、${rows.length}件に入れ替えます。\nよろしいですか？`)) return;
+
+      _makerSetStatus('⏳ 既存データを削除中...');
+      const delR = await fetch(`${_SB_URL}/material_maker?material=not.is.null`, { method: 'DELETE', headers: _SB_H });
+      if (!delR.ok && delR.status !== 404) throw new Error('削除失敗: ' + await delR.text());
+
+      const seen = new Set();
+      const payload = rows
+        .map(r => ({ maker: r[0].trim(), material: r[1].trim() }))
+        .filter(r => r.material && !seen.has(r.material) && seen.add(r.material));
+      const CHUNK = 100;
+      for (let i = 0; i < payload.length; i += CHUNK) {
+        const r = await fetch(`${_SB_URL}/material_maker?on_conflict=material`, {
+          method: 'POST',
+          headers: { ..._SB_H, 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+          body: JSON.stringify(payload.slice(i, i + CHUNK))
+        });
+        if (!r.ok) throw new Error('INSERT失敗: ' + await r.text());
+        _makerSetStatus(`⏳ 保存中... ${Math.min(i + CHUNK, payload.length)}/${payload.length}件`);
+      }
+      _makerSetStatus(`✅ ${payload.length}件を登録しました`);
+      makerLoadStats();
+    } catch(e) {
+      _makerSetStatus('❌ エラー: ' + e.message);
+      console.error(e);
+    }
+  });
+});
+
+async function makerDeleteAll() {
+  if (!confirm('material_maker の全件を削除します。よろしいですか？')) return;
+  if (!confirm('本当に全件削除しますか？')) return;
+  try {
+    _makerSetStatus('⏳ 削除中...');
+    await fetch(`${_SB_URL}/material_maker?material=not.is.null`, { method: 'DELETE', headers: _SB_H });
+    _makerSetStatus('✅ 全件削除しました');
+    makerLoadStats();
+  } catch(e) {
+    _makerSetStatus('❌ 削除失敗: ' + e.message);
+  }
+}
+
+document.getElementById('pmCsvInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await readFileAsText(file);
+    const rows = parseCSV(text).slice(1).filter(r => r[0] && r[0].trim());
+    _pmRows = rows.map(r => ({ id: null, pattern: r[0]||'', spec_params: r[1]||'', color_params: r[2]||'' }));
+    pmRender();
+    showStatusMsg(`マッピングCSV読込: ${_pmRows.length}件`);
+  } catch(ex) { showStatusMsg('CSV読込エラー: ' + ex.message); }
+  e.target.value = '';
+});
+
+document.getElementById('vmCsvInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const text = await readFileAsText(file);
+    const rows = parseCSV(text).slice(1).filter(r => r[0] && r[0].trim());
+    _vmRows = rows.map(r => ({ id: null, gdl_value: r[0]||'', catalog_value: r[1]||'', note: r[2]||'' }));
+    vmRender();
+    showStatusMsg(`値置き換えCSV読込: ${_vmRows.length}件`);
+  } catch(ex) { showStatusMsg('CSV読込エラー: ' + ex.message); }
+  e.target.value = '';
+});
+</script>
+
+
+<!-- 行編集モーダル -->
+<div id="ceEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:10px;width:580px;max-width:96vw;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-size:15px;font-weight:600;">商品編集</span>
+      <button onclick="document.getElementById('ceEditModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:100px 1fr;gap:8px 12px;align-items:center;font-size:13px;">
+      <label style="color:#555;">商品カテゴリ</label><input id="ceF0" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">メーカー名</label><input id="ceF1" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">RIKCAD材料名</label><input id="ceF2" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">名称</label><input id="ceF3" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">単位</label><input id="ceF4" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:80px;">
+      <label style="color:#555;">仕様1</label><input id="ceF5" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">仕様2</label><input id="ceF6" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">仕様3</label><input id="ceF7" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+      <label style="color:#555;">定価</label><input id="ceF16" type="number" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:120px;">
+      <label style="color:#555;">備考</label><input id="ceF17" style="border:1px solid #ddd;border-radius:4px;padding:6px 8px;font-family:inherit;font-size:13px;width:100%;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button onclick="document.getElementById('ceEditModal').style.display='none'" style="padding:8px 16px;background:#fff;border:1px solid #ddd;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;">キャンセル</button>
+      <button onclick="catalogSaveEdit()" style="padding:8px 20px;background:#1a6fc4;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;">保存</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

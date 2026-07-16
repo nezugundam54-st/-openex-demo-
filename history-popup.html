@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>履歴から引用</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00a99d;
+      --teal-hover: #008c82;
+      --teal-light: #e6f7f6;
+      --text-primary: #1a1a1a;
+      --text-secondary: #777777;
+      --text-muted: #aaaaaa;
+      --border: #e8e8e8;
+      --border-dashed: #dedede;
+      --bg: #ffffff;
+      --bg-sub: #f7f7f7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 400;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    /* ========== DIALOG ========== */
+    .dialog {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ========== HEADER ========== */
+    .dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dialog-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+    }
+
+    .btn-close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      line-height: 1;
+    }
+    .btn-close:hover { background: #f0f0f0; color: var(--text-primary); }
+
+    /* ========== FILTER BAR ========== */
+    .filter-bar {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .filter-input {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 140px;
+    }
+    .filter-input:focus { border-color: var(--teal); }
+
+    .filter-date {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      background: var(--bg);
+      outline: none;
+      cursor: pointer;
+      min-width: 130px;
+      transition: border-color 0.15s;
+    }
+    .filter-date:focus { border-color: var(--teal); }
+
+    .date-separator {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .search-wrap {
+      flex: 1;
+      position: relative;
+      min-width: 200px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 32px;
+      border: 1.5px solid var(--teal);
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-input:focus { box-shadow: 0 0 0 3px rgba(0,169,157,0.12); }
+
+    .btn-search {
+      padding: 7px 18px;
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      color: white;
+      background: var(--teal);
+      border: 1px solid var(--teal);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-search:hover { background: var(--teal-hover); }
+
+    /* ========== TABLE ========== */
+    .table-wrap {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: auto;
+      padding: 0 24px;
+      min-height: 300px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 1000px;
+    }
+
+    .data-table thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table thead th {
+      padding: 11px 10px;
+      text-align: left;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .data-table thead th.center { text-align: center; }
+    .data-table thead th.right  { text-align: right; }
+
+    /* 選択列ヘッダー：ティール背景 */
+    .data-table thead th.th-select {
+      background: var(--teal);
+      color: white;
+      text-align: center;
+      width: 44px;
+      border-radius: 4px 0 0 0;
+    }
+
+    .data-table tbody tr {
+      border-bottom: 1px dashed var(--border-dashed);
+      transition: background 0.1s;
+      cursor: grab;
+    }
+    .data-table tbody tr.dragging-row { opacity: 0.4; }
+    .data-table tbody tr:active { cursor: grabbing; }
+    .drag-hint {
+      text-align: center; padding: 8px; font-size: 11px; color: #aaa;
+      border-top: 1px solid #f0f0f0; background: #fafafa;
+      flex-shrink: 0;
+    }
+
+    .data-table tbody tr:hover { background: #fafefe; }
+    /* ダブルクリックで即挿入 — フラッシュアニメ */
+    @keyframes rowFlash {
+      0%   { background: #b2f0eb; }
+      100% { background: transparent; }
+    }
+    .data-table tbody tr.dbl-flash { animation: rowFlash 0.35s ease forwards; }
+    /* ホバーヒント */
+    .data-table tbody tr { position: relative; }
+    .data-table tbody tr:hover::after {
+      content: 'ドラッグして挿入 / ダブルクリックで末尾に追加';
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 10px; color: #00a99d; opacity: 0.75;
+      pointer-events: none; white-space: nowrap;
+    }
+
+    .data-table tbody td {
+      padding: 10px 10px;
+      color: var(--text-primary);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .data-table tbody td.center { text-align: center; }
+    .data-table tbody td.right  { text-align: right; }
+    .data-table tbody td.muted  { color: var(--text-muted); font-size: 12px; }
+    .data-table tbody td.spec   { color: var(--text-secondary); font-size: 12px; }
+
+    .td-price {
+      font-size: 12.5px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .td-date {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .td-customer {
+      font-size: 12.5px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--teal);
+      cursor: pointer;
+    }
+
+    /* ========== FOOTER ========== */
+    .dialog-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 24px 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      padding: 7px 22px;
+      border-radius: 5px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-cancel {
+      background: var(--bg);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-cancel:hover { background: var(--bg-sub); border-color: #bbb; }
+
+    .btn-apply {
+      background: var(--teal);
+      color: white;
+      border: 1px solid var(--teal);
+      min-width: 90px;
+    }
+    .btn-apply:hover { background: var(--teal-hover); border-color: var(--teal-hover); }
+  </style>
+</head>
+<body>
+
+  <div class="dialog">
+
+    <!-- HEADER -->
+    <div class="dialog-header">
+      <span class="dialog-title">履歴から引用</span>
+      <button class="btn-close" onclick="parent.postMessage({type:'closeHistory'},'*')">×</button>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <div class="filter-row">
+        <div class="filter-group">
+          <input class="filter-input" type="text" placeholder="プランで検索" style="min-width:160px;">
+        </div>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" type="text" placeholder="名称、仕様で検索...">
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">作成日:</span>
+          <input class="filter-date" type="date">
+          <span class="date-separator">〜</span>
+          <input class="filter-date" type="date">
+        </div>
+        <button class="btn-search" style="margin-left: auto;">検索</button>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="th-select">選択</th>
+            <th style="min-width:110px;">顧客名</th>
+            <th style="min-width:130px;">物件名</th>
+            <th style="min-width:90px;">作成日</th>
+            <th style="min-width:130px;">プラン名</th>
+            <th style="min-width:130px;">名称</th>
+            <th style="min-width:140px;">仕様</th>
+            <th class="center" style="width:50px;">単位</th>
+            <th class="right" style="width:80px;">原価</th>
+            <th class="right" style="width:80px;">単価</th>
+            <th style="min-width:100px;">備考</th>
+            <th style="min-width:80px;">社内メモ</th>
+            <th style="min-width:90px;">見積担当</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="center"><input type="checkbox"></td>
+            <td class="td-customer">樽本 要三</td>
+            <td>神戸市中央区新築物件</td>
+            <td class="td-date">2025/02/10</td>
+            <td>エクステリア工事</td>
+            <td>CBブロック</td>
+            <td class="spec">C種 12cm厚</td>
+            <td class="center">m</td>
+            <td class="right td-price">¥2,500</td>
+            <td class="right td-price">¥3,500</td>
+            <td>壁材仕上塗り</td>
+            <td class="muted">標準品</td>
+            <td>田中太郎</td>
+          </tr>
+          <tr>
+            <td class="center"><input type="checkbox"></td>
+            <td class="td-customer">喜多条 進次郎</td>
+            <td>西宮市甲子園リフォーム</td>
+            <td class="td-date">2025/02/08</td>
+            <td>フェンス設置工事</td>
+            <td>アルミフェンス</td>
+            <td class="spec">高さ1800mm 幅2000mm</td>
+            <td class="center">m</td>
+            <td class="right td-price">¥18,000</td>
+            <td class="right td-price">¥25,000</td>
+            <td>柱付き</td>
+            <td class="muted">—</td>
+            <td>佐藤花子</td>
+          </tr>
+          <tr>
+            <td class="center"><input type="checkbox"></td>
+            <td class="td-customer">青山 亜樹</td>
+            <td>芦屋市戸建新築</td>
+            <td class="td-date">2025/02/05</td>
+            <td>カーポート設置</td>
+            <td>カーポートSC 1台用</td>
+            <td class="spec">24-50型 基本 標準柱</td>
+            <td class="center">基</td>
+            <td class="right td-price">¥380,000</td>
+            <td class="right td-price">¥479,700</td>
+            <td>アルミ形材色</td>
+            <td class="muted">LIXIL製品</td>
+            <td>山本次郎</td>
+          </tr>
+          <tr>
+            <td class="center"><input type="checkbox"></td>
+            <td class="td-customer">巴 武蔵</td>
+            <td>尼崎市マンション外構</td>
+            <td class="td-date">2025/02/03</td>
+            <td>外構工事一式</td>
+            <td>コンクリート基礎</td>
+            <td class="spec">普通コンクリート</td>
+            <td class="center">㎡</td>
+            <td class="right td-price">¥15,000</td>
+            <td class="right td-price">¥22,000</td>
+            <td>基礎用</td>
+            <td class="muted">生コン</td>
+            <td>田中太郎</td>
+          </tr>
+          <tr>
+            <td class="center"><input type="checkbox"></td>
+            <td class="td-customer">神 宗一郎</td>
+            <td>宝塚市新築戸建</td>
+            <td class="td-date">2025/01/28</td>
+            <td>門扉・フェンス工事</td>
+            <td>開き門扉AA TS1型</td>
+            <td class="spec">両開き 柱仕様 07-12</td>
+            <td class="center">個</td>
+            <td class="right td-price">¥200,000</td>
+            <td class="right td-price">¥251,500</td>
+            <td>ラッピング形材柱</td>
+            <td class="muted">木調タイプ</td>
+            <td>高橋美咲</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DRAG HINT -->
+    <div class="drag-hint">📌 行をドラッグ → 見積表の挿入したい行の上にドロップ</div>
+
+    <!-- FOOTER -->
+    <div class="dialog-footer">
+      <button class="btn btn-cancel" onclick="parent.postMessage({type:'closeHistory'},'*')">キャンセル</button>
+      <button class="btn btn-apply" onclick="applySelected()">引用する</button>
+    </div>
+
+  </div>
+
+</body>
+<script>
+'use strict';
+
+const SB_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const API = SB_URL + '/rest/v1';
+const H = {'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY};
+
+let allRows = []; // 全データキャッシュ
+let dragData = null; // ドラッグ中のアイテムデータ
+
+// ─── 初期ロード ───
+(async function init() {
+  await loadHistory();
+})();
+
+async function loadHistory(planKw='', nameKw='', dateFrom='', dateTo='') {
+  const tbody = document.querySelector('.data-table tbody');
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#aaa;">読み込み中...</td></tr>';
+
+  try {
+    // estimate_rowsとestimatesをJOINして取得
+    let url = `${API}/estimate_rows?select=*,estimates!inner(property_id,plan_name,created_at,estimate_staff_id,properties(name,customers(name)),staffs(name))&row_type=eq.row&order=estimates.created_at.desc&limit=200`;
+    const r = await fetch(url, {headers: H});
+    if (!r.ok) throw new Error('取得失敗');
+    allRows = await r.json();
+    renderRows(allRows, planKw, nameKw, dateFrom, dateTo);
+  } catch(e) {
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#e53935;">データ取得に失敗しました</td></tr>';
+  }
+}
+
+function renderRows(rows, planKw='', nameKw='', dateFrom='', dateTo='') {
+  const tbody = document.querySelector('.data-table tbody');
+
+  // フィルタリング
+  let filtered = rows;
+  if (planKw) {
+    const kw = planKw.toLowerCase();
+    filtered = filtered.filter(r =>
+      (r.estimates?.plan_name||'').toLowerCase().includes(kw) ||
+      (r.estimates?.properties?.name||'').toLowerCase().includes(kw)
+    );
+  }
+  if (nameKw) {
+    const kw = nameKw.toLowerCase();
+    filtered = filtered.filter(r =>
+      (r.name||'').toLowerCase().includes(kw) ||
+      (r.spec||'').toLowerCase().includes(kw)
+    );
+  }
+  if (dateFrom) filtered = filtered.filter(r => (r.estimates?.created_at||'') >= dateFrom);
+  if (dateTo)   filtered = filtered.filter(r => (r.estimates?.created_at||'') <= dateTo + 'T23:59:59');
+
+  // 最新200件まで
+  filtered = filtered.slice(0, 200);
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;color:#aaa;">データがありません</td></tr>';
+    return;
+  }
+
+  const fmtDate = s => s ? s.slice(0,10).replace(/-/g,'/') : '—';
+  const fmtNum  = n => n != null ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+
+  tbody.innerHTML = filtered.map((row, i) => {
+    const est  = row.estimates || {};
+    const prop = est.properties || {};
+    const cust = prop.customers || {};
+    const staff = est.staffs || {};
+    return `<tr draggable="true" data-idx="${i}" style="cursor:grab;">
+      <td class="center"><input type="checkbox"></td>
+      <td>${cust.name||'—'}</td>
+      <td>${prop.name||'—'}</td>
+      <td>${fmtDate(est.created_at)}</td>
+      <td>${est.plan_name||'—'}</td>
+      <td>${row.name||'—'}</td>
+      <td class="spec">${row.spec||''}</td>
+      <td class="center">${row.unit||'式'}</td>
+      <td class="right td-price">${fmtNum(row.cost)}</td>
+      <td class="right td-price">${fmtNum(row.unit_price)}</td>
+      <td>${row.memo||''}</td>
+      <td class="muted">${row.note||''}</td>
+      <td>${staff.name||'—'}</td>
+    </tr>`;
+  }).join('');
+
+  // イベント設定
+  tbody.querySelectorAll('tr').forEach((tr, i) => {
+    const rowData = filtered[i];
+
+    // チェックボックス連動
+    tr.addEventListener('click', e => {
+      if (e.target.type === 'checkbox') return;
+      const cb = tr.querySelector('input[type="checkbox"]');
+      if (cb) { cb.checked = !cb.checked; tr.style.background = cb.checked ? '#e8fff3' : ''; }
+    });
+    tr.addEventListener('change', e => {
+      if (e.target.type === 'checkbox') tr.style.background = e.target.checked ? '#e8fff3' : '';
+    });
+
+    // ドラッグ開始 → データをpostMessageで親に通知
+    tr.addEventListener('dragstart', e => {
+      dragData = extractItem(rowData);
+      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
+      tr.classList.add('dragging-row');
+      // 親ウィンドウにドラッグ開始を通知
+      parent.postMessage({ type: 'historyDragStart', item: dragData }, '*');
+    });
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('dragging-row');
+      dragData = null;
+      parent.postMessage({ type: 'historyDragEnd' }, '*');
+    });
+
+    // ダブルクリックで末尾に追加
+    tr.addEventListener('dblclick', e => {
+      if (e.target.type === 'checkbox') return;
+      tr.classList.remove('dbl-flash');
+      void tr.offsetWidth;
+      tr.classList.add('dbl-flash');
+      parent.postMessage({ type: 'historyInsert', items: [extractItem(rowData)], mode: 'append' }, '*');
+    });
+  });
+}
+
+function extractItem(row) {
+  return {
+    name:       row.name       || '',
+    spec:       row.spec       || '',
+    qty:        row.qty,
+    unit:       row.unit       || '式',
+    list_price: row.list_price,
+    rate:       row.rate,
+    unit_price: row.unit_price,
+    cost:       row.cost,
+    memo:       row.memo       || '',
+    note:       row.note       || '',
+  };
+}
+
+// 検索
+document.querySelector('.btn-search').addEventListener('click', doSearch);
+document.querySelector('.search-input').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+function doSearch() {
+  const nameKw  = document.querySelector('.search-input').value.trim();
+  const planKw  = document.querySelector('.filter-input').value.trim();
+  const dateFrom = document.querySelectorAll('.filter-date')[0].value;
+  const dateTo   = document.querySelectorAll('.filter-date')[1].value;
+  renderRows(allRows, planKw, nameKw, dateFrom, dateTo);
+}
+
+// 引用するボタン
+function applySelected() {
+  const items = [];
+  document.querySelectorAll('.data-table tbody tr').forEach((tr, i) => {
+    const cb = tr.querySelector('input[type="checkbox"]');
+    if (!cb || !cb.checked) return;
+    const idx = parseInt(tr.dataset.idx);
+    if (!isNaN(idx) && allRows[idx]) items.push(extractItem(allRows[idx]));
+  });
+  if (!items.length) { alert('引用する行を選択してください。'); return; }
+  parent.postMessage({ type: 'historyInsert', items, mode: 'append' }, '*');
+}
+</script>
+</html>

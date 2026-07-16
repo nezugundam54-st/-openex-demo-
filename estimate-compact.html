@@ -1,0 +1,2784 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>見積（コンパクト）</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic','YuGothic','Meiryo',sans-serif;
+      font-size: 13px; background: #fff; color: #222;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    }
+
+    /* ══ HEADER ══ */
+    .header-bar {
+      display: flex; align-items: center; border-bottom: 1px solid #e5e7eb;
+      padding: 0 12px; height: 44px; gap: 12px; background: #fff; flex-shrink: 0;
+    }
+    .hf { display: flex; align-items: center; gap: 5px; }
+    .hf-label { color: #6b7280; font-size: 11px; white-space: nowrap; }
+    .hf-val   { font-size: 13px; font-weight: 500; color: #111827; white-space: nowrap; }
+    .hf-input {
+      font-size: 13px; font-weight: 500; color: #111827; font-family: inherit;
+      border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 6px;
+      background: #f9fafb; width: 120px; outline: none;
+    }
+    .hf-input:focus { border-color: #00b27d; background: #fff; }
+    .hf-total-label { color: #6b7280; font-size: 11px; white-space: nowrap; margin-left: 16px; }
+    .hf-total-val   { font-size: 15px; font-weight: 700; color: #00b27d; white-space: nowrap; }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .btn {
+      height: 28px; padding: 0 12px; border-radius: 6px;
+      font-size: 12px; font-family: inherit; cursor: pointer; border: none; white-space: nowrap;
+    }
+    .btn-green   { background: #00b27d; color: #fff; font-weight: 500; }
+    .btn-green:hover { background: #009668; }
+    .btn-outline { background: #fff; border: 1px solid #e5e7eb; color: #374151; }
+    .btn-outline:hover { background: #f9fafb; }
+
+    /* ══ STATUS BAR ══ */
+    .status-bar {
+      display: flex; align-items: center; padding: 0 12px;
+      gap: 10px; border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb; flex-shrink: 0; height: 30px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .status-dot.active  { background: #00b27d; }
+    .status-dot.updated { background: #f59e0b; }
+    .status-dot.error   { background: #ef4444; }
+    .status-text { font-size: 11px; color: #6b7280; }
+    .master-badge {
+      font-size: 11px; padding: 1px 8px; border-radius: 10px;
+      background: #e6faf4; color: #00b27d; border: 1px solid #a7f3d0;
+    }
+    .master-badge.loading { background: #fef3c7; color: #d97706; border-color: #fde68a; }
+
+    /* ══ TABLE ══ */
+    .tbl-wrap { flex: 1; overflow: auto; position: relative; min-height: 0; }
+    .tbl-container { min-width: max-content; width: max-content; position: relative; }
+    .tbl {
+      width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed;
+    }
+    .tbl thead tr { background: #fff; }
+    .tbl thead th {
+      position: sticky; top: 0; z-index: 10; background: #fff;
+      padding: 7px 6px; font-size: 12px; font-weight: 500; color: #6b7280;
+      text-align: center; border-bottom: 2px solid #e53935;
+      border-right: 1px solid #f0f0f0; white-space: nowrap; vertical-align: middle;
+    }
+    .tbl thead th:last-child { border-right: none; }
+
+    /* 列リサイズ */
+    .tbl thead th { position: relative; }
+    .col-resizer {
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 5px; cursor: col-resize; z-index: 11;
+      background: transparent;
+    }
+    .col-resizer:hover, .col-resizer.dragging { background: #00b27d44; }
+    /* 列ドラッグ移動 */
+    .col-drag-over { background: #e0f7f4 !important; outline: 2px solid #00a99d; }
+
+    /* ── 行ドラッグ ── */
+    .drag-handle {
+      cursor: grab; color: #d1d5db; font-size: 13px;
+      padding: 0 4px; user-select: none; display: inline-block;
+    }
+    .drag-handle:hover { color: #9ca3af; }
+    tr.row-dragging { opacity: 0.35; }
+    tr.row-drop-above { border-top:    2px solid #00a99d !important; }
+    tr.row-drop-below { border-bottom: 2px solid #00a99d !important; }
+    .col-hm { display: none; }
+    .show-hm .col-hm { display: table-cell; }
+    col.col-hm { visibility: collapse; }
+    .show-hm col.col-hm { visibility: visible; }
+    .tbl tbody tr { border-bottom: 1px solid #f3f4f6; }
+    .tbl tbody tr:hover { background: #fafafa; }
+    .tbl tbody tr.row-selected { background: #e8fff3 !important; }
+    .tbl tbody td { padding: 3px 4px; vertical-align: middle; font-size: 13px; }
+
+    /* フォルダ行 */
+    .tr-cat    { background: #f0f5ff !important; border-left: 3px solid #93c5fd !important; }
+    .tr-subcat { background: #fefce8 !important; border-left: 3px solid #fcd34d !important; }
+    .tr-cat-l2 { background: #fff7ed !important; border-left: 3px solid #fdba74 !important; }
+    .tr-cat-l3 { background: #fdf4ff !important; border-left: 3px solid #d8b4fe !important; }
+    .tr-cat-l4 { background: #f0fdf4 !important; border-left: 3px solid #86efac !important; }
+    .cat-cell {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 500; color: #374151;
+    }
+    .folder-icon svg { width: 14px; height: 14px; fill: #fbbf24; stroke: none; }
+    .cat-chevron { font-size: 11px; color: #9ca3af; cursor: pointer; user-select: none; }
+    /* フォルダ名編集 */
+    .cat-label-input {
+      border: none; background: transparent; font-size: 13px; font-weight: 500;
+      color: #374151; font-family: inherit; outline: none; min-width: 60px;
+      width: auto; max-width: 400px; cursor: default;
+    }
+    .cat-label-input:focus {
+      background: #fff; border-bottom: 2px solid #00a99d; cursor: text;
+      border-radius: 2px; padding: 1px 4px;
+    }
+    /* フォルダ行選択 */
+    tr[data-type="cat"].folder-selected > td { background: #e0f7f4 !important; }
+    .cat-price { text-align: right; font-size: 13px; color: #374151; }
+
+    /* セル */
+    .no-col { text-align: center; color: #9ca3af; font-size: 12px; width: 36px; }
+    .cell-edit {
+      width: 100%; border: none; background: transparent;
+      font-size: 13px; font-family: inherit; color: #111827;
+      padding: 2px 4px; outline: none;
+    }
+    .cell-edit:focus { background: #f0fdf9; border-radius: 3px; }
+    .td-right { text-align: right; padding-right: 6px; }
+    .col-kakuritsu { background: #f9fafb; }
+    .rate-cell { display: flex; align-items: center; gap: 1px; }
+    .rate-pct { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+
+    /* 単位コンボ */
+    .unit-combo { position: relative; display: inline-block; width: 100%; }
+    .unit-input {
+      width: 100%; border: none; background: transparent;
+      font-size: 13px; font-family: inherit; text-align: center;
+      cursor: pointer; outline: none; padding: 2px 4px;
+    }
+    .unit-input:hover { background: #f0fdf9; border-radius: 3px; }
+    .unit-dropdown {
+      display: none; position: absolute; top: 100%; left: 0; z-index: 200;
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1); min-width: 80px;
+    }
+    .unit-dropdown.open { display: block; }
+    .unit-opt { padding: 6px 12px; cursor: pointer; font-size: 13px; }
+    .unit-opt:hover { background: #f9fafb; }
+
+    /* 赤枠 */
+
+    /* 新着ハイライト */
+    @keyframes rowFlash { 0% { background: #d1fae5; } 100% { background: transparent; } }
+    .row-new { animation: rowFlash 2.5s ease-out forwards; }
+
+    /* ══ 編集可能セルの明示 ══ */
+    .cell-edit {
+      border-bottom: 1px dashed transparent;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .cell-edit:hover  { border-bottom-color: #9ca3af; background: #f9fafb; border-radius: 2px; }
+    .cell-edit:focus  { border-bottom: 1px solid #00a99d; background: #f0fdf9; border-radius: 3px; }
+    /* 編集モード表示：データ行の名称・仕様・数量・単価セルに鉛筆アイコンをホバー時に表示 */
+    tr[data-type="row"]:hover .cell-edit { background: rgba(0,178,125,0.04); }
+    tr[data-type="row"]:hover td:nth-child(5)::after {
+      content: '✏';
+      position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+      font-size: 10px; color: #9ca3af; pointer-events: none;
+    }
+    tr[data-type="row"] td:nth-child(5) { position: relative; }
+    /* 複数選択時の明示 */
+    .row-multi-selected { background: #bfdbfe !important; outline: 1px solid #3b82f6; }
+
+    /* ══ ICON BAR ══ */
+    .icon-bar {
+      display: flex; align-items: center; padding: 3px 10px;
+      gap: 2px; border-bottom: 1px solid #e5e7eb; background: #fff; flex-shrink: 0;
+    }
+    .ic {
+      width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; border-radius: 4px;
+      cursor: pointer; color: #6b7280; position: relative;
+    }
+    .ic:hover { background: #f3f4f6; }
+    .ic svg { width: 14px; height: 14px; stroke: currentColor; fill: none;
+               stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .ic::after {
+      content: attr(title);
+      position: absolute; bottom: calc(100% + 4px); left: 50%;
+      transform: translateX(-50%);
+      background: #374151; color: #fff; font-size: 10px; white-space: nowrap;
+      padding: 2px 6px; border-radius: 3px; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s; z-index: 100;
+    }
+    .ic:hover::after { opacity: 1; }
+    .ic-sep { width: 1px; height: 16px; background: #e5e7eb; margin: 0 3px; }
+
+    /* ══ FOOTER ══ */
+    .footer-bar {
+      border-top: 2px solid #e5e7eb; padding: 6px 14px;
+      display: flex; align-items: center; gap: 20px;
+      background: #fff; flex-shrink: 0; font-size: 13px;
+    }
+    .footer-label { color: #6b7280; }
+    .footer-val   { font-weight: 600; color: #111827; }
+
+
+    /* トースト */
+    #toast {
+      position: fixed; bottom: 56px; left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: #111827; color: #fff;
+      padding: 7px 18px; border-radius: 20px; font-size: 12px;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; white-space: nowrap; z-index: 9999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  
+/* ════ 見積選択モーダル ════ */
+#estModal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 3000;
+  align-items: center; justify-content: center;
+}
+.est-modal-box {
+  background: #fff; border-radius: 10px; width: 480px; max-width: 96vw;
+  max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,.2); overflow: hidden;
+}
+.est-modal-header {
+  padding: 16px 20px 12px; border-bottom: 1px solid #e5e7eb;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.est-modal-title { font-size: 16px; font-weight: 600; color: #111; }
+.est-modal-close {
+  background: none; border: none; font-size: 20px; color: #9ca3af;
+  cursor: pointer; line-height: 1; padding: 0;
+}
+.est-modal-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.est-modal-footer {
+  padding: 12px 16px; border-top: 1px solid #e5e7eb;
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.est-list-item {
+  padding: 10px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid #e5e7eb; margin-bottom: 6px;
+  transition: background .15s;
+}
+.est-list-item:hover { background: #f0fdf4; border-color: #00a99d; }
+.est-list-item.selected { background: #e0f7f4; border-color: #00a99d; }
+.est-list-new { border-style: dashed; }
+#estNewForm {
+  background: #f9fafb; border-radius: 6px; padding: 12px;
+  margin-top: 8px; display: none;
+}
+.est-new-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+.est-new-input {
+  width: 100%; padding: 7px 10px; border: 1px solid #d1d5db;
+  border-radius: 4px; font-size: 13px; font-family: inherit;
+  box-sizing: border-box; margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header-bar">
+  <div class="hf">
+    <span class="hf-label">見積No.</span>
+    <input class="hf-input" id="dispEstimateNo" placeholder="未設定" oninput="saveHeaderToLS()">
+  </div>
+  <div class="hf">
+    <span class="hf-label">プラン名</span>
+    <input class="hf-input" id="dispPlanName" placeholder="未設定" oninput="saveHeaderToLS()">
+  </div>
+  <span class="hf-total-label">提示合計</span>
+  <span class="hf-total-val" id="headerTotal">¥0</span>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="clearTable()" style="color:#ef4444;border-color:#fca5a5;">✕ クリア</button>
+    <button class="btn btn-outline" onclick="fetchCurrentSelection()">＋ 現在の選択を取得</button>
+    <button class="btn btn-outline" id="autoDetectBtn" onclick="toggleAutoDetect()">⚡ 作図自動検知: OFF</button>
+    <button class="btn btn-outline" onclick="syncFromEdit()">↻ 編集画面から同期</button>
+    <button class="btn btn-outline" onclick="openMasterPopup()">📋 マスタから引用</button>
+    <!-- カタログボタン オミット -->
+    <button class="btn btn-green"   onclick="openEstimateSelectModal()">見積に追加 →</button>
+  </div>
+</div>
+
+<!-- ══ ICON BAR ══ -->
+<div class="icon-bar">
+  <button class="ic" title="行追加" onclick="icAddRow()">
+    <svg viewBox="0 0 15 15"><rect x="1.5" y="1.5" width="12" height="12" rx="1.5"/><line x1="7.5" y1="4.5" x2="7.5" y2="10.5"/><line x1="4.5" y1="7.5" x2="10.5" y2="7.5"/></svg>
+  </button>
+  <button class="ic" title="階層（フォルダ）追加" onclick="icAddFolder()">
+    <svg viewBox="0 0 15 15"><path d="M1 3.5h4l1.5 1.5H14v7.5H1z"/><line x1="7" y1="7" x2="7" y2="11"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+  </button>
+  <div class="ic-sep"></div>
+  <button class="ic" title="選択した行・フォルダを削除" onclick="icDeleteRows()">
+    <svg viewBox="0 0 15 15"><line x1="3" y1="4.5" x2="12" y2="4.5"/><path d="M5.5 4.5V3h4v1.5"/><rect x="3" y="4.5" width="9" height="8" rx="1"/></svg>
+  </button>
+  <div class="ic-sep"></div>
+  <span style="font-size:10px;color:#9ca3af;padding:0 4px;">行:Shift複数選択 / フォルダ:クリック選択</span>
+</div>
+
+<!-- ══ STATUS BAR ══ -->
+<div class="status-bar">
+  <div class="status-dot" id="pollDot"></div>
+  <span class="status-text" id="pollText">待機中...</span>
+  <span class="master-badge" id="masterBadge" style="cursor:pointer;" onclick="reloadMaster()" title="クリックで再読み込み">準備完了</span>
+  <span class="status-text" id="lastUpdateText" style="margin-left:auto;"></span>
+</div>
+
+<!-- ══ TABLE ══ -->
+<div class="tbl-wrap" id="tblWrap">
+  <div class="tbl-container" id="tblContainer">
+    <table class="tbl" id="mainTbl">
+      <colgroup id="mainColgroup">
+        <col style="width:36px"  />  <!--  0: No -->
+        <col style="width:100px" />  <!--  1: 引出線名称 -->
+        <col style="width:72px"  />  <!--  2: 作図要素 -->
+        <col style="width:90px"  />  <!--  3: 要素ID -->
+        <col style="width:180px" />  <!--  4: 名称 -->
+        <col style="width:80px"  />  <!-- 5: 仕様 -->
+        <col style="width:54px"  />  <!-- 6: 数量 -->
+        <col style="width:54px"  />  <!-- 7: 単位 -->
+        <col style="width:70px"  />  <!-- 8: 定価 -->
+        <col style="width:60px"  />  <!-- 9: 掛率 -->
+        <col style="width:70px"  />  <!-- 10: 単価 -->
+        <col style="width:90px"  />  <!-- 11: 提示価格 -->
+        <col class="col-hm" style="width:60px" />  <!-- 11: 上乗せ率(HM) -->
+        <col class="col-hm" style="width:80px" />  <!-- 13: 単価(HM) -->
+        <col class="col-hm" style="width:90px" />  <!-- 14: 提示(HM) -->
+        <col style="width:100px" />  <!-- 15: 備考 -->
+      </colgroup>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>引出線名称</th>
+          <th>作図要素</th>
+          <th>要素ID</th>
+          <th>名称</th>
+          <th>仕様</th>
+          <th>数量</th>
+          <th>単位</th>
+          <th>定価</th>
+          <th class="col-kakuritsu">掛率(%)</th>
+          <th>単価</th>
+          <th>提示価格</th>
+          <th class="col-hm">上乗せ率(%)</th>
+          <th class="col-hm">単価（HM出し）</th>
+          <th class="col-hm">提示価格（HM出し）</th>
+          <th>備考</th>
+        </tr>
+      </thead>
+      <tbody id="mainTbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ FOOTER ══ -->
+<div class="footer-bar">
+  <span class="footer-label">小計</span>
+  <span class="footer-val" id="footerSubtotal">¥0</span>
+  <span class="footer-label" style="margin-left:16px;">消費税（10%）</span>
+  <span class="footer-val" id="footerTax">¥0</span>
+  <span class="footer-label" style="margin-left:16px;">見積合計</span>
+  <span class="footer-val" id="footerTotal">¥0</span>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+/* ════ 定数 ════ */
+const UNITS = ['式','m','m²','m³','本','枚','個','台','箱','袋','缶','組','ヶ所','ヶ月','人工','m(H)'];
+const CSV_POLL_INTERVAL  = 500;   // CAD→Compact反映間隔（ms）
+const AUTO_POLL_INTERVAL = 5000;   // 作図自動検知（ms）
+const FENCE_KOJI_NAME   = 'フェンス工事';
+const API_BASE = 'http://localhost:8767/api';
+
+// Supabase設定
+const SB_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const SB_H = {
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+/* ════ GUID→名称CSVマッピング ════ */
+// CSVフォーマット: guid,name,spec,unit,list_price（1行目はヘッダー）
+let _guidMasterMap = {};  // guid → {name, spec, unit, price}
+
+async function loadGuidMaster() {
+  // 候補ファイル名を順に試す
+  const candidates = ['guid_master.csv', 'schedule.csv', '新規設定.csv'];
+  for (const fname of candidates) {
+    try {
+      const res = await fetch(`${API_BASE.replace('/api', '')}/api/files?path=${encodeURIComponent(fname)}`);
+      if (!res.ok) continue;
+      const text = await res.text();
+      _parseGuidMasterCsv(text);
+      const count = Object.keys(_guidMasterMap).length;
+      if (count > 0) {
+        showToast(`GUIDマスタ読み込み: ${count}件 (${fname})`);
+        return;
+      }
+    } catch(e) {
+      console.warn(`[GUIDマスタ] ${fname} スキップ:`, e.message);
+    }
+  }
+}
+
+function _parseGuidMasterCsv(text) {
+  _guidMasterMap = {};
+  // BOM除去・エンコード正規化
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const lines = text.split(/[\r\n]+/).filter(l => l.trim());
+  if (lines.length < 2) return;
+
+  // 1行目がタイトル行かヘッダー行か判定
+  // RIKCADスケジュール出力: 1行目=タイトル, 2行目=ヘッダー
+  // 通常CSV: 1行目=ヘッダー
+  let headerIdx = 0;
+  const firstCols = _csvLine(lines[0]);
+  // GUIDらしき列がなければタイトル行と判断して次行をヘッダーとする
+  const looksLikeGuid = s => /^[0-9A-Fa-f]{8}-/.test(s.trim());
+  if (!firstCols.some(c => /guid|ユニーク|id/i.test(c)) && lines.length > 2) {
+    headerIdx = 1;
+  }
+  const header = _csvLine(lines[headerIdx]);
+
+  // 列インデックスを検索（日本語・英語両対応）
+  const iGuid  = header.findIndex(h => /guid|ユニーク|uniqu/i.test(h));
+  const iName  = header.findIndex(h => /材質名|名称|name|材料/i.test(h));
+  const iSpec  = header.findIndex(h => /外面材質|仕様|spec/i.test(h));
+  const iUnit  = header.findIndex(h => /単位|unit/i.test(h));
+  const iPrice = header.findIndex(h => /定価|単価|price/i.test(h));
+
+  if (iGuid < 0) {
+    // ヘッダーなし・1列目がGUIDと推定
+    console.warn('[GUIDマスタ] GUID列が見つからないため1列目をGUIDとして扱います');
+  }
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = _csvLine(lines[i]);
+    const guidCol = iGuid >= 0 ? iGuid : 0;
+    const nameCol = iName >= 0 ? iName : 1;
+    const guid = (cols[guidCol] || '').trim().toUpperCase();
+    if (!guid || !looksLikeGuid(guid)) continue;
+
+    const name  = (cols[nameCol] || '').trim();
+    const spec  = iSpec  >= 0 ? (cols[iSpec]  || '').trim() : '';
+    const unit  = iUnit  >= 0 ? (cols[iUnit]  || '').trim() : '';
+    const price = iPrice >= 0 ? (cols[iPrice] || '').trim() : '';
+
+    if (!_guidMasterMap[guid]) {
+      // 初出のGUID: そのまま登録
+      _guidMasterMap[guid] = { name, spec, unit, price };
+    } else {
+      // 重複GUID: 名称をカンマ区切りで追記（異なる場合のみ）
+      const existing = _guidMasterMap[guid];
+      if (name && !existing.name.includes(name)) {
+        existing.name = existing.name ? existing.name + ', ' + name : name;
+      }
+      if (spec && !existing.spec.includes(spec)) {
+        existing.spec = existing.spec ? existing.spec + ', ' + spec : spec;
+      }
+    }
+  }
+  console.log('[GUIDマスタ] 登録件数:', Object.keys(_guidMasterMap).length);
+}
+
+function _csvLine(line) {
+  const cols = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { cols.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  cols.push(cur);
+  return cols;
+}
+
+function applyGuidMaster(row) {
+  // GUIDがあれば名称・仕様・単価をマスタから補完（未入力の場合のみ）
+  if (!row.guid) return row;
+  const m = _guidMasterMap[row.guid.toUpperCase()];
+  if (!m) return row;
+  return {
+    ...row,
+    name:  row.name  || m.name,
+    spec:  row.spec  || m.spec,
+    unit:  row.unit  || m.unit  || row.unit,
+    price: row.price || m.price,
+  };
+}
+
+/* ════ Flask中継API ════ */
+
+// 現在選択中の要素をrow形式で取得
+async function fetchSelectedElements() {
+  const res = await fetch(`${API_BASE}/selection/elements`);
+  return res.json();
+}
+
+// 現在選択中のGUIDだけ取得（軽量・ハイライト同期用）
+// Chrome拡張機能経由でTapirコマンド送信
+function rikcadRequest(type, extra = {}) {
+  return new Promise((resolve, reject) => {
+    if (!document.documentElement.hasAttribute('data-rikcad-ext')) {
+      reject(new Error('Chrome拡張機能が見つかりません'));
+      return;
+    }
+    const reqId = Math.random().toString(36).slice(2);
+    const onResponse = e => {
+      if (e.detail?.reqId !== reqId) return;
+      document.removeEventListener('__rikcad_response', onResponse);
+      if (e.detail.ok === false) reject(new Error(e.detail.error || '拡張機能エラー'));
+      else resolve(e.detail);
+    };
+    document.addEventListener('__rikcad_response', onResponse);
+    setTimeout(() => {
+      document.removeEventListener('__rikcad_response', onResponse);
+      reject(new Error('タイムアウト'));
+    }, 5000);
+    document.dispatchEvent(new CustomEvent('__rikcad_request', { detail: { reqId, type, ...extra } }));
+  });
+}
+
+async function fetchSelectedGuids() {
+  try {
+    const res = await rikcadRequest('GET_SELECTED_GUIDS');
+    return res.guids || [];
+  } catch {
+    return [];
+  }
+}
+
+// CAD側で要素を選択
+async function selectElementInCad(guid) {
+  try {
+    await rikcadRequest('CHANGE_SELECTION', { guid });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 全要素GUIDスナップショット（自動検知用）
+async function fetchSnapshot() {
+  const res = await fetch(`${API_BASE}/elements/snapshot`);
+  return res.json();
+}
+
+// 新規要素を取得（自動検知用）
+async function fetchNewElements(knownGuids) {
+  const known = [...knownGuids].join(',');
+  const res = await fetch(`${API_BASE}/elements/new?known=${encodeURIComponent(known)}`);
+  return res.json();
+}
+
+const CAD_TYPE_JP = {
+  Wall:'壁', Slab:'スラブ', Roof:'屋根', Mesh:'メッシュ', Morph:'モルフ',
+  Column:'柱', Beam:'梁', Stair:'階段', Object:'オブジェクト',
+};
+
+/* ════ ヘッダー同期 ════ */
+function syncHeaderFromLS() {
+  try {
+    const no   = localStorage.getItem('estimateNo')  || '';
+    const plan = localStorage.getItem('planName')    || '';
+    const noEl   = document.getElementById('dispEstimateNo');
+    const planEl = document.getElementById('dispPlanName');
+    if (noEl)   noEl.value   = no;
+    if (planEl) planEl.value = plan;
+  } catch(e) {}
+}
+
+function saveHeaderToLS() {
+  try {
+    localStorage.setItem('estimateNo', document.getElementById('dispEstimateNo').value);
+    localStorage.setItem('planName',   document.getElementById('dispPlanName').value);
+  } catch(e) {}
+}
+
+function openEditWindow() { window.open('estimate-edit.html', 'estimateEdit'); }
+
+/* 編集画面から手動同期 */
+function syncFromEdit() {
+  try {
+    const raw = localStorage.getItem('compactTableData');
+    if (!raw) { showToast('編集画面のデータがありません'); return; }
+    const rows = JSON.parse(raw);
+    renderTable(rows);
+    showToast('編集画面から同期しました');
+  } catch(e) { showToast('同期に失敗しました'); }
+}
+
+/* ════ iframe 常駐監視（オミット） ════ */
+
+/* ════ マスタキャッシュ（Supabase直接取得） ════ */
+let _masterCache = null;      // { items: [...], rowsByMasterId: {id: [rows]} }
+let _masterLoading = false;
+let _masterLoadPromise = null;  // 読み込み完了を待てるPromise
+
+async function loadMasterFromSB() {
+  if (_masterLoading) return _masterLoadPromise;
+  _masterLoading = true;
+  const badge = document.getElementById('masterBadge');
+  if (badge) { badge.textContent = 'マスタ読込中...'; badge.className = 'master-badge loading'; }
+
+  _masterLoadPromise = (async () => {
+    try {
+      const itemsRes = await fetch(`${SB_URL}/master_items?order=sort_order.asc,created_at.asc&limit=500`, { headers: SB_H });
+      if (!itemsRes.ok) throw new Error('master_items: ' + itemsRes.status);
+      const items = await itemsRes.json();
+
+      // 全マスタのrowsを並行取得
+      const rowsByMasterId = {};
+      await Promise.all(items.map(async item => {
+        try {
+          const r = await fetch(`${SB_URL}/master_rows?master_id=eq.${item.id}&order=sort_order.asc`, { headers: SB_H });
+          const rows = r.ok ? await r.json() : [];
+          rowsByMasterId[item.id] = rows;
+          // デバッグ: rikcad_namesのパース結果を確認
+          rows.forEach(row => {
+            if (row.rikcad_names !== null && row.rikcad_names !== undefined && row.rikcad_names !== '' && row.rikcad_names !== '[]') {
+              const parsed = _parseRikcadNames(row.rikcad_names);
+              console.log(`[compact] rikcad_names: raw=${JSON.stringify(row.rikcad_names)} → parsed=${JSON.stringify(parsed)} | name=${row.name}`);
+            }
+          });
+        } catch(e) {
+          rowsByMasterId[item.id] = [];
+          console.warn('[compact] rows取得失敗:', item.id, e);
+        }
+      }));
+
+      _masterCache = { items, rowsByMasterId };
+      const totalRows = Object.values(rowsByMasterId).reduce((s, arr) => s + arr.length, 0);
+      if (badge) { badge.textContent = `マスタ ${items.length}件 (${totalRows}行)`; badge.className = 'master-badge'; }
+      console.log('[compact] マスタ読込完了:', items.length, '件', totalRows, '行');
+    } catch(e) {
+      console.warn('[compact] マスタ読込失敗:', e);
+      if (badge) { badge.textContent = 'マスタ読込失敗（再試行中）'; badge.className = 'master-badge loading'; }
+      // 5秒後にリトライ
+      _masterLoading = false;
+      setTimeout(loadMasterFromSB, 5000);
+    } finally {
+      _masterLoading = false;
+    }
+  })();
+  return _masterLoadPromise;
+}
+
+/**
+ * rikcad_namesカラムから文字列配列を取得（二重エスケープ含む全形式に対応）
+ * 実データ例: "[\"ｼﾞｬｽﾃｨ\"]"  → ["ｼﾞｬｽﾃｨ"]  → ["ｼﾞｬｽﾃｨ"]
+ */
+function _parseRikcadNames(raw) {
+  if (raw === null || raw === undefined || raw === '') return [];
+
+  // すでに配列（SupabaseがJSONBをそのままJSオブジェクトで返した場合）
+  if (Array.isArray(raw)) return raw.map(s => String(s).trim()).filter(Boolean);
+
+  if (typeof raw !== 'string') return [String(raw).trim()].filter(Boolean);
+
+  let s = raw.trim();
+  if (!s || s === '[]' || s === 'null') return [];
+
+  // 最大3回アンラップを試みる（二重・三重エスケープ対応）
+  for (let i = 0; i < 3; i++) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        // 配列が取れた → 各要素を文字列化して返す
+        return parsed.map(x => String(x).trim()).filter(Boolean);
+      }
+      if (typeof parsed === 'string') {
+        // まだ文字列 → もう一段アンラップ
+        s = parsed.trim();
+        continue;
+      }
+      // その他の型（数値等）→終了
+      return [String(parsed).trim()].filter(Boolean);
+    } catch {
+      break;
+    }
+  }
+
+  // JSON.parseで解決できなかった場合：カンマ区切りや単純文字列として扱う
+  // 余分なクォートや括弧を除去
+  s = s.replace(/^\[|\]$/g, '').trim();                    // [] 除去
+  s = s.replace(/^["']|["']$/g, '').trim();                // 外側クォート除去
+  if (!s) return [];
+  if (s.includes(',')) return s.split(',').map(x => x.replace(/^["']|["']$/g, '').trim()).filter(Boolean);
+  return [s];
+}
+
+/**
+ * RIKCAD材料名からマスタ行を検索（前方一致優先、完全一致を最優先）
+ * 戻り値: [ { masterItem, row, parentFolder, grandFolder, score } ]
+ *   parentFolder : 直近の親フォルダ行（subcat/cat）
+ *   grandFolder  : 親フォルダのさらに親フォルダ行（cat）
+ */
+function findMasterByRikcadName(rikcadName) {
+  if (!_masterCache || !rikcadName) return [];
+  const name = rikcadName.trim();
+  const results = [];
+
+  for (const item of _masterCache.items) {
+    const rows = _masterCache.rowsByMasterId[item.id] || [];
+    // folder_id → フォルダ行のマップ
+    const folderMap = {};
+    rows.filter(r => r.row_type === 'cat' || r.row_type === 'subcat')
+        .forEach(r => { if (r.folder_id) folderMap[r.folder_id] = r; });
+
+    for (const row of rows) {
+      if (row.row_type === 'cat' || row.row_type === 'subcat') continue;
+
+      const rikcadNames = _parseRikcadNames(row.rikcad_names);
+      if (!rikcadNames.length) continue;
+
+      let score = 0;
+      for (const rn of rikcadNames) {
+        if (!rn) continue;
+        if (rn === name) { score = 2; break; }
+        if (name.startsWith(rn)) score = Math.max(score, 1);
+      }
+      if (score === 0) continue;
+
+      // 直近の親フォルダ
+      const parentFolder = row.parent_id ? (folderMap[row.parent_id] || null) : null;
+      // 親フォルダのさらに親（grandFolder）
+      const grandFolder = parentFolder?.parent_id ? (folderMap[parentFolder.parent_id] || null) : null;
+
+      results.push({ masterItem: item, row, parentFolder, grandFolder, score });
+    }
+  }
+
+  results.sort((a, b) =>
+    b.score - a.score ||
+    (a.masterItem.sort_order||0) - (b.masterItem.sort_order||0) ||
+    (a.row.sort_order||0) - (b.row.sort_order||0)
+  );
+
+  if (results.length) {
+    console.log(`[compact] findMaster "${name}" → ${results.length}件ヒット (score=${results[0].score})`);
+  }
+  return results;
+}
+
+// カタログCSVから RIKCAD材料名(列2) → 定価(列16) のインデックスを返す
+function getCatalogPriceIndex() {
+  try {
+    const raw = localStorage.getItem('catalogPopup_csvRows');
+    if (!raw) return {};
+    const rows = JSON.parse(raw);
+    const idx  = {};
+    rows.forEach(r => {
+      const key = (r[2] || '').trim();  // RIKCAD材料名は列2（0始まり）
+      if (!key) return;
+      const priceRaw = (r[16] || '').toString().replace(/[¥￥,\r\n\t ]/g, '');
+      const price    = parseFloat(priceRaw);
+      if (!isNaN(price) && price > 0 && !idx[key]) {
+        idx[key] = price;
+      }
+    });
+    return idx;
+  } catch(e) {
+    console.warn('[compact] getCatalogPriceIndex:', e);
+    return {};
+  }
+}
+
+// IsFence A行のmm⇔m換算
+function toggleFenceUnit(tr) {
+  const tds = tr.querySelectorAll('td');
+  const ui  = tds[7]?.querySelector('.unit-input');
+  const qi  = tds[6]?.querySelector('input');
+  if (!ui || !qi) return;
+  const currentUnit = ui.value;
+  const qty = parseFloat(qi.value);
+  if (currentUnit === 'mm') {
+    ui.value = 'm';
+    if (!isNaN(qty)) qi.value = (qty / 1000).toFixed(3);
+  } else {
+    ui.value = 'mm';
+    if (!isNaN(qty)) qi.value = Math.round(qty * 1000);
+  }
+  calcRow(qi);
+}
+
+/* ════ テーブル描画 ════ */
+// 蓄積モード用グローバル変数
+let _accumulatedGuids = new Set();  // 取得済みGUID管理
+let _folderMap = {};
+let _folderSeq = 0;
+// フォルダ行の重複防止（マスタフォルダIDごとに1回だけ作成）
+let _createdMasterFolders = {};  // "masterId:folderId" → fid
+
+/* ── レベルに対応するCSSクラスを返す（グローバル） ── */
+function _folderClass(level) {
+  return ['tr-cat','tr-subcat','tr-cat-l2','tr-cat-l3','tr-cat-l4'][Math.min(level, 4)];
+}
+
+/* ── フォルダのレベル（深さ）を取得する（グローバル） ── */
+function _getFolderLevel(parentFid) {
+  if (!parentFid) return 0;
+  const all = document.querySelectorAll('#mainTbody tr[data-type="cat"]');
+  for (const tr of all) {
+    if (tr.dataset.folderId === parentFid) {
+      return (parseInt(tr.dataset.level || '0') + 1);
+    }
+  }
+  return 1;
+}
+
+function clearTable() {
+  const tbody = document.getElementById('mainTbody');
+  tbody.innerHTML = '';
+  _accumulatedGuids = new Set();
+  _folderMap = {};
+  _folderSeq = 0;
+  _createdMasterFolders = {};
+  renumberRows();
+  updateFooter();
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+}
+
+function renderTable(rows) {
+  // マスタがまだ読み込まれていない場合は読み込み完了を待って再実行
+  if (!_masterCache && _masterLoadPromise) {
+    _masterLoadPromise.then(() => renderTable(rows)).catch(() => _renderTableCore(rows));
+    return;
+  }
+  _renderTableCore(rows);
+}
+
+function _renderTableCore(rows) {
+  const tbody = document.getElementById('mainTbody');
+
+  /* ── フォルダ行を生成する共通ヘルパー ── */
+  function _makeFolderRow(fid, label, level, parentFid) {
+    const tr = document.createElement('tr');
+    tr.className         = _folderClass(level);
+    tr.dataset.type      = 'cat';
+    tr.dataset.folderId  = fid;
+    tr.dataset.level     = String(level);
+    if (parentFid) tr.dataset.parentId = parentFid;
+    const indent = `padding-left:${level * 20}px;`;
+    tr.innerHTML = `
+      <td></td>
+      <td colspan="8" style="${indent}">
+        <div class="cat-cell">
+          <span class="folder-icon"><svg viewBox="0 0 16 16"><path d="M1 4.5A1.5 1.5 0 012.5 3H6l1.5 1.5H13.5A1.5 1.5 0 0115 6v5.5A1.5 1.5 0 0113.5 13h-11A1.5 1.5 0 011 11.5z"/></svg></span>
+          <span class="cat-chevron open" onclick="toggleFolder(this)">∨</span>
+          <input class="cat-label-input" value="${esc(label)}" title="ダブルクリックで名前を編集" readonly>
+        </div>
+      </td>
+      <td class="col-hm"></td><td class="col-hm"></td><td class="col-hm"></td>
+      <td></td>`;
+    // ダブルクリックで編集開始
+    const inp = tr.querySelector('.cat-label-input');
+    inp.addEventListener('dblclick', () => { inp.readOnly = false; inp.focus(); inp.select(); });
+    inp.addEventListener('blur', () => { inp.readOnly = true; });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === 'Escape') { inp.readOnly = true; inp.blur(); }
+    });
+    // フォルダ行クリックで選択
+    tr.addEventListener('click', e => {
+      if (e.target.classList.contains('cat-label-input') && !e.target.readOnly) return;
+      if (e.target.classList.contains('cat-chevron')) return;
+      document.querySelectorAll('#mainTbody tr[data-type="cat"].folder-selected')
+        .forEach(r => r.classList.remove('folder-selected'));
+      tr.classList.toggle('folder-selected');
+    });
+    tr.draggable = true;
+    return tr;
+  }
+
+  function getOrCreateFolder(kojiName) {
+    const key = kojiName || '（未分類）';
+    if (_folderMap[key]) return _folderMap[key];
+    _folderSeq++;
+    const fid = 'cf' + _folderSeq;
+    _folderMap[key] = fid;
+    const tr = _makeFolderRow(fid, key, 0, null);
+    tbody.appendChild(tr);
+    return fid;
+  }
+
+  // 中間フォルダ（parentFolderの子）を作成
+  function getOrCreateSubFolder(key, displayName, parentFid) {
+    if (_folderMap[key]) return _folderMap[key];
+    _folderSeq++;
+    const fid = 'cf' + _folderSeq;
+    _folderMap[key] = fid;
+    const level = _getFolderLevel(parentFid);
+    const tr = _makeFolderRow(fid, displayName, level, parentFid);
+    tbody.appendChild(tr);
+    return fid;
+  }
+  const newRows = rows.filter(r => {
+    if (!r.guid) return true;
+    const key = r.row_sub ? r.guid + ':' + r.row_sub : r.guid;
+    if (_accumulatedGuids.has(key)) return false;
+    return true;
+  });
+
+  if (newRows.length === 0) return;
+
+  const catalogIdx = getCatalogPriceIndex();
+
+  // ── 延長行（row_sub='length'）をGUIDごとにバッファ（描画しない）──
+  const lengthQtyByGuid = {};
+  newRows.forEach(r => {
+    if (r.row_sub === 'length' && r.guid && r.qty !== '' && r.qty != null) {
+      lengthQtyByGuid[r.guid] = parseFloat(r.qty);
+    }
+  });
+  // 延長行を除いた行のみ描画
+  const renderRows = newRows.filter(r => r.row_sub !== 'length');
+
+  renderRows.forEach(r => {
+    if (r.guid) { const key = r.row_sub ? r.guid + ':' + r.row_sub : r.guid; _accumulatedGuids.add(key); }
+
+    // ── まずGUIDマスタで名称を補完（Wall/Slab等はname=""のため先に補完する）
+    r = applyGuidMaster(r);
+
+    const csvName  = (r.name || '').trim();
+    const csvUnit  = (r.unit || '').trim();
+    const guid     = r.guid || '';
+    const autoPrice = csvName ? (catalogIdx[csvName] || 0) : 0;
+    const lengthQty = guid !== undefined ? lengthQtyByGuid[guid] : undefined;
+
+    // ── Supabaseマスタから前方一致検索（GUIDマスタ補完後の名称で検索）
+    const masterMatches = csvName ? findMasterByRikcadName(csvName) : [];
+
+    if (!masterMatches.length) {
+      // マスタ未ヒット → そのまま表示
+      appendRow(tbody, getOrCreateFolder(r.kojiName), {
+        name: csvName, spec: r.spec||'', unit: csvUnit,
+        qty: r.qty, price: r.price||'', listPrice: autoPrice || '',
+        note: '', guid,
+        cadType: r.cadType||'', leaderName: r.leaderName||'', elementId: r.elementId||'',
+        fenceRow: r.fenceRow||'', unitAlt: r.unitAlt||'',
+      }, false);
+      return;
+    }
+
+    console.log(`[compact] マスタヒット: "${csvName}" → ${masterMatches.length}件`);
+
+    masterMatches.forEach(({ masterItem, row: mRow, parentFolder, grandFolder }) => {
+      const masterUnit = (mRow.unit||'').trim();
+      const cadUnit    = csvUnit;
+
+      // ── 数量マッチング判定 ──
+      // 単位の正規化（㎡=m²、㎥=m³ など表記ゆれを吸収）
+      const normalizeUnit = u => u
+        .replace(/㎡/g, 'm²').replace(/㎥/g, 'm³')
+        .replace(/M²/gi, 'm²').replace(/M³/gi, 'm³')
+        .trim();
+      const masterUnitN = normalizeUnit(masterUnit);
+      const cadUnitN    = normalizeUnit(cadUnit);
+
+      // 面積系・長さ系・体積系グループ
+      const AREA_UNITS   = ['m²', 'm2'];
+      const LENGTH_UNITS = ['m', 'm(h)'];
+      const VOL_UNITS    = ['m³', 'm3'];
+
+      const inGroup = (u, grp) => grp.some(g => u.toLowerCase() === g.toLowerCase());
+
+      let resolvedQty  = '';
+      let resolvedUnit = masterUnit || cadUnit; // 最終的に使う単位
+
+      if (masterUnitN === cadUnitN) {
+        resolvedQty = r.qty;
+      } else if (inGroup(masterUnitN, AREA_UNITS) && inGroup(cadUnitN, AREA_UNITS)) {
+        resolvedQty = r.qty;
+        resolvedUnit = masterUnit;
+      } else if (inGroup(masterUnitN, VOL_UNITS) && inGroup(cadUnitN, VOL_UNITS)) {
+        resolvedQty = r.qty;
+        resolvedUnit = masterUnit;
+      } else if (inGroup(masterUnitN, LENGTH_UNITS)) {
+        // マスタがm系 → 同GUIDの延長行数量を使う（壁の延長行対応）
+        if (lengthQty !== undefined && !isNaN(lengthQty)) {
+          resolvedQty  = lengthQty;
+          resolvedUnit = masterUnit;
+        } else if (inGroup(cadUnitN, LENGTH_UNITS)) {
+          // CADも長さ系なら直接使う
+          resolvedQty  = r.qty;
+          resolvedUnit = masterUnit;
+        }
+      }
+
+      // ── 2階層フォルダを作成 ──
+      let fid;
+      if (grandFolder && parentFolder) {
+        const grandFid = getOrCreateFolder(grandFolder.name || '');
+        const parentKey = (grandFolder.name||'') + '§' + (parentFolder.name||'');
+        fid = getOrCreateSubFolder(parentKey, parentFolder.name || '', grandFid);
+      } else if (parentFolder) {
+        fid = getOrCreateFolder(parentFolder.name || '');
+      } else {
+        fid = getOrCreateFolder(r.kojiName || '');
+      }
+
+      appendRow(tbody, fid, {
+        name:      mRow.name || csvName,
+        spec:      mRow.spec   || r.spec || '',
+        unit:      resolvedUnit,
+        qty:       resolvedQty,
+        listPrice: mRow.list_price  != null && mRow.list_price  !== '' ? mRow.list_price  : (autoPrice || ''),
+        unitPrice: mRow.unit_price  != null && mRow.unit_price  !== '' ? mRow.unit_price  : '',
+        rate:      mRow.rate        != null && mRow.rate        !== '' ? mRow.rate        : '',
+        note:      'RIKCAD材料名：' + csvName,
+        guid, cadType: r.cadType||'', leaderName: r.leaderName||'', elementId: r.elementId||'',
+      }, true);
+    });
+  });
+
+  renumberRows();
+  updateFooter();
+}
+
+
+// 作図要素種別の日本語変換
+function cadTypeLabel(t) { return CAD_TYPE_JP[t] || t || ''; }
+
+/* ════ 行追加ヘルパー ════ */
+function appendRow(tbody, fid, d, matched) {
+  const tr = createDataRow();
+  tr.dataset.parentId = fid;
+  if (matched) tr.classList.add('row-new');
+
+  // GUIDを行に保存（CAD連携用）
+  if (d.guid)     tr.dataset.guid     = d.guid;
+  if (d.fenceRow) tr.dataset.fenceRow = d.fenceRow;
+
+  const tds = tr.querySelectorAll('td');
+
+  // 作図要素種別（列1）
+  if (tds[1]) tds[1].textContent = d.leaderName || '';
+  if (tds[2]) tds[2].textContent = cadTypeLabel(d.cadType || '');
+  if (tds[3]) tds[3].textContent = d.elementId || '';
+  setValue(tds[4], 'input', d.name  || '');
+  setValue(tds[5], 'input', d.spec  || '');
+  if (d.qty !== '' && d.qty != null) {
+    const v = parseFloat(d.qty);
+    if (!isNaN(v)) setValue(tds[6], 'input', v);
+  }
+  const ui = tds[7]?.querySelector('.unit-input');
+  if (ui) ui.value = d.unit || '式';
+  // 定価（列8）
+  if (d.listPrice != null && d.listPrice !== '') {
+    const v = parseFloat(String(d.listPrice).replace(/[¥￥,\r\n\t ]/g, ''));
+    if (!isNaN(v) && v > 0) setValue(tds[8], 'input', v);
+  }
+  // 掛率%（列9）
+  if (d.rate != null && d.rate !== '') {
+    const v = parseFloat(String(d.rate));
+    if (!isNaN(v) && v > 0) setValue(tds[9], 'input', v);
+  }
+  // 単価（列10）— unit_priceをここに設定
+  if (d.unitPrice != null && d.unitPrice !== '') {
+    const v = parseFloat(String(d.unitPrice).replace(/[¥￥,\r\n\t ]/g, ''));
+    if (!isNaN(v) && v > 0) {
+      setValue(tds[10], 'input', v);
+    }
+  } else if (d.price != null && d.price !== '') {
+    // 後方互換：priceが来た場合も単価列へ
+    const v = parseFloat(String(d.price).replace(/[¥￥,\r\n\t ]/g, ''));
+    if (!isNaN(v) && v > 0) setValue(tds[10], 'input', v);
+  }
+  if (d.note) setValue(tds[15], 'input', d.note);
+  // IsFence A行: mm/m換算ボタンをメモ欄に追加
+  if (d.fenceRow === 'A' && d.unitAlt) {
+    tr.dataset.fenceA = '1';
+    tr.dataset.unitAlt = d.unitAlt;
+    const noteInp = tds[15]?.querySelector('input');
+    if (noteInp) {
+      const btn = document.createElement('button');
+      btn.textContent = 'mm⇔m';
+      btn.className = 'btn btn-outline';
+      btn.style.cssText = 'height:20px;padding:0 6px;font-size:10px;margin-left:4px;';
+      btn.onclick = (e) => { e.stopPropagation(); toggleFenceUnit(tr); };
+      tds[15].appendChild(btn);
+    }
+  }
+
+  // 行クリック → CAD側を選択状態に（Shift対応）
+  tr.addEventListener('click', e => selectRowAndCad(tr, e));
+
+  tbody.appendChild(tr);
+  _addDragHandle(tr);
+
+  // 計算トリガー：掛率が入っていれば定価×掛率→単価を計算
+  const rateInp = tds[9]?.querySelector('input');
+  if (rateInp && rateInp.value) {
+    calcFromRate(rateInp);
+  } else {
+    calcRow(tds[6]?.querySelector('input'));
+  }
+}
+
+function setValue(td, sel, val) {
+  const el = td?.querySelector(sel);
+  if (el) el.value = val;
+}
+
+/* ════ 行テンプレート生成 ════ */
+function createDataRow() {
+  const tr = document.createElement('tr');
+  tr.dataset.type = 'row';
+  tr.innerHTML = `
+    <td class="no-col"></td>
+    <td class="leader-name-col" style="font-size:11px;color:#374151;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></td>
+    <td class="cad-type-col" style="text-align:center;font-size:11px;color:#6b7280;white-space:nowrap;"></td>
+    <td class="element-id-col" style="font-size:11px;color:#9ca3af;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></td>
+    <td title="クリックして編集"><input class="cell-edit" value="" title="名称を編集" oninput="this.dataset.userEdited='1'"></td>
+    <td title="クリックして編集"><input class="cell-edit td-right" style="text-align:center" value="" title="仕様を編集" oninput="this.dataset.userEdited='1'"></td>
+    <td title="クリックして編集"><input class="cell-edit td-right" value="" title="数量を編集" oninput="this.dataset.userEdited='1';calcRow(this)"></td>
+    <td><div class="unit-combo"><input class="unit-input" value="式" onclick="toggleUnit(this)" oninput="this.dataset.userEdited='1'" title="単位（クリックで選択）"><div class="unit-dropdown"></div></div></td>
+    <td title="クリックして編集"><input class="cell-edit td-right" value="" title="定価を編集" oninput="calcRow(this)"></td>
+    <td class="col-kakuritsu"><div class="rate-cell"><input class="cell-edit td-right" value="" title="売価率(%)" oninput="calcFromRate(this)"><span class="rate-pct">%</span></div></td>
+    <td title="クリックして編集"><input class="cell-edit td-right" value="" title="単価を編集" oninput="calcFromPrice(this)"></td>
+    <td class="td-right">—</td>
+    <td class="col-hm"><div class="rate-cell"><input class="cell-edit td-right" value="" readonly><span class="rate-pct">%</span></div></td>
+    <td class="col-hm"><input class="cell-edit td-right" value="" oninput="calcHmOffer(this)"></td>
+    <td class="col-hm td-right">—</td>
+    <td title="クリックして編集"><input class="cell-edit" value="" title="備考を編集"></td>
+  `;
+  tr.querySelectorAll('.unit-dropdown').forEach(dd => {
+    dd.innerHTML = UNITS.map(u =>
+      `<div class="unit-opt" onclick="selectUnit(this,'${u}')">${u}</div>`
+    ).join('') +
+    `<div class="unit-opt" style="border-top:1px solid #f0f0f0;color:#9ca3af;font-size:11px;padding:5px 12px;" onclick="selectUnitCustom(this)">手入力...</div>`;
+  });
+  return tr;
+}
+
+/* ════ 計算 ════ */
+function fmt(n) { return isNaN(n) ? '—' : '¥' + Math.round(n).toLocaleString(); }
+
+function calcRow(inp) {
+  if (!inp) return;
+  const tr = inp.closest('tr');
+  if (!tr) return;
+  const cells = [...tr.querySelectorAll('td')];
+  const qty    = parseFloat(cells[6]?.querySelector('input')?.value) || 0;
+  const uprice = parseFloat(cells[10]?.querySelector('input')?.value) || 0;
+  if (cells[11]) cells[11].textContent = (qty && uprice) ? fmt(qty * uprice) : '—';
+  updateFooter();
+}
+
+function calcFromRate(inp) {
+  const cells = [...inp.closest('tr').querySelectorAll('td')];
+  const list  = parseFloat(cells[8]?.querySelector('input')?.value) || 0;
+  const rate  = parseFloat(inp.value) || 0;
+  const uInp  = cells[10]?.querySelector('input');
+  if (uInp) { uInp.value = Math.round(list * rate / 100); calcRow(uInp); }
+}
+
+function calcFromPrice(inp) {
+  const cells = [...inp.closest('tr').querySelectorAll('td')];
+  const list  = parseFloat(cells[8]?.querySelector('input')?.value) || 0;
+  const price = parseFloat(inp.value) || 0;
+  const rInp  = cells[9]?.querySelector('input');
+  if (rInp && list > 0) rInp.value = (price / list * 100).toFixed(1);
+  calcRow(inp);
+}
+
+function calcHmOffer(inp) {
+  const cells = [...inp.closest('tr').querySelectorAll('td')];
+  const qty   = parseFloat(cells[6]?.querySelector('input')?.value) || 0;
+  const hmP   = parseFloat(inp.value);
+  if (cells[14]) cells[14].textContent = (!isNaN(hmP) && hmP > 0) ? fmt(hmP * qty) : '—';
+}
+
+/* ════ フッター集計 ════ */
+function updateFooter() {
+  let subtotal = 0;
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    const cells  = [...tr.querySelectorAll('td')];
+    const qty    = parseFloat(cells[6]?.querySelector('input')?.value) || 0;
+    const uprice = parseFloat(cells[10]?.querySelector('input')?.value) || 0;
+    subtotal += qty * uprice;
+  });
+  const tax   = Math.floor(subtotal * 0.1);
+  const total = subtotal + tax;
+  document.getElementById('footerSubtotal').textContent = fmt(subtotal);
+  document.getElementById('footerTax').textContent      = fmt(tax);
+  document.getElementById('footerTotal').textContent    = fmt(total);
+  // ヘッダーの提示合計も更新（提示価格の合計＝subtotal）
+  const headerTotalEl = document.getElementById('headerTotal');
+  if (headerTotalEl) headerTotalEl.textContent = fmt(subtotal);
+}
+
+/* ════ 単位コンボ ════ */
+function toggleUnit(inp) { inp.nextElementSibling?.classList.toggle('open'); }
+function selectUnit(opt, unit) {
+  const dd = opt.closest('.unit-dropdown');
+  const inp = dd?.previousElementSibling;
+  if (inp) inp.value = unit;
+  dd?.classList.remove('open');
+  const tr = opt.closest('tr');
+  calcRow(tr?.querySelectorAll('td')[3]?.querySelector('input'));
+}
+function selectUnitCustom(opt) {
+  const dd  = opt.closest('.unit-dropdown');
+  const inp = dd?.previousElementSibling;
+  const v   = prompt('単位を入力してください');
+  if (v !== null && v.trim()) { if (inp) inp.value = v.trim(); }
+  dd?.classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.unit-combo'))
+    document.querySelectorAll('.unit-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+/* ════ フォルダ折りたたみ ════ */
+function toggleFolder(chevronEl) {
+  const tr  = chevronEl.closest('tr');
+  const fid = tr?.dataset.folderId;
+  if (!fid) return;
+  const open = chevronEl.classList.toggle('open');
+  document.querySelectorAll(`#mainTbody tr[data-parent-id="${fid}"]`)
+    .forEach(r => r.style.display = open ? '' : 'none');
+}
+
+/* ════ 連番 ════ */
+function renumberRows() {
+  let n = 1;
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    const nc = tr.querySelector('.no-col');
+    if (!nc) return;
+    // ドラッグハンドルspanを保持しつつ番号を更新
+    const handle = nc.querySelector('.drag-handle');
+    nc.textContent = n++;
+    if (handle) nc.insertBefore(handle, nc.firstChild);
+  });
+}
+
+/* ════ 赤枠（No〜備考） ════ */
+
+/* ════ 行選択 → CAD連携（Shift複数選択対応） ════ */
+let _selectedRows  = new Set();
+let _lastClickedRow = null;  // Shift範囲選択の基点
+let _lastCadGuids  = new Set();  // 直前にCADへ送った選択GUID
+
+function syncSelectionToCad() {
+  const newGuids = new Set();
+  _selectedRows.forEach(tr => { if (tr.dataset.guid) newGuids.add(tr.dataset.guid); });
+
+  const toRemove = [..._lastCadGuids].filter(g => !newGuids.has(g));
+  const toAdd    = [...newGuids].filter(g => !_lastCadGuids.has(g));
+  if (!toRemove.length && !toAdd.length) return;
+
+  _lastCadGuids = newGuids;
+  _lastSelGuids = null;  // 次のポーリングで必ず再評価させる
+  rikcadRequest('SET_SELECTION', { removeGuids: toRemove, addGuids: toAdd })
+    .then(() => { if (toAdd.length) showToast(`CADで${toAdd.length}件選択しました`); })
+    .catch(() => {});
+}
+
+function selectRowAndCad(tr, event) {
+  const allRows = [...document.querySelectorAll('#mainTbody tr[data-type="row"]')];
+
+  if (event && event.shiftKey && _lastClickedRow && allRows.includes(_lastClickedRow)) {
+    // Shift選択: 前回クリック行から今回クリック行までの範囲をすべて選択
+    const fromIdx = allRows.indexOf(_lastClickedRow);
+    const toIdx   = allRows.indexOf(tr);
+    const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+
+    _selectedRows.forEach(r => { r.classList.remove('row-selected'); r.classList.remove('row-multi-selected'); });
+    _selectedRows.clear();
+    for (let i = start; i <= end; i++) {
+      allRows[i].classList.add('row-selected');
+      if (i !== fromIdx) allRows[i].classList.add('row-multi-selected');
+      _selectedRows.add(allRows[i]);
+    }
+  } else {
+    // 通常クリック: 単一選択
+    _selectedRows.forEach(r => { r.classList.remove('row-selected'); r.classList.remove('row-multi-selected'); });
+    _selectedRows.clear();
+    tr.classList.add('row-selected');
+    _selectedRows.add(tr);
+    _lastClickedRow = tr;
+  }
+
+  syncSelectionToCad();
+}
+
+/* ════ アイコンバー操作 ════ */
+
+function icAddRow() {
+  const tbody = document.getElementById('mainTbody');
+  const sel   = [..._selectedRows].filter(r => r.dataset.type === 'row');
+  const count = sel.length || 1;  // 選択行数、なければ1行
+
+  let anchor = sel.length ? sel[sel.length - 1] : null;
+  let firstNew = null;
+
+  for (let i = 0; i < count; i++) {
+    const newTr = createDataRow();
+    newTr.addEventListener('click', e => selectRowAndCad(newTr, e));
+    // 親フォルダを引き継ぐ
+    if (anchor && anchor.dataset.parentId) newTr.dataset.parentId = anchor.dataset.parentId;
+    if (anchor) {
+      anchor.after(newTr);
+      anchor = newTr;
+    } else {
+      tbody.appendChild(newTr);
+      anchor = newTr;
+    }
+    newTr.draggable = true;
+    _addDragHandle(newTr);
+    if (!firstNew) firstNew = newTr;
+  }
+
+  renumberRows();
+  updateFooter();
+  // 最初の新行の名称欄にフォーカス
+  setTimeout(() => firstNew?.querySelector('td:nth-child(5) input')?.focus(), 30);
+}
+
+function icAddFolder() {
+  const tbody = document.getElementById('mainTbody');
+  _folderSeq++;
+  const fid = 'manual-f' + _folderSeq;
+
+  // 選択中フォルダがあれば子フォルダとして追加、なければルートに追加
+  const selectedFolder = document.querySelector('#mainTbody tr[data-type="cat"].folder-selected');
+  const parentFid   = selectedFolder ? (selectedFolder.dataset.folderId || null) : null;
+  const parentLevel = selectedFolder ? (parseInt(selectedFolder.dataset.level || '0')) : -1;
+  const level       = parentLevel + 1;  // ルートなら 0
+
+  const newFolderTr = document.createElement('tr');
+  newFolderTr.className        = _folderClass(level);
+  newFolderTr.dataset.type     = 'cat';
+  newFolderTr.dataset.folderId = fid;
+  newFolderTr.dataset.level    = String(level);
+  if (parentFid) newFolderTr.dataset.parentId = parentFid;
+
+  const indent = `padding-left:${level * 20}px;`;
+  newFolderTr.innerHTML = `
+    <td></td>
+    <td colspan="8" style="${indent}">
+      <div class="cat-cell">
+        <span class="folder-icon"><svg viewBox="0 0 16 16"><path d="M1 4.5A1.5 1.5 0 012.5 3H6l1.5 1.5H13.5A1.5 1.5 0 0115 6v5.5A1.5 1.5 0 0113.5 13h-11A1.5 1.5 0 011 11.5z"/></svg></span>
+        <span class="cat-chevron open" onclick="toggleFolder(this)">∨</span>
+        <input class="cat-label-input" value="新規フォルダ" title="ダブルクリックで名前を編集">
+      </div>
+    </td>
+    <td class="col-hm"></td><td class="col-hm"></td><td class="col-hm"></td>
+    <td></td>`;
+
+  // イベント設定
+  _addFolderEvents(newFolderTr);
+
+  // 挿入位置：選択フォルダがあればそのグループの末尾の直後、なければtbody末尾
+  if (selectedFolder) {
+    // 選択フォルダのグループ末尾を探す
+    const groupFids = new Set([selectedFolder.dataset.folderId]);
+    let lastInGroup = selectedFolder;
+    let next = selectedFolder.nextElementSibling;
+    while (next) {
+      const pid = next.dataset.parentId;
+      const nfid = next.dataset.folderId;
+      if (pid && groupFids.has(pid)) {
+        lastInGroup = next;
+        if (nfid) groupFids.add(nfid);
+      } else if (!pid) {
+        break;
+      }
+      next = next.nextElementSibling;
+    }
+    lastInGroup.after(newFolderTr);
+    // 選択解除して新フォルダを選択状態に
+    selectedFolder.classList.remove('folder-selected');
+  } else {
+    const selRows = [..._selectedRows];
+    if (selRows.length) {
+      selRows[0].before(newFolderTr);
+    } else {
+      tbody.appendChild(newFolderTr);
+    }
+  }
+
+  newFolderTr.draggable = true;
+
+  setTimeout(() => {
+    const inp = newFolderTr.querySelector('.cat-label-input');
+    if (inp) { inp.readOnly = false; inp.focus(); inp.select(); }
+  }, 30);
+}
+
+function icDeleteRows() {
+  const tbody = document.getElementById('mainTbody');
+
+  // 選択済みフォルダ行を収集
+  const selectedFolders = [...document.querySelectorAll('#mainTbody tr[data-type="cat"].folder-selected')];
+  // 選択済み明細行を収集
+  const selectedDataRows = [..._selectedRows].filter(r => r.dataset.type === 'row');
+
+  if (!selectedFolders.length && !selectedDataRows.length) {
+    showToast('削除する行またはフォルダをクリックして選択してください');
+    return;
+  }
+
+  // フォルダ削除：フォルダ+配下の全行を削除
+  const toRemove = new Set();
+  selectedFolders.forEach(folderTr => {
+    toRemove.add(folderTr);
+    const fid = folderTr.dataset.folderId;
+    if (fid) {
+      // 配下行を再帰的に収集
+      const groupFids = new Set([fid]);
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const pid = tr.dataset.parentId;
+        const tfid = tr.dataset.folderId;
+        if (pid && groupFids.has(pid)) {
+          toRemove.add(tr);
+          if (tfid) groupFids.add(tfid);
+        }
+      });
+    }
+  });
+
+  // 明細行削除
+  selectedDataRows.forEach(r => toRemove.add(r));
+
+  const count = toRemove.size;
+  toRemove.forEach(r => r.remove());
+
+  _selectedRows.clear();
+  _lastClickedRow = null;
+  renumberRows();
+  updateFooter();
+  showToast(`${count}件を削除しました`);
+  if (typeof scheduleSave === 'function') scheduleSave();
+}
+
+// 手動で現在の選択を取得して追記
+/* ════ 作図自動検知 ════ */
+let _autoDetectOn   = false;
+let _autoDetectTimer = null;
+let _knownGuids     = new Set();  // 既知のGUID（スナップショット）
+
+function toggleAutoDetect() {
+  _autoDetectOn = !_autoDetectOn;
+  const btn = document.getElementById('autoDetectBtn');
+  if (_autoDetectOn) {
+    btn.textContent = '⚡ 作図自動検知: ON';
+    btn.style.color = '#00b27d';
+    btn.style.borderColor = '#00b27d';
+    fetchSnapshot()
+      .then(data => {
+        if (data.ok) {
+          _knownGuids = new Set(data.guids);
+          showToast(`作図自動検知を開始しました（既存${data.count}要素を除外）`);
+          _scheduleAutoDetect();
+        }
+      })
+      .catch(() => showToast('サーバー接続エラー'));
+  } else {
+    btn.textContent = '⚡ 作図自動検知: OFF';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+    if (_autoDetectTimer) clearTimeout(_autoDetectTimer);
+    showToast('作図自動検知を停止しました');
+  }
+}
+
+function _scheduleAutoDetect() {
+  if (!_autoDetectOn) return;
+  _autoDetectTimer = setTimeout(_runAutoDetect, AUTO_POLL_INTERVAL);
+}
+
+function _runAutoDetect() {
+  if (!_autoDetectOn) return;
+  fetchNewElements(_knownGuids)
+    .then(data => {
+      if (!data.ok) { _scheduleAutoDetect(); return; }
+      if (data.all_guids) _knownGuids = new Set(data.all_guids);
+      if (data.has_new && data.rows && data.rows.length > 0) {
+        onCsvUpdated(data.rows, 'RIKCAD');
+        showToast(`新規作図 ${data.rows.length}要素を自動取得しました`);
+      }
+      _scheduleAutoDetect();
+    })
+    .catch(() => _scheduleAutoDetect());
+}
+
+function fetchCurrentSelection() {
+  _lastElementsHash = null;
+  _watchPaused = true;
+  showToast('CADの選択要素を取得中...');
+  fetchSelectedElements()
+    .then(data => {
+      console.log('[fetchCurrentSelection] data:', JSON.stringify(data).slice(0, 200));
+      if (!data.ok || !data.has_selection) {
+        showToast('CADで要素を選択してください');
+        return;
+      }
+      _lastElementsHash = data.hash;
+      console.log('[fetchCurrentSelection] rows:', data.rows?.length, data.rows?.[0]);
+      if (data.rows && data.rows.length > 0) {
+        onCsvUpdated(data.rows, 'RIKCAD');
+        const guids = data.rows.map(r => r.guid).filter(Boolean);
+        setTimeout(() => highlightRowsByGuids(guids), 50);
+      } else {
+        showToast('取得できる要素がありませんでした（rows空）');
+      }
+    })
+    .catch(e => { console.error('[fetchCurrentSelection] error:', e); showToast('Tapir接続エラー: ' + e.message); });
+}
+
+// CAD選択変化 → 対応する見積行をハイライト
+function highlightRowsByGuids(guids) {
+  // CAD側の実際の選択状態で _lastCadGuids を更新（syncSelectionToCad の差分計算に使う）
+  _lastCadGuids = new Set(guids || []);
+
+  // 全ハイライト解除
+  _selectedRows.forEach(r => { r.classList.remove('row-selected'); r.classList.remove('row-multi-selected'); });
+  _selectedRows.clear();
+
+  if (!guids || guids.length === 0) return;
+
+  const guidSet = new Set(guids);
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    if (guidSet.has(tr.dataset.guid)) {
+      tr.classList.add('row-selected');
+      _selectedRows.add(tr);
+    }
+  });
+
+  // 最初にハイライトされた行までスクロール
+  if (_selectedRows.size > 0) {
+    const first = [..._selectedRows][0];
+    first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+/* ════ ポーリング：前のリクエスト完了後に次をスケジュール ════ */
+let _csvPollTimer     = null;
+let _lastElementsHash = null;
+let _polling          = false;
+let _lastSelGuids     = '';
+let _selSyncTimer     = null;
+
+function startCsvPolling() {
+  if (_polling) return;
+  _polling = true;
+  document.getElementById('pollDot').className   = 'status-dot active';
+  document.getElementById('pollText').textContent = 'CAD要素監視中（3秒ごと）';
+  _scheduleNextPoll(500);
+  _scheduleSelSync(1000);
+}
+
+function _scheduleNextPoll(delay) {
+  if (_csvPollTimer) clearTimeout(_csvPollTimer);
+  _csvPollTimer = setTimeout(checkCsvUpdate, delay);
+}
+
+// ── CAD選択 → Compact ハイライト同期（1.5秒ごと）──
+function _scheduleSelSync(delay) {
+  if (_selSyncTimer) clearTimeout(_selSyncTimer);
+  _selSyncTimer = setTimeout(_runSelSync, delay);
+}
+
+function _runSelSync() {
+  fetchSelectedGuids()
+    .then(guids => {
+      const guidsStr = (guids || []).slice().sort().join(',');
+      if (guidsStr !== _lastSelGuids) {
+        _lastSelGuids = guidsStr;
+        highlightRowsByGuids(guids || []);
+      }
+      _scheduleSelSync(500);
+    })
+    .catch(() => _scheduleSelSync(1000));
+}
+
+async function checkCsvUpdate() {
+  try {
+    const data = await fetchSelectedElements();
+    if (!data.ok || !data.has_selection) {
+      _lastElementsHash = null;
+      _scheduleNextPoll(CSV_POLL_INTERVAL);
+      return;
+    }
+    if (data.hash === _lastElementsHash) {
+      _scheduleNextPoll(CSV_POLL_INTERVAL);
+      return;
+    }
+    _lastElementsHash = data.hash;
+    if (data.rows && data.rows.length > 0) _updateOrAddRows(data.rows);
+  } catch(e) {
+    document.getElementById('pollDot').className = 'status-dot error';
+    document.getElementById('pollText').textContent = 'サーバー接続エラー（再試行中）';
+    setTimeout(() => {
+      document.getElementById('pollDot').className = 'status-dot active';
+      document.getElementById('pollText').textContent = 'CAD要素監視中（3秒ごと）';
+    }, 2000);
+    _scheduleNextPoll(CSV_POLL_INTERVAL * 2);
+    return;
+  }
+  _scheduleNextPoll(CSV_POLL_INTERVAL);
+}
+
+// 既存行はguidで探して数量・仕様を更新、なければ追記
+function _updateOrAddRows(rows) {
+  let newRows = [];
+  rows.forEach(row => {
+    if (!row.guid) { newRows.push(row); return; }
+    const existing = [...document.querySelectorAll('#mainTbody tr[data-type="row"]')]
+      .find(tr => tr.dataset.guid === row.guid &&
+            (!row.name || tr.querySelector('td:nth-child(5) input')?.value === row.name));
+    if (existing) {
+      const qtyInput  = existing.querySelector('td:nth-child(7) input');
+      const specInput = existing.querySelector('td:nth-child(6) input');
+      if (qtyInput  && row.qty  !== undefined) qtyInput.value  = row.qty;
+      if (specInput && row.spec !== undefined) specInput.value = row.spec;
+      // 単価×数量を再計算して提示価格を更新
+      const priceInput = existing.querySelector('td:nth-child(11) input');
+      const dispCell   = existing.querySelector('td:nth-child(12)');
+      if (priceInput && qtyInput && dispCell) {
+        const p = parseFloat(priceInput.value) || 0;
+        const q = parseFloat(qtyInput.value)   || 0;
+        dispCell.textContent = (p && q) ? Math.round(p * q).toLocaleString() : '—';
+      }
+    } else {
+      newRows.push(row);
+    }
+  });
+  if (newRows.length > 0) onCsvUpdated(newRows, 'RIKCAD');
+}
+
+function onCsvUpdated(rows, filename) {
+  renderTable(rows);
+
+  const now = new Date();
+  const ts  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('pollDot').className       = 'status-dot updated';
+  document.getElementById('lastUpdateText').textContent = `最終更新: ${ts}`;
+  setTimeout(() => {
+    document.getElementById('pollDot').className = 'status-dot active';
+  }, 2000);
+
+  showToast(`図面情報を取得・マスタ反映しました（+${rows.length}行）`);
+}
+
+/* ════ マスタ・カタログ引用 ════ */
+let _masterPopup   = null;
+let _catalogPopup  = null;
+let _savedSelRows  = [];
+
+function _getSelectedRow() {
+  return [...document.querySelectorAll('#mainTbody tr[data-type="row"]')]
+    .find(tr => tr.classList.contains('row-selected'));
+}
+
+function openMasterPopup() {
+  let keyword = '';
+  const row = _getSelectedRow();
+  if (row) {
+    const tds = row.querySelectorAll('td');
+    keyword = tds[4]?.querySelector('input')?.value?.trim() || '';
+  }
+  const msg = { type: 'search', keyword, rikcadName: '' };
+  const w = 1200, h = 750;
+  const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
+  const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+  if (_masterPopup && !_masterPopup.closed) {
+    _masterPopup.focus();
+    _masterPopup.postMessage(msg, '*');
+    return;
+  }
+  _masterPopup = window.open('master-popup.html', 'masterPopupCompact',
+    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no`);
+  setTimeout(() => {
+    try { if (_masterPopup && !_masterPopup.closed) _masterPopup.postMessage(msg, '*'); } catch(e){}
+  }, 800);
+}
+
+function openCatalogPopup() { showToast("カタログ引用は現在オミット中です"); }
+
+
+
+// マスタ・カタログからの postMessage 受信
+window.addEventListener('message', function(e) {
+  // ── 送信元チェック：このウィンドウが開いたポップアップからのメッセージのみ受け付ける ──
+  const fromMaster  = _masterPopup  && !_masterPopup.closed  && e.source === _masterPopup;
+  const fromCatalog = _catalogPopup && !_catalogPopup.closed && e.source === _catalogPopup;
+  if (!fromMaster && !fromCatalog) return;  // 無関係な送信元は無視
+
+  // ── master-popup: 上書き確認 ──
+  if (e.data && e.data.type === 'masterItemsCheck') {
+    const row = _getSelectedRow();
+    const hasData = row
+      ? !!(row.querySelectorAll('td')[4]?.querySelector('input')?.value?.trim())
+      : false;
+    _savedSelRows = row ? [row] : [];
+    if (_masterPopup && !_masterPopup.closed) {
+      _masterPopup.postMessage({
+        type: 'masterItemsCheckResult',
+        items: e.data.items,
+        hasData: hasData,
+        selCount: row ? 1 : 0
+      }, '*');
+    }
+  }
+  // ── master-popup: データ受信 ──
+  if (e.data && e.data.type === 'masterItems') {
+    _insertMasterItems(e.data.items, e.data.mode || 'add', _savedSelRows);
+    _savedSelRows = [];
+  }
+  // ── catalog-popup: 上書き確認 ──
+  if (e.data && e.data.type === 'catalogItemsCheck') {
+    const row = _getSelectedRow();
+    const hasData = row
+      ? !!(row.querySelectorAll('td')[4]?.querySelector('input')?.value?.trim())
+      : false;
+    _savedSelRows = row ? [row] : [];
+    if (_catalogPopup && !_catalogPopup.closed) {
+      _catalogPopup.postMessage({
+        type: 'catalogItemsCheckResult',
+        hasData: hasData,
+        selCount: row ? 1 : 0
+      }, '*');
+    }
+  }
+  // ── catalog-popup: データ受信 ──
+  if (e.data && e.data.type === 'catalogItems') {
+    _insertCatalogItems(e.data.items, e.data.mode || 'add', _savedSelRows);
+    _savedSelRows = [];
+  }
+});
+
+function _insertMasterItems(items, mode, selRows) {
+  const tbody = document.getElementById('mainTbody');
+  // フォルダを探す or 末尾に追加
+  // 既存の（未分類）フォルダを探すか、onCsvUpdated経由で末尾に追記
+  const _existingFolder = [...document.querySelectorAll('#mainTbody tr[data-type="cat"]')]
+    .find(tr => (tr.querySelector('.cat-label-input')?.value || tr.querySelector('.cat-label')?.textContent || '').trim() === '（未分類）');
+  let fid = selRows[0]?.dataset?.parentId || _existingFolder?.dataset?.folderId || 'cf1';
+  let refRow = selRows.length > 0 && mode === 'overwrite' ? selRows[0] : null;
+
+  items.forEach(item => {
+    if (refRow && mode === 'overwrite') {
+      // 選択行を上書き
+      const tds = refRow.querySelectorAll('td');
+      tds[4].querySelector('input').value = item.name  || '';
+      tds[5].querySelector('input').value = item.spec  || '';
+      const ui = tds[7]?.querySelector('.unit-input'); if (ui) ui.value = item.unit || '式';
+      const lp = parseFloat(item.listPrice || item.price || ''); 
+      if (!isNaN(lp)) tds[8].querySelector('input').value = lp;
+      const pp = parseFloat(item.price || '');
+      if (!isNaN(pp)) tds[10].querySelector('input').value = pp;
+      calcRow(tds[6]?.querySelector('input'));
+      refRow.classList.add('row-new');
+      refRow = null;
+    } else {
+      const d = {
+        name: item.name || '', spec: item.spec || '',
+        unit: item.unit || '式', qty: item.qty || '',
+        price: item.price || '', note: item.biko || '',
+        cadType: '',
+      };
+      appendRow(tbody, fid, d, true);
+    }
+  });
+  renumberRows();
+  updateFooter();
+  showToast(`マスタから${items.length}件追加しました`);
+}
+
+function _insertCatalogItems(items, mode, selRows) {
+  const tbody = document.getElementById('mainTbody');
+  const _existingFolder2 = [...document.querySelectorAll('#mainTbody tr[data-type="cat"]')]
+    .find(tr => (tr.querySelector('.cat-label-input')?.value || tr.querySelector('.cat-label')?.textContent || '').trim() === '（未分類）');
+  let fid = selRows[0]?.dataset?.parentId || _existingFolder2?.dataset?.folderId || 'cf1';
+  let refRow = selRows.length > 0 && mode === 'overwrite' ? selRows[0] : null;
+
+  items.forEach(item => {
+    const specText = [item.spec1, item.spec2]
+      .filter(s => s && s.trim() && !/^(なし|ナシ|ﾅｼ|-)$/i.test(s.trim())).join(' ');
+    if (refRow && mode === 'overwrite') {
+      const tds = refRow.querySelectorAll('td');
+      tds[4].querySelector('input').value = item.name    || '';
+      tds[5].querySelector('input').value = specText;
+      const ui = tds[7]?.querySelector('.unit-input'); if (ui) ui.value = item.unit || '式';
+      const lp = parseFloat(item.price || '');
+      if (!isNaN(lp)) tds[8].querySelector('input').value = lp;
+      calcRow(tds[6]?.querySelector('input'));
+      refRow.classList.add('row-new');
+      refRow = null;
+    } else {
+      const d = {
+        name: item.name || '', spec: specText,
+        unit: item.unit || '式', qty: '',
+        price: item.price || '', note: item.biko || '',
+        cadType: '',
+      };
+      appendRow(tbody, fid, d, true);
+    }
+  });
+  renumberRows();
+  updateFooter();
+  showToast(`カタログから${items.length}件追加しました`);
+}
+
+
+
+/* ════ EstimateEdit 連携 ════ */
+// ════ 見積選択モーダル ════
+let _estModalProps    = [];
+let _estModalEstimates = [];
+let _estSelectedPropId = null;
+let _estSelectedEstId  = null;
+
+function openEstimateSelectModal() {
+  const items = _collectCompactRows();
+  if (!items.length) { showToast('転送するデータがありません'); return; }
+  // モーダルを表示してから物件一覧を読み込む
+  document.getElementById('estModal').style.display = 'flex';
+  _estSelectedPropId = null;
+  _estSelectedEstId  = null;
+  _estModalStep('prop');
+  _loadProps();
+}
+
+function _collectCompactRows() {
+  // フォルダ行（cat）と明細行（row）を順番通りに収集
+  const items = [];  // {type:'folder'|'row', ...}
+  // folderIdMap: fid → フォルダ名
+  const folderNameMap = {};
+  document.querySelectorAll('#mainTbody tr[data-type="cat"]').forEach(tr => {
+    const fid   = tr.dataset.folderId || '';
+    const label = (tr.querySelector('.cat-label-input')?.value || tr.querySelector('.cat-label')?.textContent || '').trim();
+    if (fid) folderNameMap[fid] = label;
+  });
+
+  // 全行を順番に処理
+  document.querySelectorAll('#mainTbody tr').forEach(tr => {
+    const type = tr.dataset.type;
+    if (type === 'cat') {
+      const fid   = tr.dataset.folderId || '';
+      const label = (tr.querySelector('.cat-label-input')?.value || tr.querySelector('.cat-label')?.textContent || '').trim();
+      items.push({ type: 'folder', fid, name: label });
+    } else if (type === 'row') {
+      const tds   = [...tr.querySelectorAll('td')];
+      const name  = tds[4]?.querySelector('input')?.value?.trim() || '';
+      const spec  = tds[5]?.querySelector('input')?.value?.trim() || '';
+      const qty   = tds[6]?.querySelector('input')?.value?.trim() || '';
+      const unit  = tds[7]?.querySelector('.unit-input')?.value?.trim() || '式';
+      const price = tds[8]?.querySelector('input')?.value?.trim() || '';
+      const guid  = tr.dataset.guid || '';
+      const parentId = tr.dataset.parentId || '';
+      if (!name && !qty) return;
+      items.push({
+        type: 'row',
+        name: name || ('要素' + (items.filter(i=>i.type==='row').length + 1)),
+        spec, qty, unit, price, guid, parentId
+      });
+    }
+  });
+  return items;
+}
+
+function _estModalStep(step) {
+  document.getElementById('estStepProp').style.display = step === 'prop' ? '' : 'none';
+  document.getElementById('estStepEst').style.display  = step === 'est'  ? '' : 'none';
+}
+
+async function _loadProps() {
+  const list = document.getElementById('estPropList');
+  list.innerHTML = '<div style="padding:12px;color:#aaa;">読み込み中...</div>';
+  try {
+    const r = await fetch(`${SB_URL}/properties?order=created_at.desc&limit=200`, { headers: SB_H });
+    _estModalProps = await r.json();
+    list.innerHTML = '';
+    _estModalProps.forEach(p => {
+      const d = document.createElement('div');
+      d.className = 'est-list-item';
+      d.textContent = p.name || '（名称なし）';
+      d.onclick = () => {
+        _estSelectedPropId = p.id;
+        document.getElementById('estStepEstTitle').textContent = p.name;
+        _estModalStep('est');
+        _loadEstimates(p.id);
+      };
+      list.appendChild(d);
+    });
+    if (!_estModalProps.length) list.innerHTML = '<div style="padding:12px;color:#aaa;">物件がありません</div>';
+  } catch(e) {
+    list.innerHTML = '<div style="padding:12px;color:#e53935;">読み込みエラー</div>';
+  }
+}
+
+async function _loadEstimates(propId) {
+  const list = document.getElementById('estEstList');
+  list.innerHTML = '<div style="padding:12px;color:#aaa;">読み込み中...</div>';
+  try {
+    const r = await fetch(`${SB_URL}/estimates?property_id=eq.${propId}&order=created_at.asc`, { headers: SB_H });
+    _estModalEstimates = await r.json();
+    list.innerHTML = '';
+    // 新規作成ボタン
+    const newBtn = document.createElement('div');
+    newBtn.className = 'est-list-item est-list-new';
+    newBtn.innerHTML = '<span style="color:#00a99d;font-weight:600;">＋ 新規見積を作成</span>';
+    newBtn.onclick = () => _showNewEstForm();
+    list.appendChild(newBtn);
+    // 既存見積
+    _estModalEstimates.forEach(e => {
+      const d = document.createElement('div');
+      d.className = 'est-list-item';
+      d.innerHTML = `<span style="font-weight:500;">${e.plan_name || '（プラン名なし）'}</span>
+        <span style="font-size:11px;color:#9ca3af;margin-left:8px;">${e.estimate_no || ''}</span>`;
+      d.onclick = () => {
+        _estSelectedEstId = e.id;
+        document.querySelectorAll('.est-list-item').forEach(x => x.classList.remove('selected'));
+        d.classList.add('selected');
+        document.getElementById('estConfirmBtn').style.display = '';
+        document.getElementById('estNewForm').style.display = 'none';
+      };
+      list.appendChild(d);
+    });
+  } catch(e) {
+    list.innerHTML = '<div style="padding:12px;color:#e53935;">読み込みエラー</div>';
+  }
+  document.getElementById('estConfirmBtn').style.display = 'none';
+  document.getElementById('estNewForm').style.display = 'none';
+}
+
+function _showNewEstForm() {
+  document.querySelectorAll('.est-list-item').forEach(x => x.classList.remove('selected'));
+  _estSelectedEstId = null;
+  document.getElementById('estNewForm').style.display = 'block';
+  document.getElementById('estConfirmBtn').style.display = '';
+  document.getElementById('estNewPlanName').value = '';
+  document.getElementById('estNewNo').value = '';
+  setTimeout(() => document.getElementById('estNewPlanName').focus(), 50);
+}
+
+function estCloseModal() {
+  document.getElementById('estModal').style.display = 'none';
+}
+
+async function estConfirm() {
+  const items = _collectCompactRows();
+  if (!items.length) { showToast('転送するデータがありません'); estCloseModal(); return; }
+
+  let estimateId = _estSelectedEstId;
+
+  // 新規作成
+  if (!estimateId) {
+    const planName = document.getElementById('estNewPlanName').value.trim();
+    const estNo    = document.getElementById('estNewNo').value.trim();
+    if (!planName) { showToast('プラン名を入力してください'); return; }
+    try {
+      const now = new Date().toISOString();
+      const r = await fetch(`${SB_URL}/estimates`, {
+        method: 'POST', headers: SB_H,
+        body: JSON.stringify({
+          property_id: _estSelectedPropId,
+          plan_name:   planName,
+          estimate_no: estNo || null,
+          created_at:  now,
+          updated_at:  now
+        })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      estimateId = d[0]?.id;
+      if (!estimateId) throw new Error('estimate_id取得失敗');
+    } catch(e) {
+      showToast('見積作成失敗: ' + e.message);
+      return;
+    }
+  }
+
+  // estimate_rowsの現在の最大sort_orderを取得して追記
+  let sortBase = 0;
+  try {
+    const r = await fetch(
+      `${SB_URL}/estimate_rows?estimate_id=eq.${estimateId}&order=sort_order.desc&limit=1`,
+      { headers: SB_H }
+    );
+    const existing = await r.json();
+    sortBase = existing.length ? (existing[0].sort_order + 1) : 0;
+  } catch(e) {}
+
+  // itemsをestimate_rows形式に変換して保存（フォルダ行も含む）
+  const fidMap = {};  // compact側fid → estimate_rows用folder_id（genId相当）
+  function genFolderId() { return 'f_' + Math.random().toString(36).slice(2,10); }
+  const payload = [];
+  items.forEach((r, i) => {
+    if (r.type === 'folder') {
+      const newFid = genFolderId();
+      fidMap[r.fid] = newFid;
+      payload.push({
+        estimate_id: estimateId,
+        row_type:    'cat',
+        sort_order:  sortBase + i,
+        name:        r.name,
+        spec:        null, qty: null, unit: null,
+        list_price:  null, rate: null, unit_price: null,
+        cost:        null, memo: null, note: null,
+        folder_id:   newFid,
+        parent_id:   null,
+        level:       1,
+      });
+    } else {
+      payload.push({
+        estimate_id: estimateId,
+        row_type:    'row',
+        sort_order:  sortBase + i,
+        name:        r.name,
+        spec:        r.spec      || null,
+        qty:         r.qty       ? parseFloat(r.qty) || null : null,
+        unit:        r.unit      || '式',
+        list_price:  r.price     ? parseFloat(r.price) || null : null,
+        rate:        null, unit_price: null, cost: null, memo: null, note: null,
+        folder_id:   null,
+        parent_id:   r.parentId  ? (fidMap[r.parentId] || null) : null,
+        level:       null,
+      });
+    }
+  });
+
+  try {
+    const r = await fetch(`${SB_URL}/estimate_rows`, {
+      method: 'POST',
+      headers: SB_H,
+      body: JSON.stringify(payload)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    estCloseModal();
+
+    // 追加した見積のNo・プラン名をヘッダーに反映
+    try {
+      const estRes = await fetch(`${SB_URL}/estimates?id=eq.${estimateId}`, { headers: SB_H });
+      if (estRes.ok) {
+        const estData = await estRes.json();
+        const est = estData[0];
+        if (est) {
+          const noEl   = document.getElementById('dispEstimateNo');
+          const planEl = document.getElementById('dispPlanName');
+          if (noEl   && est.estimate_no) noEl.value   = est.estimate_no;
+          if (planEl && est.plan_name)   planEl.value = est.plan_name;
+          saveHeaderToLS();
+        }
+      }
+    } catch(e) {}
+
+    showToast(`${payload.length}行を見積に追加しました（フォルダ含む）`);
+    saveTableToStorage();  // テーブル内容を保存
+
+    // CAD紐付け：現在開いている.plnファイルのパスをestimatesに保存
+    _linkPlnToEstimate(estimateId);
+  } catch(e) {
+    showToast('保存失敗: ' + e.message);
+  }
+}
+
+/* ════ ユーティリティ ════ */
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ════ CAD（.pln）↔ 見積 紐付け ════ */
+
+// 現在開いている.plnパスを取得
+async function _getPlnPath() {
+  try {
+    const res = await fetch(`${API_BASE.replace('/api','')}/api/project_info`, { signal: AbortSignal.timeout(2000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.ok && data.pln_path ? data.pln_path : null;
+  } catch(e) {
+    return null;
+  }
+}
+
+// 見積へ追加したときにplnパスをestimatesに保存
+async function _linkPlnToEstimate(estimateId) {
+  const plnPath = await _getPlnPath();
+  if (!plnPath || !estimateId) return;
+  try {
+    await fetch(`${SB_URL}/estimates?id=eq.${estimateId}`, {
+      method: 'PATCH',
+      headers: { ...SB_H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pln_path: plnPath })
+    });
+    // localStorageにも保存（高速検索用）
+    _savePlnLink(plnPath, estimateId);
+    console.log(`[CAD紐付け] pln_path保存: ${plnPath} → ${estimateId}`);
+  } catch(e) {
+    console.warn('[CAD紐付け] 保存失敗:', e);
+  }
+}
+
+// localStorageにpln→estimate_idのマップを保存
+function _savePlnLink(plnPath, estimateId) {
+  try {
+    const key = 'compactPlnLinks';
+    const map = JSON.parse(localStorage.getItem(key) || '{}');
+    map[plnPath] = estimateId;
+    localStorage.setItem(key, JSON.stringify(map));
+  } catch(e) {}
+}
+
+// 起動時：現在のplnパスに紐付いた見積を検索してヘッダーに表示
+async function _autoDetectLinkedEstimate() {
+  const plnPath = await _getPlnPath();
+  if (!plnPath) return;
+
+  // まずlocalStorageから高速検索
+  try {
+    const map = JSON.parse(localStorage.getItem('compactPlnLinks') || '{}');
+    if (map[plnPath]) {
+      await _applyLinkedEstimate(map[plnPath], plnPath);
+      return;
+    }
+  } catch(e) {}
+
+  // Supabaseから検索（plnパスが一致する見積）
+  try {
+    const encodedPath = encodeURIComponent(plnPath);
+    const res = await fetch(`${SB_URL}/estimates?pln_path=eq.${encodedPath}&order=updated_at.desc&limit=1`, { headers: SB_H });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data[0]) {
+      _savePlnLink(plnPath, data[0].id);
+      await _applyLinkedEstimate(data[0].id, plnPath);
+    }
+  } catch(e) {}
+}
+
+// 紐付かった見積の情報をヘッダーに反映
+async function _applyLinkedEstimate(estimateId, plnPath) {
+  try {
+    const res = await fetch(`${SB_URL}/estimates?id=eq.${estimateId}`, { headers: SB_H });
+    if (!res.ok) return;
+    const data = await res.json();
+    const est = data[0];
+    if (!est) return;
+    const noEl   = document.getElementById('dispEstimateNo');
+    const planEl = document.getElementById('dispPlanName');
+    if (noEl   && est.estimate_no) noEl.value   = est.estimate_no;
+    if (planEl && est.plan_name)   planEl.value = est.plan_name;
+    saveHeaderToLS();
+    showToast(`📎 図面に紐付いた見積を検出: ${est.plan_name || est.estimate_no || estimateId}`);
+    console.log(`[CAD紐付け] 自動検出: ${plnPath} → ${estimateId}`);
+  } catch(e) {}
+}
+
+let _toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function reloadMaster() {
+  _masterCache = null;
+  _masterLoading = false;
+  _masterLoadPromise = null;
+  loadMasterFromSB();
+  showToast('マスタを再読み込みしています...');
+}
+
+/* ════ テーブル内容の永続化 ════ */
+const STORAGE_KEY = 'compactTable_v2';
+
+function saveTableToStorage() {
+  try {
+    const data = {
+      estimateNo: document.getElementById('dispEstimateNo')?.value || '',
+      planName:   document.getElementById('dispPlanName')?.value   || '',
+      rows: []
+    };
+    document.querySelectorAll('#mainTbody tr').forEach(tr => {
+      const type = tr.dataset.type;
+      if (type === 'cat') {
+        data.rows.push({
+          type:      'cat',
+          folderId:  tr.dataset.folderId  || '',
+          parentId:  tr.dataset.parentId  || '',
+          level:     tr.dataset.level     || '0',
+          label:     (tr.querySelector('.cat-label-input')?.value || tr.querySelector('.cat-label')?.textContent || '').trim(),
+          className: tr.className,
+        });
+      } else if (type === 'row') {
+        const tds = [...tr.querySelectorAll('td')];
+        data.rows.push({
+          type:      'row',
+          parentId:  tr.dataset.parentId || '',
+          guid:      tr.dataset.guid     || '',
+          cadType:   tds[2]?.textContent || '',
+          elementId: tds[3]?.textContent || '',
+          name:      tds[4]?.querySelector('input')?.value || '',
+          spec:      tds[5]?.querySelector('input')?.value || '',
+          qty:       tds[6]?.querySelector('input')?.value || '',
+          unit:      tds[7]?.querySelector('.unit-input')?.value || '式',
+          listPrice: tds[8]?.querySelector('input')?.value || '',
+          rate:      tds[9]?.querySelector('input')?.value || '',
+          unitPrice: tds[10]?.querySelector('input')?.value || '',
+          note:      tds[15]?.querySelector('input')?.value || '',
+        });
+      }
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) { console.warn('[compact] save failed:', e); }
+}
+
+function restoreTableFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data?.rows?.length) return false;
+
+    const tbody = document.getElementById('mainTbody');
+    tbody.innerHTML = '';
+    _accumulatedGuids = new Set();
+    _folderMap = {};
+    _folderSeq = 0;
+    _createdMasterFolders = {};
+
+    // ヘッダー復元
+    const noEl   = document.getElementById('dispEstimateNo');
+    const planEl = document.getElementById('dispPlanName');
+    if (noEl   && data.estimateNo) noEl.value   = data.estimateNo;
+    if (planEl && data.planName)   planEl.value = data.planName;
+
+    data.rows.forEach(r => {
+      if (r.type === 'cat') {
+        const level  = parseInt(r.level || '0');
+        const tr = document.createElement('tr');
+        tr.className        = r.className || _folderClass(level);
+        tr.dataset.type     = 'cat';
+        tr.dataset.folderId = r.folderId || '';
+        tr.dataset.level    = String(level);
+        if (r.parentId) tr.dataset.parentId = r.parentId;
+        const indent = `padding-left:${level * 20}px;`;
+        tr.innerHTML = `
+          <td></td>
+          <td colspan="8" style="${indent}">
+            <div class="cat-cell">
+              <span class="folder-icon"><svg viewBox="0 0 16 16"><path d="M1 4.5A1.5 1.5 0 012.5 3H6l1.5 1.5H13.5A1.5 1.5 0 0115 6v5.5A1.5 1.5 0 0113.5 13h-11A1.5 1.5 0 011 11.5z"/></svg></span>
+              <span class="cat-chevron open" onclick="toggleFolder(this)">∨</span>
+              <input class="cat-label-input" value="${esc(r.label)}" title="ダブルクリックで名前を編集" readonly>
+            </div>
+          </td>
+          <td class="col-hm"></td><td class="col-hm"></td><td class="col-hm"></td>
+          <td></td>`;
+        tbody.appendChild(tr);
+        _addFolderEvents(tr);
+        if (r.folderId) _folderMap[r.label] = r.folderId;
+      } else if (r.type === 'row') {
+        const tr = createDataRow();
+        tr.dataset.parentId = r.parentId || '';
+        if (r.guid)      tr.dataset.guid = r.guid;
+        const tds = [...tr.querySelectorAll('td')];
+        if (tds[2]) tds[2].textContent = r.cadType   || '';
+        if (tds[3]) tds[3].textContent = r.elementId || '';
+        setValue(tds[4],  'input', r.name      || '');
+        setValue(tds[5],  'input', r.spec      || '');
+        setValue(tds[6],  'input', r.qty       || '');
+        const ui = tds[7]?.querySelector('.unit-input'); if (ui) ui.value = r.unit || '式';
+        setValue(tds[8],  'input', r.listPrice || '');
+        setValue(tds[9],  'input', r.rate      || '');
+        setValue(tds[10], 'input', r.unitPrice || '');
+        setValue(tds[15], 'input', r.note      || '');
+        tr.addEventListener('click', e => selectRowAndCad(tr, e));
+        tbody.appendChild(tr);
+        const rateInp = tds[9]?.querySelector('input');
+        if (rateInp?.value) calcFromRate(rateInp); else calcRow(tds[6]?.querySelector('input'));
+      }
+    });
+    renumberRows();
+    updateFooter();
+    showToast('前回のデータを復元しました');
+    return true;
+  } catch(e) {
+    console.warn('[compact] restore failed:', e);
+    return false;
+  }
+}
+
+// テーブル変更時に自動保存（debounce 2秒）
+let _saveTimer = null;
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveTableToStorage, 2000);
+}
+
+/* ════ 行ドラッグ移動（フォルダごと対応） ════ */
+let _rowDragSrc    = null;  // ドラッグ中のtr
+let _rowDragGroup  = [];    // フォルダの場合は配下行も含む
+
+function initRowDrag() {
+  const tbody = document.getElementById('mainTbody');
+  if (!tbody) return;
+
+  function collectFolderGroup(folderTr) {
+    const group = [folderTr];
+    const fid = folderTr.dataset.folderId;
+    if (!fid) return group;
+    const groupFids = new Set([fid]);
+    let next = folderTr.nextElementSibling;
+    while (next) {
+      const pid = next.dataset.parentId;
+      const nextFid = next.dataset.folderId;
+      if (pid && groupFids.has(pid)) {
+        group.push(next);
+        if (nextFid) groupFids.add(nextFid);
+      } else if (!pid) {
+        break;
+      }
+      next = next.nextElementSibling;
+    }
+    return group;
+  }
+
+  // tbody全体でイベント委譲
+  tbody.addEventListener('dragstart', e => {
+    const tr = e.target.closest('tr');
+    if (!tr || !tr.closest('#mainTbody')) return;
+    _rowDragSrc = tr;
+
+    // フォルダ行なら配下の行も一緒にドラッグ対象にする
+    if (tr.dataset.type === 'cat') {
+      _rowDragGroup = collectFolderGroup(tr);
+    } else {
+      _rowDragGroup = [tr];
+    }
+
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    requestAnimationFrame(() => _rowDragGroup.forEach(r => r.classList.add('row-dragging')));
+  });
+
+  tbody.addEventListener('dragend', () => {
+    _rowDragGroup.forEach(r => r.classList.remove('row-dragging'));
+    tbody.querySelectorAll('.row-drop-above,.row-drop-below').forEach(r => {
+      r.classList.remove('row-drop-above','row-drop-below');
+    });
+    _rowDragSrc   = null;
+    _rowDragGroup = [];
+  });
+
+  tbody.addEventListener('dragover', e => {
+    if (!_rowDragSrc) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('tr');
+    if (!target || _rowDragGroup.includes(target)) return;
+
+    tbody.querySelectorAll('.row-drop-above,.row-drop-below').forEach(r => {
+      r.classList.remove('row-drop-above','row-drop-below');
+    });
+    const rect = target.getBoundingClientRect();
+    const mid  = rect.top + rect.height / 2;
+    target.classList.add(e.clientY < mid ? 'row-drop-above' : 'row-drop-below');
+  });
+
+  tbody.addEventListener('dragleave', e => {
+    if (!e.relatedTarget || !tbody.contains(e.relatedTarget)) {
+      tbody.querySelectorAll('.row-drop-above,.row-drop-below').forEach(r => {
+        r.classList.remove('row-drop-above','row-drop-below');
+      });
+    }
+  });
+
+  tbody.addEventListener('drop', e => {
+    if (!_rowDragSrc || !_rowDragGroup.length) return;
+    e.preventDefault();
+    const target = e.target.closest('tr');
+    if (!target || _rowDragGroup.includes(target)) return;
+
+    tbody.querySelectorAll('.row-drop-above,.row-drop-below').forEach(r => {
+      r.classList.remove('row-drop-above','row-drop-below');
+    });
+
+    const rect  = target.getBoundingClientRect();
+    const after = e.clientY >= rect.top + rect.height / 2;
+    const anchor = after ? target.nextSibling : target;
+
+    // グループ全体を挿入（逆順で insertBefore するため正順でOK）
+    if (anchor) {
+      _rowDragGroup.forEach(r => tbody.insertBefore(r, anchor));
+    } else {
+      _rowDragGroup.forEach(r => tbody.appendChild(r));
+    }
+
+    renumberRows();
+    updateFooter();
+    scheduleSave();
+  });
+}
+
+// No列にドラッグハンドルを表示（createDataRowとフォルダ行に適用）
+/* フォルダ行にダブルクリック編集・クリック選択イベントを設定する共通関数 */
+function _addFolderEvents(tr) {
+  const inp = tr.querySelector('.cat-label-input');
+  if (inp) {
+    inp.addEventListener('dblclick', () => { inp.readOnly = false; inp.focus(); inp.select(); });
+    inp.addEventListener('blur', () => { inp.readOnly = true; });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === 'Escape') { inp.readOnly = true; inp.blur(); }
+    });
+  }
+  tr.addEventListener('click', e => {
+    if (e.target === inp && inp && !inp.readOnly) return;
+    if (e.target.classList.contains('cat-chevron')) return;
+    document.querySelectorAll('#mainTbody tr[data-type="cat"].folder-selected')
+      .forEach(r => r.classList.remove('folder-selected'));
+    tr.classList.toggle('folder-selected');
+  });
+}
+
+function _addDragHandle(tr) {
+  const noCell = tr.querySelector('.no-col') || tr.querySelector('td:first-child');
+  if (!noCell) return;
+  tr.draggable = true;
+  // No列の前にハンドルアイコンを挿入（textContentは renumberRows が上書きするので spanで囲む）
+  if (!noCell.querySelector('.drag-handle')) {
+    const handle = document.createElement('span');
+    handle.className   = 'drag-handle';
+    handle.textContent = '⠿';
+    handle.title       = 'ドラッグして移動';
+    noCell.insertBefore(handle, noCell.firstChild);
+  }
+}
+function initColDragMove() {
+  const thead = document.querySelector('#mainTbl thead tr');
+  if (!thead) return;
+  const cols  = document.querySelectorAll('#mainColgroup col');
+  const ths   = [...thead.querySelectorAll('th')];
+
+  // ドラッグ不可の列インデックス（No・引出線・作図要素・要素ID）
+  const FIXED_COLS = new Set([0, 1, 2, 3]);
+  let dragSrcIdx = null;
+
+  ths.forEach((th, i) => {
+    if (FIXED_COLS.has(i)) return;
+    th.draggable = true;
+    th.style.cursor = 'grab';
+
+    th.addEventListener('dragstart', e => {
+      dragSrcIdx = i;
+      e.dataTransfer.effectAllowed = 'move';
+      th.style.opacity = '0.5';
+    });
+    th.addEventListener('dragend', () => {
+      th.style.opacity = '';
+      ths.forEach(t => t.classList.remove('col-drag-over'));
+      dragSrcIdx = null;
+    });
+    th.addEventListener('dragover', e => {
+      if (dragSrcIdx === null || dragSrcIdx === i || FIXED_COLS.has(i)) return;
+      e.preventDefault();
+      ths.forEach(t => t.classList.remove('col-drag-over'));
+      th.classList.add('col-drag-over');
+    });
+    th.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIdx === null || dragSrcIdx === i || FIXED_COLS.has(i)) return;
+      ths.forEach(t => t.classList.remove('col-drag-over'));
+      _swapCols(dragSrcIdx, i, ths, cols);
+      dragSrcIdx = null;
+    });
+  });
+}
+
+function _swapCols(fromIdx, toIdx, ths, cols) {
+  const tbody = document.getElementById('mainTbody');
+  // colgroup の幅を入れ替え
+  if (cols[fromIdx] && cols[toIdx]) {
+    const fw = cols[fromIdx].style.width;
+    cols[fromIdx].style.width = cols[toIdx].style.width;
+    cols[toIdx].style.width = fw;
+  }
+  // thead の th を移動
+  const thRow = ths[0].closest('tr');
+  const thArr = [...thRow.querySelectorAll('th')];
+  if (fromIdx < toIdx) {
+    thRow.insertBefore(thArr[fromIdx], thArr[toIdx].nextSibling);
+  } else {
+    thRow.insertBefore(thArr[fromIdx], thArr[toIdx]);
+  }
+  // tbody の各行の td を同様に移動
+  tbody.querySelectorAll('tr[data-type="row"]').forEach(tr => {
+    const tds = [...tr.querySelectorAll('td')];
+    if (!tds[fromIdx] || !tds[toIdx]) return;
+    if (fromIdx < toIdx) {
+      tr.insertBefore(tds[fromIdx], tds[toIdx].nextSibling);
+    } else {
+      tr.insertBefore(tds[fromIdx], tds[toIdx]);
+    }
+  });
+}
+
+/* ════ 初期化 ════ */
+window.addEventListener('DOMContentLoaded', () => {
+  syncHeaderFromLS();
+  initColResize();
+  initColDragMove();
+  initRowDrag();
+  initEnterNavigation();
+  setTimeout(startCsvPolling, 500);
+  loadGuidMaster();
+  loadMasterFromSB();
+
+  // 保存データがあれば復元
+  restoreTableFromStorage();
+
+  // 起動時：現在のplnに紐付いた見積を自動検出（RIKCADが起動中の場合）
+  setTimeout(_autoDetectLinkedEstimate, 1500);
+
+  // テーブル変更を監視して自動保存
+  const obs = new MutationObserver(() => scheduleSave());
+  const tbody = document.getElementById('mainTbody');
+  if (tbody) obs.observe(tbody, { childList: true, subtree: true, characterData: true });
+});
+
+/* ════ Enterキーで次セルへ移動 ════ */
+function initEnterNavigation() {
+  const tbody = document.getElementById('mainTbody');
+  if (!tbody) return;
+
+  tbody.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const inp = e.target;
+    if (!inp || inp.tagName !== 'INPUT') return;
+    if (inp.classList.contains('unit-input')) return;  // 単位コンボは除外
+    e.preventDefault();
+
+    const tr   = inp.closest('tr[data-type="row"]');
+    if (!tr) return;
+
+    // 同一行内の編集可能inputを順番に取得
+    const rowInputs = [...tr.querySelectorAll('input.cell-edit, input.unit-input')]
+      .filter(i => !i.readOnly && !i.closest('.col-hm'));
+    const curIdx = rowInputs.indexOf(inp);
+
+    if (curIdx >= 0 && curIdx < rowInputs.length - 1) {
+      // 同一行の次セル
+      rowInputs[curIdx + 1].focus();
+      rowInputs[curIdx + 1].select?.();
+    } else {
+      // 次の明細行の最初のinputへ
+      let next = tr.nextElementSibling;
+      while (next && next.dataset.type !== 'row') next = next.nextElementSibling;
+      if (next) {
+        const nextInp = next.querySelector('input.cell-edit');
+        if (nextInp) { nextInp.focus(); nextInp.select?.(); }
+      } else {
+        // 行末かつ最終行 → 新行を追加してフォーカス
+        icAddRow();
+      }
+    }
+  });
+}
+
+/* ════ 変化検知ウォッチポーリング ════ */
+let _watchTimer  = null;
+let _watchHashes = {};
+const WATCH_INTERVAL = 500;  // 変化検知間隔（ms）
+let _watchPaused = false;
+
+function startWatchPolling() {}
+
+function _scheduleWatch(delay) {
+  if (_watchTimer) clearTimeout(_watchTimer);
+  _watchTimer = setTimeout(_runWatch, delay);
+}
+
+async function _runWatch() {
+  if (_watchPaused) { _scheduleWatch(WATCH_INTERVAL); return; }
+  const guidSet = new Set();
+  document.querySelectorAll('#mainTbody tr[data-type="row"]').forEach(tr => {
+    if (tr.dataset.guid) guidSet.add(tr.dataset.guid);
+  });
+
+  if (guidSet.size === 0) {
+    _scheduleWatch(WATCH_INTERVAL);
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${API_BASE}/elements/watch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guids: [...guidSet], hashes: _watchHashes }),
+    });
+    const data = await res.json();
+    if (!data.ok) { _scheduleWatch(WATCH_INTERVAL); return; }
+
+    _watchHashes = { ..._watchHashes, ...data.hashes };
+
+    if (data.changed && data.changed.length > 0) {
+      _applyWatchedChanges(data.changed);
+    }
+  } catch(e) {}
+  _scheduleWatch(WATCH_INTERVAL);
+}
+
+function _applyWatchedChanges(rows) {
+  // guid→[row]のマップを作成
+  const rowByGuid = {};
+  rows.forEach(row => {
+    if (!row.guid) return;
+    if (!rowByGuid[row.guid]) rowByGuid[row.guid] = [];
+    rowByGuid[row.guid].push(row);
+  });
+
+  Object.entries(rowByGuid).forEach(([guid, updatedRows]) => {
+    const trList = [...document.querySelectorAll(
+      `#mainTbody tr[data-type="row"][data-guid="${guid}"]`
+    )];
+    if (trList.length === 0) return;
+
+    // A行・mai行・通常行を判別して対応するupdatedRowを適用
+    trList.forEach(tr => {
+      const fenceRow = tr.dataset.fenceRow || '';
+      let row;
+      if (fenceRow === 'A') {
+        row = updatedRows.find(r => r.fenceRow === 'A') || updatedRows[0];
+      } else if (fenceRow === 'mai') {
+        row = updatedRows.find(r => r.fenceRow === 'mai') || updatedRows[0];
+      } else {
+        row = updatedRows[0];
+      }
+      if (!row) return;
+
+      const tds = tr.querySelectorAll('td');
+
+      // 名称（ユーザーが手編集していない場合のみ更新）
+      const nameInp = tds[4]?.querySelector('input');
+      if (nameInp && !nameInp.dataset.userEdited) {
+        nameInp.value = row.name || '';
+      }
+
+      // 仕様
+      const specInp = tds[5]?.querySelector('input');
+      if (specInp && !specInp.dataset.userEdited) {
+        specInp.value = row.spec || '';
+      }
+
+      // 数量
+      const qtyInp = tds[6]?.querySelector('input');
+      if (qtyInp && !qtyInp.dataset.userEdited) {
+        if (row.qty !== '' && row.qty != null) {
+          qtyInp.value = row.qty;
+          calcRow(qtyInp);
+        }
+      }
+    });
+  });
+
+  const now = new Date();
+  const ts  = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  document.getElementById('lastUpdateText').textContent = `変化検知: ${ts}`;
+}
+
+/* ════ 列リサイズ（全列対応） ════ */
+function initColResize() {
+  const cols = document.querySelectorAll('#mainColgroup col');
+  const ths  = document.querySelectorAll('#mainTbl thead th');
+
+  ths.forEach((th, i) => {
+    if (i === 0) return;  // No列はスキップ
+    const resizer = document.createElement('div');
+    resizer.className = 'col-resizer';
+    th.appendChild(resizer);
+
+    let startX, startW;
+
+    resizer.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      startX = e.clientX;
+      startW = th.getBoundingClientRect().width;
+      resizer.classList.add('dragging');
+
+      function onMove(ev) {
+        const newW = Math.max(30, startW + (ev.clientX - startX));
+        if (cols[i]) cols[i].style.width = newW + 'px';
+        th.style.minWidth = newW + 'px';
+        th.style.maxWidth = newW + 'px';
+      }
+      function onUp() {
+        resizer.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+/* 別タブ（estimate-edit）からlocalStorage変更を受け取る */
+window.addEventListener('storage', e => {
+  if (e.key === 'estimateNo' || e.key === 'planName') syncHeaderFromLS();
+});
+</script>
+
+<!-- ════ 見積選択モーダル ════ -->
+<div id="estModal">
+  <div class="est-modal-box">
+    <!-- STEP1: 物件選択 -->
+    <div id="estStepProp">
+      <div class="est-modal-header">
+        <span class="est-modal-title">物件を選択</span>
+        <button class="est-modal-close" onclick="estCloseModal()">×</button>
+      </div>
+      <div class="est-modal-body" id="estPropList">
+        <div style="padding:12px;color:#aaa;">読み込み中...</div>
+      </div>
+      <div class="est-modal-footer">
+        <button onclick="estCloseModal()" style="padding:7px 20px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer;font-family:inherit;">キャンセル</button>
+      </div>
+    </div>
+    <!-- STEP2: 見積選択 -->
+    <div id="estStepEst" style="display:none;flex-direction:column;height:100%;overflow:hidden;flex:1;">
+      <div class="est-modal-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="_estModalStep('prop');_estSelectedEstId=null;" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:18px;padding:0;line-height:1;">‹</button>
+          <span class="est-modal-title" id="estStepEstTitle">見積を選択</span>
+        </div>
+        <button class="est-modal-close" onclick="estCloseModal()">×</button>
+      </div>
+      <div class="est-modal-body" id="estEstList"></div>
+      <!-- 新規作成フォーム -->
+      <div id="estNewForm">
+        <div style="background:#f9fafb;border-radius:6px;padding:12px;">
+          <div class="est-new-label">プラン名 <span style="color:#e53935;">*</span></div>
+          <input id="estNewPlanName" class="est-new-input" type="text" placeholder="例：基本プラン">
+          <div class="est-new-label">見積No（任意）</div>
+          <input id="estNewNo" class="est-new-input" type="text" placeholder="例：001">
+        </div>
+      </div>
+      <div class="est-modal-footer">
+        <button onclick="_estModalStep('prop')" style="padding:7px 20px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer;font-family:inherit;">戻る</button>
+        <button id="estConfirmBtn" onclick="estConfirm()" style="display:none;padding:7px 20px;background:#00a99d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-weight:600;">追加する</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>発注商品一覧 - OPEN EX</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic','Meiryo',sans-serif;font-size:13px;background:#f4f7f9;color:#333;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+    /* NAVBAR - index.htmlと同一 */
+    .navbar{position:fixed;top:0;left:0;right:0;z-index:200;background:#fff;border-bottom:1px solid #e0e0e0;display:flex;align-items:stretch;height:48px;padding:0 4px;}
+    .nav-main{display:flex;align-items:stretch;flex:1;overflow-x:auto;}
+    .nav-item{display:flex;align-items:center;gap:5px;padding:0 11px;font-size:12px;color:#555;cursor:pointer;text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;}
+    .nav-item:hover{color:#1a6fc4;}
+    .nav-item.active{color:#1a6fc4;border-bottom-color:#1a6fc4;font-weight:600;}
+    .nav-item svg{flex-shrink:0;width:14px;height:14px;}
+    .nav-item.hacchu{color:#e53935;}
+    .nav-item.hacchu.active{color:#e53935;border-bottom-color:#e53935;}
+    .nav-item.hacchu svg{color:#e53935;}
+    .nav-right{display:flex;align-items:center;margin-left:auto;border-left:1px solid #e8e8e8;padding-left:2px;flex-shrink:0;}
+    /* LAYOUT */
+    .main-wrap{display:flex;flex:1;padding-top:48px;overflow:hidden;}
+    /* SIDE PANE */
+    .side-pane{width:188px;flex-shrink:0;background:#fff;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;overflow-y:auto;padding:14px 10px;gap:14px;}
+    .side-group-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#00b27d;margin-bottom:6px;}
+    .side-btn{display:block;width:100%;background:#fff;border:1px solid #d1d5db;padding:8px 10px;border-radius:5px;margin-bottom:5px;text-align:center;font-size:12px;font-family:inherit;color:#374151;cursor:pointer;transition:all .15s;}
+    .side-btn:hover{background:#f0fdf9;border-color:#00b27d;color:#00b27d;}
+    .side-btn.active{background:#00b27d;border-color:#00b27d;color:#fff;font-weight:600;}
+    .side-maker{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#374151;padding:4px 2px;cursor:pointer;}
+    .side-maker:hover{color:#00b27d;}
+    .side-maker svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;}
+    /* CONTENT */
+    .content-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+    .page-header{background:#fff;border-bottom:1px solid #e5e7eb;padding:10px 20px;flex-shrink:0;}
+    .breadcrumb{font-size:11px;color:#00b27d;margin-bottom:5px;}
+    .breadcrumb a{color:#00b27d;text-decoration:none;cursor:pointer;}
+    .breadcrumb a:hover{text-decoration:underline;}
+    .header-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .page-title{font-size:17px;font-weight:700;color:#1e2939;margin-right:4px;}
+    .header-actions{margin-left:auto;display:flex;align-items:center;gap:8px;}
+    .btn{height:32px;padding:0 14px;border-radius:5px;font-size:12px;font-family:inherit;cursor:pointer;border:none;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+    .btn-outline{background:#fff;border:1px solid #d1d5db;color:#374151;}
+    .btn-outline:hover{background:#f9fafb;}
+    .btn-green{background:#00b27d;color:#fff;font-weight:600;}
+    .btn-green:hover{background:#009668;}
+    .btn-g-outline{background:#fff;border:1.5px solid #00b27d;color:#00b27d;font-weight:600;}
+    .btn-g-outline:hover{background:#f0fdf9;}
+    .btn-red{background:#e53935;color:#fff;font-weight:600;}
+    .btn-red:hover{background:#c62828;}
+    /* TABLE */
+    .table-area{flex:1;overflow-y:auto;padding:12px 16px;}
+    .table-wrap{background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden;}
+    .order-table{width:100%;border-collapse:collapse;}
+    .order-table thead tr{border-bottom:1px solid #e5e7eb;}
+    .order-table thead th{padding:10px 12px;font-size:11.5px;font-weight:500;color:#9ca3af;text-align:left;background:#fff;position:sticky;top:0;z-index:1;white-space:nowrap;}
+    .order-table thead th.c{text-align:center;}
+    .order-table tbody tr{border-bottom:1px dashed #f0f1f3;transition:background .1s;}
+    .order-table tbody tr:hover{background:#fafafa;}
+    .order-table tbody td{padding:10px 12px;font-size:13px;color:#374151;vertical-align:middle;}
+    .order-table tbody td.c{text-align:center;}
+    .prod-cell{display:flex;align-items:center;gap:10px;}
+    .prod-thumb{width:32px;height:32px;background:#f5f5f5;border:1px solid #eee;display:flex;align-items:center;justify-content:center;border-radius:3px;flex-shrink:0;}
+    .st-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 10px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap;}
+    .st-mih{background:#e53935;color:#fff;}
+    .st-hac{background:#00b27d;color:#fff;}
+    .st-nok{background:#f59e0b;color:#fff;}
+    .st-kan{background:#6b7280;color:#fff;}
+    .dots-btn{background:none;border:none;cursor:pointer;color:#9ca3af;font-size:18px;padding:2px 6px;border-radius:4px;}
+    .dots-btn:hover{background:#f3f4f6;color:#374151;}
+    .empty-cell{text-align:center;padding:50px 0;color:#bbb;}
+    .empty-cell svg{display:block;margin:0 auto 12px;width:40px;height:40px;stroke:#ddd;fill:none;stroke-width:1.5;}
+    .back-bar{padding:10px 20px;border-top:1px solid #e5e7eb;background:#fff;flex-shrink:0;}
+    .btn-back{background:#f0fdf8;color:#00b27d;border:1px solid #00b27d;border-radius:5px;padding:0 20px;font-size:12px;font-family:inherit;font-weight:500;cursor:pointer;height:30px;display:inline-flex;align-items:center;}
+    .btn-back:hover{background:#dcfce7;}
+    /* OVERLAY / MODAL */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;}
+    .overlay.active{display:flex;}
+    .modal-box{background:#fff;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.2);display:flex;flex-direction:column;overflow:hidden;}
+    .modal-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;color:#9ca3af;cursor:pointer;line-height:1;z-index:1;}
+    .modal-close:hover{color:#374151;}
+    /* TABS */
+    .modal-tabs{display:flex;border-bottom:1px solid #e5e7eb;padding:0 20px;flex-shrink:0;}
+    .modal-tab{padding:13px 16px;font-size:13px;color:#6b7280;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;margin-bottom:-1px;}
+    .modal-tab:hover{color:#00b27d;}
+    .modal-tab.active{color:#00b27d;border-bottom-color:#00b27d;font-weight:600;}
+    .modal-body{flex:1;overflow-y:auto;padding:20px 24px;}
+    .modal-footer{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 24px;border-top:1px solid #e5e7eb;flex-shrink:0;position:relative;}
+    /* FORM */
+    .form-input{border:1px solid #d1d5db;border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;}
+    .form-input:focus{border-color:#00b27d;box-shadow:0 0 0 2px rgba(0,178,125,.1);}
+    .form-textarea{border:1px solid #d1d5db;border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;width:100%;resize:vertical;min-height:80px;}
+    .form-textarea:focus{border-color:#00b27d;}
+    .form-label{font-size:12px;font-weight:500;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:4px;}
+    .req{color:#e53935;}
+    .char-count{font-size:11px;color:#9ca3af;text-align:right;margin-top:2px;}
+    .form-select{border:1px solid #d1d5db;border-radius:5px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;background:#fff;appearance:none;width:100%;cursor:pointer;}
+    .form-select:focus{border-color:#00b27d;}
+    .form-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+    .form-col{display:flex;flex-direction:column;}
+    .flex1{flex:1;}
+    /* ICON PREVIEW */
+    .icon-prev{width:60px;height:60px;background:#f5f5f5;border:1px solid #e5e7eb;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;}
+    .btn-icon{background:#fff;border:1.5px solid #00b27d;color:#00b27d;border-radius:5px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;}
+    /* ATTACH */
+    .attach-empty{text-align:center;padding:24px 0;color:#bbb;}
+    .attach-empty svg{display:block;margin:0 auto 8px;width:32px;height:32px;stroke:#ddd;fill:none;}
+    /* DELIVERY TABLE */
+    .deliv-table{width:100%;border-collapse:collapse;margin-top:16px;}
+    .deliv-table thead th{font-size:12px;color:#9ca3af;font-weight:500;padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;}
+    .deliv-table tbody td{padding:10px;border-bottom:1px dashed #f0f1f3;font-size:13px;}
+    .date-input{border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;font-family:inherit;outline:none;}
+    .date-input:focus{border-color:#00b27d;}
+    /* CONFIRM MODAL */
+    .confirm-wrap{width:360px;padding:28px 28px 20px;text-align:center;}
+    .confirm-icon{width:44px;height:44px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+    .confirm-icon svg{width:22px;height:22px;stroke:#f59e0b;fill:none;stroke-width:2.5;}
+    .confirm-title{font-size:15px;font-weight:700;margin-bottom:6px;}
+    .confirm-msg{font-size:13px;color:#6b7280;margin-bottom:22px;}
+    .confirm-btns{display:flex;gap:10px;justify-content:center;}
+    .btn-cancel{background:#fff;border:1px solid #d1d5db;color:#374151;border-radius:6px;padding:8px 22px;font-size:13px;font-family:inherit;cursor:pointer;}
+    .btn-cancel:hover{background:#f9fafb;}
+    .btn-ok{background:#00b27d;color:#fff;border:none;border-radius:6px;padding:8px 22px;font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;}
+    .btn-ok:hover{background:#009668;}
+    /* BULK TABLE */
+    .bulk-table{width:100%;border-collapse:collapse;}
+    .bulk-table thead th{font-size:12px;color:#9ca3af;font-weight:500;padding:10px 12px;border-bottom:2px solid #e5e7eb;text-align:left;background:#fff;position:sticky;top:0;z-index:1;}
+    .bulk-table thead th.c{text-align:center;}
+    .bulk-table tbody tr{border-bottom:1px dashed #f0f1f3;}
+    .bulk-table tbody td{padding:10px 12px;font-size:13px;}
+    .bulk-table tbody td.c{text-align:center;}
+    /* TOAST */
+    .toast{position:fixed;top:60px;right:20px;z-index:999;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:12px 18px 12px 14px;display:flex;align-items:flex-start;gap:10px;min-width:260px;transform:translateX(120%);transition:transform .3s ease;}
+    .toast.show{transform:translateX(0);}
+    .toast-icon{width:22px;height:22px;border-radius:50%;background:#00b27d;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .toast-icon svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:3;}
+    .toast-title{font-size:13px;font-weight:700;color:#1e2939;}
+    .toast-msg{font-size:12px;color:#6b7280;margin-top:2px;}
+    .toast-close{margin-left:auto;background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;padding:0 0 0 8px;}
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>物件
+    </button>
+    <button class="nav-item" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>顧客
+    </button>
+    <button class="nav-item" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>ファイル検索
+    </button>
+    <button class="nav-item" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>共有物件
+    </button>
+    <button class="nav-item" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>見積管理
+    </button>
+    <button class="nav-item" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>契約管理
+    </button>
+    <button class="nav-item hacchu active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>発注管理
+    </button>
+    <button class="nav-item" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>受注管理
+    </button>
+    <button class="nav-item" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>商談管理
+    </button>
+    <button class="nav-item" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>スケジュール
+    </button>
+    <button class="nav-item" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>メーカー見積
+    </button>
+    <button class="nav-item" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>マニュアル
+    </button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main-wrap">
+  <aside class="side-pane">
+    <div>
+      <div class="side-group-title">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#00b27d;fill:none;stroke-width:2.5;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        発注内容の追加
+      </div>
+      <button class="side-btn" id="btnCad"     onclick="sideClick(this)">CADから取り込む</button>
+      <button class="side-btn" id="btnManual"  onclick="sideClick(this);openManual()">手入力で作成</button>
+      <button class="side-btn" id="btnHistory" onclick="sideClick(this)">発注履歴から選択</button>
+      <button class="side-btn" id="btnMaster"  onclick="sideClick(this)">建材マスターから選択</button>
+      <button class="side-btn" id="btnOcr"     onclick="sideClick(this);openOcrModal()">OCRで作成</button>
+    </div>
+    <div>
+      <div class="side-group-title">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#00b27d;fill:none;stroke-width:2;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        メーカーサイトから
+      </div>
+      <div class="side-maker"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>LIXILサイトから</div>
+      <div class="side-maker"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>四国化成建材 サイトから</div>
+      <div class="side-maker"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>三協アルミ システムから</div>
+    </div>
+  </aside>
+
+  <div class="content-area">
+    <div class="page-header">
+      <div class="breadcrumb"><a onclick="goBack()">発注物件一覧</a> › <span id="bcProp">—</span></div>
+      <div class="header-row">
+        <h1 class="page-title">発注商品一覧</h1>
+        <!-- 左側: 物件情報・顧客情報・未発注フィルタ -->
+        <button class="btn btn-outline" onclick="showPropInfo()">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>物件情報
+        </button>
+        <button class="btn btn-outline">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>顧客情報
+        </button>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#6b7280;cursor:pointer;">
+          <input type="checkbox" id="chkMihatchu" onchange="renderTable()"> 未発注のみを表示
+        </label>
+        <!-- 右側: 常時表示の操作ボタン -->
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <button class="btn btn-g-outline" onclick="openBulkList()">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>まとめて編集
+          </button>
+          <button class="btn btn-red" onclick="bulkOrder()">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2.5;"><polyline points="5 12 10 17 20 7"/></svg>まとめて発注
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-area">
+      <div class="table-wrap">
+        <table class="order-table">
+          <thead>
+            <tr>
+              <th class="c" style="width:44px;">No.</th>
+              <th>商品名 / 発注No</th>
+              <th class="c" style="width:54px;">数量</th>
+              <th class="c" style="width:50px;">単位</th>
+              <th class="c" style="width:60px;">工事依頼</th>
+              <th style="width:40px;">添付</th>
+              <th style="width:90px;">状況</th>
+              <th style="width:120px;">発注先</th>
+              <th style="width:110px;">納品希望日/回答日</th>
+              <th style="width:36px;"></th>
+            </tr>
+          </thead>
+          <tbody id="orderTbody">
+            <tr><td colspan="10">
+              <div class="empty-cell">
+                <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+                発注商品がありません。左のメニューから追加してください。
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="back-bar">
+      <button class="btn-back" onclick="goBack()">← 発注物件一覧に戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- 手入力モーダル -->
+<div class="overlay" id="manualModal">
+  <div class="modal-box" style="position:relative;width:min(920px,96vw);max-height:90vh;">
+    <button class="modal-close" onclick="closeManual()">×</button>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="mtab1" onclick="switchTab(1)">商品詳細情報</button>
+      <button class="modal-tab" id="mtab2" onclick="switchTab(2)">発注先・納品情報</button>
+      <button class="modal-tab" id="mtab3" onclick="switchTab(3)">編集・メッセージ履歴</button>
+    </div>
+    <!-- TAB1 -->
+    <div id="mb1" class="modal-body">
+      <div style="display:flex;gap:20px;border-bottom:1px dashed #e5e7eb;padding-bottom:16px;margin-bottom:16px;align-items:flex-start;">
+        <div class="form-col flex1">
+          <div class="form-label">商品名/基本仕様 <span class="req">※</span></div>
+          <input id="fName" class="form-input" placeholder="商品名" style="margin-bottom:6px;">
+          <textarea id="fSpec" class="form-textarea" placeholder="基本仕様" oninput="chCount(this,'cSpec')" maxlength="500"></textarea>
+          <div class="char-count"><span id="cSpec">0</span> / 500</div>
+        </div>
+        <div class="form-col" style="width:100px;flex-shrink:0;">
+          <div class="form-label">商材アイコン選択</div>
+          <div class="icon-prev">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:#ccc;fill:none;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <button class="btn-icon">アイコンを選択</button>
+        </div>
+        <div style="display:grid;grid-template-columns:80px 70px 50px 1fr 1fr;gap:10px;align-items:start;min-width:380px;">
+          <div>
+            <div class="form-label">数量 <span class="req">※</span></div>
+            <input id="fQty" class="form-input" type="number" placeholder="数量" min="0" oninput="calcPrice()">
+          </div>
+          <div>
+            <div class="form-label">単位</div>
+            <input id="fUnit" class="form-input" placeholder="単位">
+          </div>
+          <div>
+            <div class="form-label">工事依頼</div>
+            <input id="fKoji" type="checkbox" style="width:18px;height:18px;cursor:pointer;margin-top:8px;">
+          </div>
+          <div>
+            <div class="form-label">単価</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input id="fUp" class="form-input" type="number" placeholder="単価" oninput="calcPrice()" style="flex:1;">
+              <span style="font-size:13px;color:#555;white-space:nowrap;">円</span>
+            </div>
+          </div>
+          <div>
+            <div class="form-label">価格</div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input id="fPrice" class="form-input" type="number" placeholder="価格" style="flex:1;">
+              <span style="font-size:13px;color:#555;white-space:nowrap;">円</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:12px;font-weight:500;color:#555;">添付ファイル</span>
+          <div style="display:flex;gap:8px;">
+            <button style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">OPEN EXから選択</button>
+            <button style="background:#fff;border:1px solid #d1d5db;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;">デバイスから選択</button>
+          </div>
+        </div>
+        <div class="attach-empty">
+          <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+          まだデータがありません
+        </div>
+      </div>
+    </div>
+    <!-- TAB2 -->
+    <div id="mb2" class="modal-body" style="display:none;">
+      <div class="form-row" style="margin-bottom:14px;">
+        <div class="form-col flex1">
+          <div class="form-label">発注先 <span class="req">※</span></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input id="fSupplier" class="form-input" style="flex:1;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#555;white-space:nowrap;"><input type="checkbox"> OPENEXシステムを利用していない発注先</label>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px;">
+        <div>
+          <div class="form-label">納品形態 <span class="req">※</span></div>
+          <select id="fDelivType" class="form-select" style="max-width:200px;">
+            <option>現場直送</option><option>持ち帰り</option><option>倉庫納品</option>
+          </select>
+        </div>
+        <div>
+          <div class="form-label">備考</div>
+          <textarea id="fNote" class="form-textarea" placeholder="備考" oninput="chCount(this,'cNote')" maxlength="500"></textarea>
+          <div class="char-count"><span id="cNote">0</span> / 500</div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div class="form-label">納品場所(住所) <span class="req">※</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <select class="form-select" style="max-width:150px;"><option>物件住所</option><option>その他</option></select>
+          <input id="fPostal" class="form-input" placeholder="郵便番号" style="width:120px;">
+          <button class="btn btn-outline" style="height:34px;" onclick="searchPostal()">検索</button>
+        </div>
+        <textarea id="fAddr" class="form-textarea" placeholder="納品場所(住所)" oninput="chCount(this,'cAddr')" maxlength="500" style="min-height:60px;"></textarea>
+        <div class="char-count"><span id="cAddr">0</span> / 500</div>
+      </div>
+      <table class="deliv-table">
+        <thead><tr>
+          <th>商品名 <span class="req">※</span></th>
+          <th>納品希望日</th><th>納品可能日</th><th>搬入希望日</th><th>搬入回答日</th><th>確定</th>
+        </tr></thead>
+        <tbody><tr>
+          <td id="delivName" style="font-size:13px;color:#374151;">—</td>
+          <td><input type="date" class="date-input" id="fDelivWish"></td>
+          <td><input type="date" class="date-input" readonly style="background:#f9fafb;"></td>
+          <td><input type="date" class="date-input" id="fCarryWish"></td>
+          <td><input type="date" class="date-input" readonly style="background:#f9fafb;"></td>
+          <td style="text-align:center;"><input type="checkbox" style="width:16px;height:16px;cursor:pointer;"></td>
+        </tr></tbody>
+      </table>
+    </div>
+    <!-- TAB3 -->
+    <div id="mb3" class="modal-body" style="display:none;">
+      <div style="text-align:center;padding:40px 0;color:#bbb;">
+        <svg viewBox="0 0 24 24" style="display:block;margin:0 auto 12px;width:36px;height:36px;stroke:#ddd;fill:none;stroke-width:1.5;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        履歴がありません
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g-outline" onclick="onBack()">戻る</button>
+      <button class="btn btn-green" onclick="saveItem()">保 存</button>
+      <div style="position:absolute;right:24px;">
+        <button class="btn btn-red" onclick="alert('発注内容確認は今後実装予定です')">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2.5;"><polyline points="5 12 10 17 20 7"/></svg>
+          発注内容を確認する
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 確認ダイアログ -->
+<div class="overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="confirm-wrap">
+      <div class="confirm-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="confirm-title">確認</div>
+      <div class="confirm-msg">終了します。よろしいですか?</div>
+      <div class="confirm-btns">
+        <button class="btn-cancel" onclick="closeConfirm()">キャンセル</button>
+        <button class="btn-ok" onclick="confirmOk()">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- まとめて編集リスト -->
+<div class="overlay" id="bulkModal">
+  <div class="modal-box" style="width:min(680px,96vw);max-height:90vh;display:flex;flex-direction:column;position:relative;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+      <span style="font-size:15px;font-weight:700;">まとめて編集</span>
+      <button class="modal-close" style="position:static;" onclick="closeBulk()">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;">
+      <table class="bulk-table">
+        <thead><tr>
+          <th class="c" style="width:40px;"><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
+          <th class="c" style="width:44px;">No.</th>
+          <th style="width:50px;"></th>
+          <th>商品名/発注No</th>
+          <th class="c" style="width:50px;">数量</th>
+          <th class="c" style="width:50px;">単位</th>
+        </tr></thead>
+        <tbody id="bulkTbody"></tbody>
+      </table>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:center;flex-shrink:0;">
+      <button class="btn btn-g-outline" onclick="openBulkForm()">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>まとめて編集
+      </button>
+      <button class="btn btn-red" onclick="bulkDelete()">
+        <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>まとめて削除
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- まとめて編集フォーム -->
+<div class="overlay" id="bulkFormModal">
+  <div class="modal-box" style="width:min(600px,96vw);max-height:90vh;display:flex;flex-direction:column;position:relative;">
+    <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;position:relative;">
+      <span style="font-size:15px;font-weight:700;">まとめて編集（発注先・納品情報）</span>
+      <button class="modal-close" onclick="closeBulkForm()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px;">
+        <div class="form-label">発注先 <span class="req">※</span></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input id="bfSupplier" class="form-input" style="flex:1;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#555;white-space:nowrap;"><input type="checkbox"> OPENEXシステムを利用していない発注先</label>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div class="form-label">納品形態 <span class="req">※</span></div>
+        <select id="bfDelivType" class="form-select" style="max-width:200px;"><option>現場直送</option><option>持ち帰り</option><option>倉庫納品</option></select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div class="form-label">納品場所(住所) <span class="req">※</span></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <select class="form-select" style="max-width:150px;"><option>物件住所</option><option>その他</option></select>
+          <input class="form-input" placeholder="郵便番号" style="width:120px;">
+          <button class="btn btn-outline" style="height:34px;">検索</button>
+        </div>
+        <textarea class="form-textarea" placeholder="納品場所(住所)" style="min-height:60px;"></textarea>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div class="form-label">備考</div>
+        <textarea class="form-textarea" placeholder="備考" style="min-height:70px;"></textarea>
+      </div>
+      <div style="display:flex;gap:20px;align-items:center;">
+        <div><div class="form-label">工事依頼</div><input type="checkbox" style="width:18px;height:18px;cursor:pointer;"></div>
+        <div><div class="form-label">納品希望日</div><input type="date" class="date-input"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-g-outline" onclick="closeBulkForm()">戻る</button>
+      <button class="btn btn-green" onclick="saveBulkForm()">保 存</button>
+    </div>
+  </div>
+</div>
+
+<!-- OCRファイル追加モーダル -->
+<div class="overlay" id="ocrModal">
+  <!-- 画面1: ファイル追加 -->
+  <div class="modal-box" id="ocrScreen1" style="width:min(480px,96vw);padding:28px 28px 24px;position:relative;">
+    <button class="modal-close" onclick="closeOcrModal()">×</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;">
+      <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#374151;fill:none;stroke-width:2;flex-shrink:0;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <span style="font-size:15px;font-weight:700;color:#1e2939;">ファイル追加</span>
+    </div>
+    <!-- ドロップゾーン -->
+    <div id="ocrDropZone" style="border:2px dashed #d1d5db;border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-bottom:16px;"
+      onclick="document.getElementById('ocrFileInput').click()"
+      ondragover="ocrDragOver(event)" ondragleave="ocrDragLeave(event)" ondrop="ocrDrop(event)">
+      <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:#9ca3af;fill:none;stroke-width:1.5;display:block;margin:0 auto 12px;">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p style="font-size:13px;color:#6b7280;line-height:1.7;">追加するファイルをドラッグ&amp;ドロップするか<br>【下部のボタン】よりファイル選択してください。</p>
+    </div>
+    <!-- ファイル一覧 -->
+    <div id="ocrFileList" style="display:none;margin-bottom:12px;"></div>
+    <!-- ファイル選択ボタン -->
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-outline" onclick="alert('OPEN EXからの選択は今後実装予定です')" style="gap:6px;">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        OPEN EXから選択
+      </button>
+      <button class="btn btn-outline" onclick="document.getElementById('ocrFileInput').click()" style="gap:6px;">
+        <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        デバイスから選択
+      </button>
+      <input type="file" id="ocrFileInput" accept=".pdf,application/pdf" multiple style="display:none;" onchange="ocrFileSelected(this)">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:22px;">
+      <button class="btn-cancel" onclick="closeOcrModal()">キャンセル</button>
+      <button class="btn-ok" style="min-width:120px;" onclick="ocrUpload()">アップロード（<span id="ocrCount">0</span>件）</button>
+    </div>
+  </div>
+
+  <!-- 画面2: OCR読み取り結果 -->
+  <div class="modal-box" id="ocrScreen2" style="display:none;width:min(1100px,96vw);max-height:90vh;display:none;flex-direction:column;overflow:hidden;">
+    <!-- アップロードされたファイル -->
+    <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;">
+        <span style="font-size:13px;font-weight:600;color:#374151;">アップロードされたファイル</span>
+        <span id="ocrFileBadge" style="background:#00b27d;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">0件</span>
+      </div>
+    </div>
+    <!-- 読み取り結果 -->
+    <div style="padding:16px 20px;flex:1;overflow-y:auto;">
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+          <span style="font-size:14px;font-weight:600;color:#374151;">読み取り結果（<span id="ocrResultCount">0</span>件）</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid #e5e7eb;">
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:left;width:44px;">No.</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:left;">商品名</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:right;width:70px;">数量</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:left;width:54px;">単位</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:right;width:90px;">定価</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:right;width:90px;">単価</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:right;width:90px;">金額</th>
+              <th style="padding:10px 12px;font-size:12px;font-weight:500;color:#9ca3af;text-align:center;width:50px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="ocrResultTbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- フッター -->
+    <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:10px;justify-content:center;flex-shrink:0;background:#fff;">
+      <button class="btn-cancel" onclick="closeOcrModal()">キャンセル</button>
+      <button class="btn-ok" style="min-width:160px;" onclick="ocrApply()">発注に反映する（<span id="ocrApplyCount">0</span>件）</button>
+    </div>
+  </div>
+</div>
+
+<!-- トースト -->
+<div class="toast" id="toast">
+  <div class="toast-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+  <div><div class="toast-title">成功</div><div class="toast-msg" id="toastMsg">発注アイテムの作成に成功しました。</div></div>
+  <button class="toast-close" onclick="hideToast()">×</button>
+</div>
+
+<script>
+'use strict';
+const SB_URL='https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+const params=new URLSearchParams(location.search);
+const propertyId=params.get('property_id')||'';
+const backUrl=params.get('back')||'index.html';
+let currentProp=null;
+let orderItems=[];
+
+(async function init(){
+  if(!propertyId)return;
+  try{
+    const r=await fetch(`${SB_URL}/properties?id=eq.${propertyId}&select=*`,{headers:SB_H});
+    if(r.ok){const d=await r.json();currentProp=d[0]||null;}
+    if(currentProp){
+      document.getElementById('bcProp').textContent=currentProp.name||'—';
+      document.title=`発注商品一覧 - ${currentProp.name} - OPEN EX`;
+      const fAddr=document.getElementById('fAddr');
+      if(fAddr&&currentProp.address){fAddr.value=currentProp.address;chCount(fAddr,'cAddr');}
+    }
+  }catch(e){console.error(e);}
+  await loadOrderItems();
+})();
+
+// ─── 発注商品 DB CRUD ───
+// ※ テーブルが存在しない場合はSupabase管理画面で以下のDDLを実行してください:
+// CREATE TABLE order_items (
+//   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//   property_id uuid REFERENCES properties(id) ON DELETE CASCADE,
+//   name text NOT NULL,
+//   spec text,
+//   qty numeric,
+//   unit text DEFAULT '式',
+//   koji boolean DEFAULT false,
+//   unit_price numeric,
+//   price numeric,
+//   supplier text,
+//   delivery_type text DEFAULT '現場直送',
+//   address text,
+//   note text,
+//   deliv_wish date,
+//   status text DEFAULT '未発注',
+//   sort_order integer DEFAULT 0,
+//   created_at timestamptz DEFAULT now(),
+//   updated_at timestamptz DEFAULT now()
+// );
+
+async function loadOrderItems() {
+  if (!propertyId) { renderTable(); return; }
+  try {
+    const r = await fetch(
+      `${SB_URL}/order_items?property_id=eq.${propertyId}&order=sort_order.asc,created_at.asc`,
+      { headers: SB_H }
+    );
+    if (r.ok) {
+      const data = await r.json();
+      orderItems = data.map(d => ({
+        _id:       d.id,
+        name:      d.name      || '',
+        spec:      d.spec      || '',
+        qty:       d.qty,
+        unit:      d.unit      || '式',
+        koji:      d.koji      || false,
+        unitPrice: d.unit_price,
+        price:     d.price,
+        supplier:  d.supplier  || '',
+        delivType: d.delivery_type || '現場直送',
+        address:   d.address   || '',
+        note:      d.note      || '',
+        delivWish: d.deliv_wish || '',
+        status:    d.status    || '未発注',
+        sortOrder: d.sort_order || 0,
+      }));
+    }
+  } catch(e) { console.error('loadOrderItems:', e); }
+  renderTable();
+}
+
+async function saveOrderItemToDB(item) {
+  const payload = {
+    property_id:   propertyId || null,
+    name:          item.name,
+    spec:          item.spec || null,
+    qty:           item.qty  || null,
+    unit:          item.unit || '式',
+    koji:          item.koji || false,
+    unit_price:    item.unitPrice || null,
+    price:         item.price || null,
+    supplier:      item.supplier || null,
+    delivery_type: item.delivType || '現場直送',
+    address:       item.address || null,
+    note:          item.note || null,
+    deliv_wish:    item.delivWish || null,
+    status:        item.status || '未発注',
+    sort_order:    item.sortOrder || 0,
+    updated_at:    new Date().toISOString(),
+  };
+  if (item._id) {
+    // UPDATE
+    const r = await fetch(`${SB_URL}/order_items?id=eq.${item._id}`, {
+      method: 'PATCH',
+      headers: { ...SB_H, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    return data[0];
+  } else {
+    // INSERT
+    const r = await fetch(`${SB_URL}/order_items`, {
+      method: 'POST',
+      headers: { ...SB_H, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    return data[0];
+  }
+}
+
+async function deleteOrderItemFromDB(id) {
+  if (!id) return;
+  const r = await fetch(`${SB_URL}/order_items?id=eq.${id}`, {
+    method: 'DELETE', headers: SB_H,
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+function sideClick(el){
+  document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
+  if(el.classList.contains('side-btn'))el.classList.add('active');
+}
+
+function renderTable(){
+  const tbody=document.getElementById('orderTbody');
+  const onlyMih=document.getElementById('chkMihatchu')?.checked;
+  const items=onlyMih?orderItems.filter(i=>i.status==='未発注'):orderItems;
+  // ヘッダーボタン
+  // ヘッダーボタンは常時表示のため動的制御不要
+  if(!items.length){
+    tbody.innerHTML=`<tr><td colspan="10"><div class="empty-cell"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>発注商品がありません。左のメニューから追加してください。</div></td></tr>`;
+    return;
+  }
+  const scls=s=>s==='発注中'?'st-hac':s==='納期回答待ち'?'st-nok':s==='完了'?'st-kan':'st-mih';
+  tbody.innerHTML='';
+  items.forEach((item,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="c">${i+1}</td>
+      <td><div class="prod-cell"><div class="prod-thumb"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#ccc;fill:none;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><div>${esc(item.name||'—')}</div></div></td>
+      <td class="c">${item.qty??'—'}</td>
+      <td class="c">${esc(item.unit||'—')}</td>
+      <td class="c"><i class="fa-solid fa-user-gear" style="color:${item.koji?'#00b27d':'#d1d5db'};font-size:14px;"></i></td>
+      <td><span style="font-size:11px;color:#9ca3af;">—</span></td>
+      <td><span class="st-badge ${scls(item.status)}">${esc(item.status||'未発注')}</span></td>
+      <td style="font-size:12px;">${esc(item.supplier||'—')}</td>
+      <td style="font-size:12px;color:#9ca3af;">${item.delivWish||'—'}</td>
+      <td><button class="dots-btn">…</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+let _tab=1;
+function openManual(){
+  _tab=1;switchTab(1);
+  ['fName','fSpec','fQty','fUnit','fUp','fPrice','fSupplier','fNote','fAddr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['cSpec','cNote','cAddr'].forEach(id=>{ const e=document.getElementById(id); if(e) e.textContent='0'; });
+  document.getElementById('fKoji').checked=false;
+  document.getElementById('delivName').textContent='—';
+  if(currentProp?.address){const a=document.getElementById('fAddr');if(a){a.value=currentProp.address;chCount(a,'cAddr');}}
+  document.getElementById('manualModal').classList.add('active');
+}
+function closeManual(){document.getElementById('manualModal').classList.remove('active');document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));}
+function switchTab(n){
+  _tab=n;
+  [1,2,3].forEach(i=>{
+    document.getElementById(`mtab${i}`).classList.toggle('active',i===n);
+    document.getElementById(`mb${i}`).style.display=i===n?'':'none';
+  });
+  if(n===2){document.getElementById('delivName').textContent=document.getElementById('fName')?.value||'—';}
+}
+function chCount(el,cid){const e=document.getElementById(cid);if(e)e.textContent=el.value.length;}
+function calcPrice(){
+  const q=parseFloat(document.getElementById('fQty')?.value)||0;
+  const u=parseFloat(document.getElementById('fUp')?.value)||0;
+  if(q&&u){const p=document.getElementById('fPrice');if(p)p.value=Math.round(q*u);}
+}
+function onBack(){document.getElementById('confirmModal').classList.add('active');}
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('active');}
+function confirmOk(){closeConfirm();closeManual();}
+async function saveItem(){
+  const name=document.getElementById('fName')?.value.trim();
+  if(!name){alert('商品名を入力してください');return;}
+  const item = {
+    name,
+    spec:      document.getElementById('fSpec')?.value.trim()||'',
+    qty:       parseFloat(document.getElementById('fQty')?.value)||null,
+    unit:      document.getElementById('fUnit')?.value.trim()||'',
+    koji:      document.getElementById('fKoji')?.checked||false,
+    unitPrice: parseFloat(document.getElementById('fUp')?.value)||null,
+    price:     parseFloat(document.getElementById('fPrice')?.value)||null,
+    supplier:  document.getElementById('fSupplier')?.value.trim()||'',
+    delivType: document.getElementById('fDelivType')?.value||'現場直送',
+    address:   document.getElementById('fAddr')?.value.trim()||'',
+    note:      document.getElementById('fNote')?.value.trim()||'',
+    delivWish: document.getElementById('fDelivWish')?.value||'',
+    status:    '未発注',
+    sortOrder: orderItems.length,
+  };
+  try {
+    const saved = await saveOrderItemToDB(item);
+    if (saved) item._id = saved.id;
+  } catch(e) {
+    console.error('DB保存エラー:', e);
+    showToast('DB保存に失敗しました。ローカルにのみ追加します。');
+  }
+  orderItems.push(item);
+  renderTable();closeManual();showToast('発注アイテムの作成に成功しました。');
+}
+
+function openBulkList(){
+  const tb=document.getElementById('bulkTbody');tb.innerHTML='';
+  orderItems.forEach((item,i)=>{
+    if(item.status!=='未発注')return;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="c"><input type="checkbox" class="bchk" data-idx="${i}" checked></td>
+      <td class="c">${i+1}</td>
+      <td><div class="prod-thumb" style="margin:0 auto;"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#ccc;fill:none;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div></td>
+      <td>${esc(item.name)}</td><td class="c">${item.qty??'—'}</td><td class="c">${esc(item.unit||'—')}</td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('chkAll').checked=true;
+  document.getElementById('bulkModal').classList.add('active');
+}
+function closeBulk(){document.getElementById('bulkModal').classList.remove('active');}
+function toggleAll(m){document.querySelectorAll('.bchk').forEach(c=>c.checked=m.checked);}
+function openBulkForm(){
+  const c=[...document.querySelectorAll('.bchk:checked')];
+  if(!c.length){alert('商品を選択してください');return;}
+  document.getElementById('bulkModal').classList.remove('active');
+  document.getElementById('bulkFormModal').classList.add('active');
+}
+function closeBulkForm(){document.getElementById('bulkFormModal').classList.remove('active');document.getElementById('bulkModal').classList.add('active');}
+async function saveBulkForm(){
+  const sup=document.getElementById('bfSupplier')?.value.trim();
+  const delivType=document.getElementById('bfDelivType')?.value||'';
+  const checked=[...document.querySelectorAll('.bchk:checked')].map(cb=>parseInt(cb.dataset.idx));
+  checked.forEach(idx=>{
+    if(sup) orderItems[idx].supplier=sup;
+    if(delivType) orderItems[idx].delivType=delivType;
+  });
+  // DB一括更新
+  try {
+    await Promise.all(checked.map(idx=>saveOrderItemToDB(orderItems[idx])));
+  } catch(e) { console.error('DB一括更新エラー:', e); }
+  renderTable();document.getElementById('bulkFormModal').classList.remove('active');showToast('一括編集が完了しました。');
+}
+async function bulkDelete(){
+  const idxs=[...document.querySelectorAll('.bchk:checked')].map(c=>parseInt(c.dataset.idx));
+  if(!idxs.length){alert('商品を選択してください');return;}
+  if(!confirm(`${idxs.length}件を削除しますか？`))return;
+  const s=new Set(idxs);
+  const toDelete = orderItems.filter((_,i)=>s.has(i));
+  try {
+    await Promise.all(toDelete.filter(i=>i._id).map(i=>deleteOrderItemFromDB(i._id)));
+  } catch(e) { console.error('DB削除エラー:', e); }
+  orderItems=orderItems.filter((_,i)=>!s.has(i));
+  renderTable();closeBulk();showToast('削除しました。');
+}
+async function bulkOrder(){
+  const mih=orderItems.filter(i=>i.status==='未発注');
+  if(!mih.length){alert('未発注の商品がありません');return;}
+  if(!confirm(`未発注の${mih.length}件をまとめて発注しますか？`))return;
+  orderItems.forEach(i=>{if(i.status==='未発注')i.status='発注中';});
+  // DB一括更新
+  try {
+    await Promise.all(mih.map(i=>saveOrderItemToDB(i)));
+  } catch(e) { console.error('DB発注更新エラー:', e); }
+  renderTable();showToast('発注しました。');
+}
+
+async function searchPostal(){
+  const code=(document.getElementById('fPostal')?.value||'').replace(/-/g,'');
+  if(code.length<7)return;
+  try{const r=await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${code}`);const d=await r.json();
+    if(d.results){const a=d.results[0];const addr=a.address1+a.address2+a.address3;const el=document.getElementById('fAddr');if(el){el.value=addr;chCount(el,'cAddr');}}}catch(e){}
+}
+function showPropInfo(){if(!currentProp)return;alert(`物件名: ${currentProp.name}\n住所: ${currentProp.address||'—'}\n状況: ${currentProp.status||'—'}`);}
+let _tt=null;
+function showToast(msg){document.getElementById('toastMsg').textContent=msg;const t=document.getElementById('toast');t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3500);}
+function hideToast(){document.getElementById('toast').classList.remove('show');}
+function navClick(key){sessionStorage.setItem('openex_nav_target',key);window.location.href='index.html';}
+function goBack(){sessionStorage.setItem('openex_nav_target','hacchu');window.location.href=backUrl;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ─── OCRモーダル ───
+let _ocrFiles = [];
+let _ocrResults = [];
+
+function openOcrModal() {
+  _ocrFiles = [];
+  _ocrResults = [];
+  updateOcrUI();
+  showOcrScreen(1);
+  document.getElementById('ocrModal').classList.add('active');
+}
+
+function closeOcrModal() {
+  document.getElementById('ocrModal').classList.remove('active');
+  _ocrFiles = [];
+  _ocrResults = [];
+  document.getElementById('ocrFileInput').value = '';
+  document.querySelectorAll('.side-btn').forEach(b => b.classList.remove('active'));
+}
+
+function showOcrScreen(n) {
+  document.getElementById('ocrScreen1').style.display = n === 1 ? '' : 'none';
+  const s2 = document.getElementById('ocrScreen2');
+  s2.style.display = n === 2 ? 'flex' : 'none';
+  if (n === 2) s2.style.flexDirection = 'column';
+}
+
+function ocrFileSelected(input) {
+  [...input.files].forEach(f => {
+    if (_ocrFiles.length >= 50) return;
+    if (!_ocrFiles.find(x => x.name === f.name && x.size === f.size)) _ocrFiles.push(f);
+  });
+  input.value = '';
+  updateOcrUI();
+}
+
+function ocrDragOver(e) {
+  e.preventDefault();
+  const z = document.getElementById('ocrDropZone');
+  z.style.borderColor = '#00b27d';
+  z.style.background = '#f0fdf9';
+}
+
+function ocrDragLeave(e) {
+  const z = document.getElementById('ocrDropZone');
+  z.style.borderColor = '#d1d5db';
+  z.style.background = '';
+}
+
+function ocrDrop(e) {
+  e.preventDefault();
+  ocrDragLeave(e);
+  const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
+  if (!files.length) { alert('PDFファイルのみアップロードできます'); return; }
+  files.forEach(f => {
+    if (_ocrFiles.length >= 50) return;
+    if (!_ocrFiles.find(x => x.name === f.name && x.size === f.size)) _ocrFiles.push(f);
+  });
+  updateOcrUI();
+}
+
+function updateOcrUI() {
+  const list  = document.getElementById('ocrFileList');
+  const count = document.getElementById('ocrCount');
+  if (count) count.textContent = _ocrFiles.length;
+  if (!_ocrFiles.length) { list.style.display = 'none'; list.innerHTML = ''; return; }
+  list.style.display = '';
+  list.innerHTML = _ocrFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f9fafb;border-radius:5px;margin-bottom:5px;font-size:12px;">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#e53935;fill:none;stroke-width:1.8;flex-shrink:0;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#374151;">${esc(f.name)}</span>
+      <span style="color:#9ca3af;flex-shrink:0;">${(f.size/1024/1024).toFixed(1)}MB</span>
+      <button onclick="removeOcrFile(${i})" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px;line-height:1;padding:0 2px;">×</button>
+    </div>`).join('');
+}
+
+function removeOcrFile(idx) {
+  _ocrFiles.splice(idx, 1);
+  updateOcrUI();
+}
+
+function ocrUpload() {
+  if (!_ocrFiles.length) { alert('ファイルを選択してください'); return; }
+  // 将来: 実際のOCR API呼び出し
+  // デモ: ダミーデータを生成して結果画面へ
+  _ocrResults = [];
+  const demoNames = ['整経','砂利','砂利','鳥','鳥','砂利','芝','砂利','砂利','砂利'];
+  const demoCats  = ['etc','etc','etc','建世','建世','etc','etc','etc','etc','etc'];
+  demoNames.forEach((n, i) => {
+    const lp = Math.floor(Math.random()*5+1)*10000;
+    const up = Math.floor(lp * (0.7 + Math.random()*0.2));
+    _ocrResults.push({ id: i, category: demoCats[i]||'etc', name: `0${i<3?4:7}${demoCats[i]==='建世'?'建世':'その他一般'} ${n}`, qty: 1, unit: '式', listPrice: lp, unitPrice: up });
+  });
+  renderOcrResults();
+  showOcrScreen(2);
+}
+
+function renderOcrResults() {
+  const tbody  = document.getElementById('ocrResultTbody');
+  const rcEl   = document.getElementById('ocrResultCount');
+  const acEl   = document.getElementById('ocrApplyCount');
+  const fBadge = document.getElementById('ocrFileBadge');
+  if (rcEl)   rcEl.textContent   = _ocrResults.length;
+  if (acEl)   acEl.textContent   = _ocrResults.length;
+  if (fBadge) fBadge.textContent = `${_ocrFiles.length}件`;
+
+  const inStyle = 'border:1px solid #d1d5db;border-radius:4px;padding:5px 7px;font-size:13px;font-family:inherit;outline:none;width:100%;';
+  const inFocus = "this.style.borderColor='#00b27d'";
+  const inBlur  = "this.style.borderColor='#d1d5db'";
+
+  tbody.innerHTML = _ocrResults.map((r, i) => {
+    const kinaku = (r.listPrice != null && r.qty != null) ? Number(r.listPrice * r.qty).toLocaleString('ja-JP') : '—';
+    return `
+    <tr style="border-bottom:1px dashed #f0f1f3;">
+      <td style="padding:8px 12px;font-size:13px;color:#6b7280;white-space:nowrap;">${i + 1}</td>
+      <td style="padding:8px 12px;">
+        <input style="${inStyle}" value="${esc(r.name)}"
+          onfocus="${inFocus}" onblur="${inBlur};ocrUpdate(${i},'name',this.value)">
+      </td>
+      <td style="padding:8px 12px;">
+        <input type="number" style="${inStyle}text-align:right;width:70px;" value="${r.qty ?? ''}"
+          onfocus="${inFocus}" onblur="${inBlur};ocrUpdateNum(${i},'qty',this.value);ocrRefreshKinaku(${i})">
+      </td>
+      <td style="padding:8px 12px;">
+        <input style="${inStyle}width:54px;" value="${esc(r.unit)}"
+          onfocus="${inFocus}" onblur="${inBlur};ocrUpdate(${i},'unit',this.value)">
+      </td>
+      <td style="padding:8px 12px;">
+        <input type="number" style="${inStyle}text-align:right;" value="${r.listPrice ?? ''}"
+          onfocus="${inFocus}" onblur="${inBlur};ocrUpdateNum(${i},'listPrice',this.value);ocrRefreshKinaku(${i})">
+      </td>
+      <td style="padding:8px 12px;">
+        <input type="number" style="${inStyle}text-align:right;" value="${r.unitPrice ?? ''}"
+          onfocus="${inFocus}" onblur="${inBlur};ocrUpdateNum(${i},'unitPrice',this.value)">
+      </td>
+      <td style="padding:8px 12px;text-align:right;font-size:13px;color:#374151;white-space:nowrap;" id="ocrKinaku${i}">
+        ${kinaku}
+      </td>
+      <td style="padding:8px 12px;text-align:center;">
+        <button onclick="ocrDeleteRow(${i})" style="background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;" title="削除">
+          <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#ef4444;fill:none;stroke-width:2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// OCR結果の値更新ヘルパー
+function ocrUpdate(idx, field, val) {
+  if (_ocrResults[idx]) _ocrResults[idx][field] = val;
+}
+function ocrUpdateNum(idx, field, val) {
+  if (_ocrResults[idx]) _ocrResults[idx][field] = val !== '' ? parseFloat(val) : null;
+}
+function ocrRefreshKinaku(idx) {
+  const r = _ocrResults[idx];
+  if (!r) return;
+  const el = document.getElementById(`ocrKinaku${idx}`);
+  if (!el) return;
+  el.textContent = (r.listPrice != null && r.qty != null)
+    ? Number(r.listPrice * r.qty).toLocaleString('ja-JP') : '—';
+}
+
+function ocrDeleteRow(idx) {
+  _ocrResults.splice(idx, 1);
+  renderOcrResults();
+}
+
+async function ocrApply() {
+  if (!_ocrResults.length) { alert('反映する項目がありません'); return; }
+  const newItems = _ocrResults.map((r, i) => ({
+    name: r.name, spec: '', qty: r.qty, unit: r.unit,
+    koji: false, unitPrice: r.unitPrice||null, price: null,
+    supplier: '', delivWish: '', status: '未発注',
+    sortOrder: orderItems.length + i,
+  }));
+  // DB保存
+  try {
+    const saved = await Promise.all(newItems.map(item => saveOrderItemToDB(item)));
+    saved.forEach((s, i) => { if (s) newItems[i]._id = s.id; });
+  } catch(e) { console.error('DB保存エラー:', e); }
+  orderItems.push(...newItems);
+  renderTable();
+  closeOcrModal();
+  showToast(`${_ocrResults.length}件を発注リストに反映しました。`);
+}
+</script>
+</body>
+</html>

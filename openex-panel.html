@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPEN EX パネル</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green: #00b27d;
+    --green-dark: #009668;
+    --green-light: #e6faf4;
+    --border: #e5e7eb;
+    --text: #111827;
+    --sub: #6b7280;
+    --bg: #f9fafb;
+    --red: #ef4444;
+  }
+  body {
+    font-family: 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ヘッダー */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green);
+    flex: 1;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #d1d5db;
+    flex-shrink: 0;
+  }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.err { background: var(--red); }
+  .btn-sm {
+    height: 26px; padding: 0 10px;
+    border-radius: 4px; border: 1px solid var(--border);
+    font-size: 11px; font-family: inherit;
+    cursor: pointer; background: #fff; color: var(--text);
+    white-space: nowrap;
+  }
+  .btn-sm:hover { background: var(--bg); }
+  .btn-sm.primary {
+    background: var(--green); color: #fff; border-color: var(--green);
+  }
+  .btn-sm.primary:hover { background: var(--green-dark); }
+  .btn-sm.danger { border-color: #fca5a5; color: var(--red); }
+  .btn-sm.danger:hover { background: #fef2f2; }
+
+  /* テーブルエリア */
+  .table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 480px;
+  }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 5px 6px;
+    text-align: left;
+    font-size: 11px;
+    color: var(--sub);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: #f0fdf9; }
+  tbody td {
+    padding: 4px 6px;
+    vertical-align: middle;
+  }
+  /* 階層行スタイル */
+  tr.row-cat { background: var(--green-light) !important; }
+  tr.row-cat td { border-left: 3px solid var(--green); }
+  tr.row-cat:hover { background: #d1f5e8 !important; }
+  tr.row-subcat { background: #f3f4f6 !important; }
+  tr.row-subcat td { border-left: 3px solid #9ca3af; padding-left: 14px; }
+  tr.row-subcat:hover { background: #e5e7eb !important; }
+  .cat-name {
+    font-weight: 700; font-size: 11px;
+    color: var(--green); letter-spacing: 0.03em;
+  }
+  .subcat-name {
+    font-weight: 600; font-size: 11px;
+    color: #374151;
+  }
+
+  .td-name { min-width: 120px; max-width: 160px; }
+  .td-spec { min-width: 80px; max-width: 120px; }
+  .td-qty  { width: 60px; text-align: right; }
+  .td-unit { width: 40px; text-align: center; }
+  .td-price { width: 80px; text-align: right; }
+  .td-del  { width: 28px; text-align: center; }
+  .cell-input {
+    width: 100%; border: none; background: transparent;
+    font-size: 12px; font-family: inherit; color: var(--text);
+    outline: none; padding: 2px 3px;
+  }
+  .cell-input:focus {
+    background: #fff;
+    border: 1px solid var(--green);
+    border-radius: 3px;
+  }
+  .cell-input.right { text-align: right; }
+  .del-btn {
+    background: none; border: none; cursor: pointer;
+    color: #d1d5db; font-size: 14px; line-height: 1;
+    padding: 2px;
+  }
+  .del-btn:hover { color: var(--red); }
+  .master-badge {
+    display: inline-block;
+    font-size: 9px; padding: 1px 4px;
+    background: var(--green-light); color: var(--green);
+    border-radius: 3px; margin-left: 4px; vertical-align: middle;
+  }
+  .empty-msg {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--sub);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+
+  /* フッター */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+  .row-count { font-size: 11px; color: var(--sub); }
+  .btn-add-row {
+    font-size: 11px; color: var(--green);
+    background: none; border: none; cursor: pointer;
+    padding: 0; text-decoration: underline;
+  }
+  .btn-send {
+    height: 30px; padding: 0 16px;
+    background: var(--green); color: #fff;
+    border: none; border-radius: 5px;
+    font-size: 12px; font-family: inherit;
+    cursor: pointer; font-weight: 600;
+  }
+  .btn-send:hover { background: var(--green-dark); }
+  .btn-send:disabled { background: #d1d5db; cursor: not-allowed; }
+
+  /* モーダル */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 8px;
+    width: 360px;
+    max-width: 95vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    overflow: hidden;
+  }
+  .modal-head {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px; font-weight: 600;
+  }
+  .modal-body { padding: 14px 16px; }
+  .modal-foot {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .tab {
+    padding: 8px 14px;
+    font-size: 12px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--sub);
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 600; }
+  .form-row { margin-bottom: 10px; }
+  .form-label { font-size: 11px; color: var(--sub); margin-bottom: 4px; }
+  .form-input, .form-select {
+    width: 100%; height: 32px; padding: 0 8px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-size: 12px; font-family: inherit;
+    outline: none;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--green); }
+  .est-list {
+    max-height: 180px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 4px;
+  }
+  .est-item {
+    padding: 8px 10px; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .est-item:last-child { border-bottom: none; }
+  .est-item:hover { background: var(--green-light); }
+  .est-item.selected { background: var(--green-light); font-weight: 600; }
+  .est-item-name { color: var(--text); }
+  .est-item-sub { font-size: 10px; color: var(--sub); margin-top: 2px; }
+  .search-input {
+    width: 100%; height: 28px; padding: 0 8px;
+    border: 1px solid var(--border); border-radius: 4px;
+    font-size: 12px; font-family: inherit;
+    outline: none; margin-bottom: 6px;
+  }
+  .search-input:focus { border-color: var(--green); }
+  .msg { font-size: 11px; padding: 4px 0; }
+  .msg.ok { color: var(--green); }
+  .msg.err { color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <span class="status-dot" id="statusDot"></span>
+  <span class="header-title">OPEN EX パネル</span>
+  <button class="btn-sm" onclick="addEmptyRow()" title="行を追加">＋行</button>
+  <button class="btn-sm danger" onclick="clearRows()">クリア</button>
+</div>
+
+<!-- テーブル -->
+<div class="table-wrap">
+  <table id="mainTable">
+    <thead>
+      <tr>
+        <th class="td-name">名称</th>
+        <th class="td-spec">仕様</th>
+        <th class="td-qty">数量</th>
+        <th class="td-unit">単位</th>
+        <th class="td-price">単価</th>
+        <th class="td-del"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr>
+        <td colspan="6">
+          <div class="empty-msg">
+            RIKCADで要素を選択すると<br>ここに表示されます
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- フッター -->
+<div class="footer">
+  <span class="row-count" id="rowCount">0 行</span>
+  <button class="btn-send" id="btnSend" onclick="openSendModal()" disabled>見積送信</button>
+</div>
+
+<!-- 見積送信モーダル -->
+<div class="modal-overlay" id="sendModal">
+  <div class="modal">
+    <div class="modal-head">見積送信</div>
+    <div class="modal-body">
+      <div class="tab-bar">
+        <div class="tab active" id="tabExist" onclick="switchTab('exist')">既存の見積に追加</div>
+        <div class="tab" id="tabNew" onclick="switchTab('new')">新規見積を作成</div>
+      </div>
+
+      <!-- 既存見積タブ -->
+      <div id="panelExist">
+        <input class="search-input" id="estSearch" placeholder="物件名・見積名で絞り込み" oninput="filterEstimates()">
+        <div class="est-list" id="estList">
+          <div style="padding:16px;text-align:center;color:var(--sub);font-size:12px;">読み込み中...</div>
+        </div>
+      </div>
+
+      <!-- 新規見積タブ -->
+      <div id="panelNew" style="display:none;">
+        <div class="form-row">
+          <div class="form-label">物件</div>
+          <select class="form-select" id="newPropSel">
+            <option value="">読み込み中...</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">見積名</div>
+          <input class="form-input" id="newPlanName" placeholder="例：外構工事見積">
+        </div>
+      </div>
+
+      <div class="msg" id="sendMsg"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" onclick="closeSendModal()">キャンセル</button>
+      <button class="btn-sm primary" id="btnConfirmSend" onclick="confirmSend()">送信</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Supabase設定 ───────────────────────────────
+const SB  = 'https://ejxfofwavfypznjdwlpd.supabase.co/rest/v1';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const H   = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' };
+
+async function sbFetch(path, opts = {}) {
+  const r = await fetch(SB + path, { headers: H, ...opts });
+  if (!r.ok) throw new Error(r.status + ': ' + await r.text());
+  return r.json();
+}
+
+// ─── 状態 ────────────────────────────────────────
+let _rows = [];           // { rowType, name, spec, qty, unit, unitPrice, cost, fromMaster, masterId }
+let _masterRows = [];     // row_type=row のみ（マスタ検索用）
+let _masterMap = {};      // id → row（全row_type・階層遡り用）
+let _addedMasterIds = new Set(); // パネルに追加済みのマスタ行ID
+let _estimates = [];
+let _properties = [];
+let _selectedEstId = null;
+let _activeTab = 'exist';
+
+// ─── 起動処理 ─────────────────────────────────────
+(async () => {
+  try {
+    await loadMasterRows();
+    setStatus(true);
+  } catch(e) {
+    setStatus(false);
+    console.error('Supabase接続失敗:', e);
+  }
+})();
+
+function setStatus(ok) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + (ok ? 'ok' : 'err');
+}
+
+// ─── マスタ行をキャッシュ（全row_type取得） ─────────
+async function loadMasterRows() {
+  const PAGE = 1000;
+  let all = [], offset = 0;
+  while (true) {
+    const page = await sbFetch(
+      `/master_rows?select=id,parent_id,row_type,name,spec,qty,unit,list_price,rate,unit_price,cost,rikcad_names&order=sort_order.asc&limit=${PAGE}&offset=${offset}`
+    );
+    all = all.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  // 全行をマップに登録（階層遡り用）
+  _masterMap = {};
+  all.forEach(r => { _masterMap[r.id] = r; });
+  // 検索対象はrow_type=rowのみ
+  _masterRows = all.filter(r => r.row_type === 'row');
+}
+
+// 祖先行（cat→subcat）を順番に返す
+function getAncestors(row) {
+  const ancestors = [];
+  let current = row;
+  while (current?.parent_id) {
+    const parent = _masterMap[current.parent_id];
+    if (!parent) break;
+    ancestors.unshift(parent);
+    current = parent;
+  }
+  return ancestors;
+}
+
+// ─── C++ブリッジ（ArchiCADアドオンから呼ばれる） ──
+window.receiveElementData = function(data) {
+  const name = data.name || '';
+  const match = searchMaster(name);
+  if (match) {
+    // 祖先（cat/subcat）を未追加なら先に追加
+    const ancestors = getAncestors(match);
+    ancestors.forEach(anc => {
+      if (!_addedMasterIds.has(anc.id)) {
+        _rows.push({
+          rowType: anc.row_type,
+          name: anc.name,
+          spec: '', qty: '', unit: '', unitPrice: '', cost: '',
+          fromMaster: true, masterId: anc.id
+        });
+        _addedMasterIds.add(anc.id);
+      }
+    });
+    // マッチした行を追加
+    if (!_addedMasterIds.has(match.id)) {
+      _rows.push({
+        rowType:   'row',
+        name:      match.name,
+        spec:      match.spec      || '',
+        qty:       match.qty       ?? '',
+        unit:      match.unit      || '式',
+        unitPrice: match.unit_price ?? match.list_price ?? '',
+        cost:      match.cost      ?? '',
+        fromMaster: true, masterId: match.id
+      });
+      _addedMasterIds.add(match.id);
+    }
+  } else {
+    _rows.push({ rowType: 'row', name, spec: '', qty: '', unit: '式', unitPrice: '', cost: '', fromMaster: false, masterId: null });
+  }
+  renderTable();
+};
+
+// ─── マスタ検索 ──────────────────────────────────
+function normalize(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/　/g, ' ')
+    .toLowerCase()
+    .trim();
+}
+
+function searchMaster(materialName) {
+  const normName = normalize(materialName);
+  if (!normName) return null;
+  for (const row of _masterRows) {
+    let rikcadNames = [];
+    try {
+      rikcadNames = Array.isArray(row.rikcad_names)
+        ? row.rikcad_names
+        : JSON.parse(row.rikcad_names || '[]');
+    } catch { continue; }
+    if (rikcadNames.some(rn => { const n = normalize(rn); return n && normName.includes(n); })) return row;
+  }
+  return null;
+}
+
+// ─── テーブル操作 ─────────────────────────────────
+function addEmptyRow() {
+  _rows.push({ rowType: 'row', name: '', spec: '', qty: '', unit: '式', unitPrice: '', cost: '', fromMaster: false, masterId: null });
+  renderTable();
+}
+
+function deleteRow(i) {
+  const removed = _rows.splice(i, 1)[0];
+  if (removed.masterId) _addedMasterIds.delete(removed.masterId);
+  renderTable();
+}
+
+function clearRows() {
+  if (_rows.length === 0) return;
+  if (!confirm('テーブルをクリアしますか？')) return;
+  _rows = [];
+  _addedMasterIds.clear();
+  renderTable();
+}
+
+function getRowValues(i) {
+  const tr = document.getElementById('tbody').children[i];
+  if (!tr) return _rows[i];
+  return {
+    ..._rows[i],
+    name:      tr.querySelector('.f-name')?.value  ?? _rows[i].name,
+    spec:      tr.querySelector('.f-spec')?.value  ?? _rows[i].spec,
+    qty:       tr.querySelector('.f-qty')?.value   ?? _rows[i].qty,
+    unit:      tr.querySelector('.f-unit')?.value  ?? _rows[i].unit,
+    unitPrice: tr.querySelector('.f-price')?.value ?? _rows[i].unitPrice,
+  };
+}
+
+function collectRows() {
+  return _rows.map((_, i) => getRowValues(i));
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  if (_rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-msg">RIKCADで要素を選択すると<br>ここに表示されます</div></td></tr>';
+    document.getElementById('rowCount').textContent = '0 行';
+    document.getElementById('btnSend').disabled = true;
+    return;
+  }
+
+  tbody.innerHTML = _rows.map((r, i) => {
+    if (r.rowType === 'cat') return `
+      <tr class="row-cat">
+        <td colspan="5"><span class="cat-name">${esc(r.name)}</span></td>
+        <td class="td-del"><button class="del-btn" onclick="deleteRow(${i})">×</button></td>
+      </tr>`;
+    if (r.rowType === 'subcat') return `
+      <tr class="row-subcat">
+        <td colspan="5"><span class="subcat-name">${esc(r.name)}</span></td>
+        <td class="td-del"><button class="del-btn" onclick="deleteRow(${i})">×</button></td>
+      </tr>`;
+    return `
+      <tr>
+        <td class="td-name">
+          <input class="cell-input f-name" value="${esc(r.name)}" placeholder="名称">
+          ${r.fromMaster ? '<span class="master-badge">マスタ</span>' : ''}
+        </td>
+        <td class="td-spec"><input class="cell-input f-spec" value="${esc(r.spec)}" placeholder="仕様"></td>
+        <td class="td-qty"><input class="cell-input f-qty right" value="${esc(r.qty)}" placeholder="0"></td>
+        <td class="td-unit"><input class="cell-input f-unit" value="${esc(r.unit)}" placeholder="式"></td>
+        <td class="td-price"><input class="cell-input f-price right" value="${esc(r.unitPrice)}" placeholder="0"></td>
+        <td class="td-del"><button class="del-btn" onclick="deleteRow(${i})">×</button></td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('rowCount').textContent = _rows.length + ' 行';
+  document.getElementById('btnSend').disabled = false;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+// ─── 見積送信モーダル ─────────────────────────────
+async function openSendModal() {
+  _selectedEstId = null;
+  document.getElementById('sendMsg').textContent = '';
+  document.getElementById('sendModal').classList.add('open');
+  switchTab('exist');
+  await Promise.all([loadEstimates(), loadProperties()]);
+}
+
+function closeSendModal() {
+  document.getElementById('sendModal').classList.remove('open');
+}
+
+function switchTab(tab) {
+  _activeTab = tab;
+  document.getElementById('tabExist').className = 'tab' + (tab === 'exist' ? ' active' : '');
+  document.getElementById('tabNew').className   = 'tab' + (tab === 'new'   ? ' active' : '');
+  document.getElementById('panelExist').style.display = tab === 'exist' ? '' : 'none';
+  document.getElementById('panelNew').style.display   = tab === 'new'   ? '' : 'none';
+}
+
+async function loadEstimates() {
+  const el = document.getElementById('estList');
+  el.innerHTML = '<div style="padding:12px;text-align:center;color:var(--sub);">読み込み中...</div>';
+  try {
+    const PAGE = 1000;
+    let all = [], offset = 0;
+    while (true) {
+      const page = await sbFetch(
+        `/estimates?select=id,plan_name,created_at,properties(name)&order=created_at.desc&limit=${PAGE}&offset=${offset}`
+      );
+      all = all.concat(page);
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
+    _estimates = all;
+    renderEstimateList(_estimates);
+  } catch(e) {
+    el.innerHTML = '<div style="padding:12px;color:var(--red);">読み込み失敗</div>';
+  }
+}
+
+function renderEstimateList(list) {
+  const el = document.getElementById('estList');
+  if (!list.length) {
+    el.innerHTML = '<div style="padding:12px;text-align:center;color:var(--sub);">見積がありません</div>';
+    return;
+  }
+  el.innerHTML = list.map(e => {
+    const propName = e.properties?.name || '—';
+    const date = e.created_at ? e.created_at.slice(0, 10) : '';
+    return `
+      <div class="est-item${_selectedEstId === e.id ? ' selected' : ''}" onclick="selectEstimate('${e.id}', this)">
+        <div class="est-item-name">${esc(propName)} ／ ${esc(e.plan_name || '無題')}</div>
+        <div class="est-item-sub">${date}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterEstimates() {
+  const kw = normalize(document.getElementById('estSearch').value);
+  const filtered = kw
+    ? _estimates.filter(e =>
+        normalize(e.properties?.name || '').includes(kw) ||
+        normalize(e.plan_name || '').includes(kw)
+      )
+    : _estimates;
+  renderEstimateList(filtered);
+}
+
+function selectEstimate(id, el) {
+  _selectedEstId = id;
+  document.querySelectorAll('.est-item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function loadProperties() {
+  const sel = document.getElementById('newPropSel');
+  try {
+    const PAGE = 1000;
+    let all = [], offset = 0;
+    while (true) {
+      const page = await sbFetch(`/properties?select=id,name&order=name.asc&limit=${PAGE}&offset=${offset}`);
+      all = all.concat(page);
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
+    _properties = all;
+    sel.innerHTML = '<option value="">物件を選択...</option>' +
+      all.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="">読み込み失敗</option>';
+  }
+}
+
+async function confirmSend() {
+  const msgEl = document.getElementById('sendMsg');
+  const btn = document.getElementById('btnConfirmSend');
+  msgEl.textContent = '';
+  msgEl.className = 'msg';
+
+  const currentRows = collectRows();
+  const validRows = currentRows.filter(r => r.name.trim());
+  if (!validRows.length) {
+    msgEl.textContent = '名称が入力されていません';
+    msgEl.className = 'msg err';
+    return;
+  }
+
+  let estimateId = null;
+
+  try {
+    btn.disabled = true;
+    btn.textContent = '送信中...';
+
+    if (_activeTab === 'exist') {
+      // 既存見積に追加
+      if (!_selectedEstId) {
+        msgEl.textContent = '見積を選択してください';
+        msgEl.className = 'msg err';
+        return;
+      }
+      estimateId = _selectedEstId;
+
+      // 現在の最大sort_orderを取得
+      const existRows = await sbFetch(`/estimate_rows?estimate_id=eq.${estimateId}&select=sort_order&order=sort_order.desc&limit=1`);
+      const maxSort = existRows[0]?.sort_order ?? 0;
+      await insertRows(estimateId, validRows, maxSort + 1);
+
+    } else {
+      // 新規見積を作成
+      const propId = document.getElementById('newPropSel').value;
+      const planName = document.getElementById('newPlanName').value.trim() || '無題';
+      if (!propId) {
+        msgEl.textContent = '物件を選択してください';
+        msgEl.className = 'msg err';
+        return;
+      }
+
+      const created = await sbFetch('/estimates', {
+        method: 'POST',
+        headers: { ...H, 'Prefer': 'return=representation' },
+        body: JSON.stringify({ property_id: propId, plan_name: planName, status: 'sakusei' })
+      });
+      estimateId = created[0]?.id;
+      if (!estimateId) throw new Error('見積ID取得失敗');
+      await insertRows(estimateId, validRows, 1);
+    }
+
+    msgEl.textContent = `${validRows.length} 行を送信しました`;
+    msgEl.className = 'msg ok';
+    setTimeout(() => closeSendModal(), 1200);
+
+  } catch(e) {
+    msgEl.textContent = '送信失敗: ' + e.message;
+    msgEl.className = 'msg err';
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '送信';
+  }
+}
+
+async function insertRows(estimateId, rows, startSort) {
+  const payload = rows.map((r, i) => ({
+    estimate_id: estimateId,
+    row_type:    r.rowType || 'row',
+    name:        r.name,
+    spec:        r.spec     || null,
+    qty:         r.qty  !== '' && r.qty  != null ? Number(r.qty)       : null,
+    unit:        r.unit     || null,
+    unit_price:  r.unitPrice !== '' && r.unitPrice != null ? Number(r.unitPrice) : null,
+    cost:        r.cost !== '' && r.cost != null ? Number(r.cost) : null,
+    sort_order:  startSort + i,
+  }));
+
+  await sbFetch('/estimate_rows', {
+    method: 'POST',
+    headers: { ...H, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(payload)
+  });
+}
+
+// ─── デモ用：テスト取得ボタン（C++接続前の確認用） ──
+// 本番ではこのブロックを削除し、C++からreceiveElementData()を呼ぶ
+function demoReceive() {
+  window.receiveElementData({ name: 'マイスタイルF型', params: { IRO: 'ブラック', H: '1200' } });
+}
+</script>
+
+<!-- デモ用テストボタン（C++接続後は削除） -->
+<div style="padding:6px 10px;border-top:1px solid #e5e7eb;background:#fafafa;font-size:11px;color:#9ca3af;display:flex;align-items:center;gap:8px;">
+  <span>デモ:</span>
+  <button class="btn-sm" onclick="demoReceive()">テスト取得</button>
+  <button class="btn-sm" onclick="window.receiveElementData({name:'ブロック塀 CB100',params:{}})">別要素</button>
+</div>
+
+</body>
+</html>

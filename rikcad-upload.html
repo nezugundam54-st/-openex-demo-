@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>RIKCAD → OPEN EX アップロード</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Meiryo', sans-serif; background: #f0f2f5; color: #333; }
+
+  .header {
+    background: #1a3a5c;
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header h1 { font-size: 16px; font-weight: bold; }
+  .header .sub { font-size: 12px; opacity: 0.7; }
+
+  .container { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+
+  .card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+
+  /* ファイル選択 */
+  .drop-zone {
+    border: 2px dashed #aab;
+    border-radius: 6px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: #778;
+    font-size: 14px;
+  }
+  .drop-zone:hover, .drop-zone.dragover { background: #f0f4ff; border-color: #4a7cc7; }
+  .drop-zone .icon { font-size: 32px; margin-bottom: 8px; }
+  .drop-zone input { display: none; }
+
+  /* 物件選択 */
+  .row { display: flex; gap: 12px; align-items: center; }
+  select, input[type=text] {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  /* プレビューテーブル */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    background: #f5f7fa;
+    border-bottom: 2px solid #ddd;
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+    color: #555;
+  }
+  td {
+    border-bottom: 1px solid #eee;
+    padding: 7px 10px;
+    vertical-align: top;
+  }
+  tr:hover td { background: #fafbff; }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  .badge-obj  { background: #e3f0ff; color: #2563eb; }
+  .badge-wall { background: #fef3c7; color: #d97706; }
+  .badge-slab { background: #d1fae5; color: #059669; }
+  .badge-mesh { background: #ede9fe; color: #7c3aed; }
+  .badge-lamp { background: #fee2e2; color: #dc2626; }
+  .badge-win  { background: #f0fdf4; color: #16a34a; }
+  .badge-other{ background: #f3f4f6; color: #6b7280; }
+  .params-cell { max-width: 280px; color: #666; font-size: 11px; word-break: break-all; }
+
+  /* ボタン */
+  .btn {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+  }
+  .btn-primary { background: #1a3a5c; color: white; }
+  .btn-primary:hover { background: #2a5080; }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-secondary { background: #eee; color: #444; }
+  .btn-secondary:hover { background: #ddd; }
+
+  /* ステータス */
+  .status {
+    padding: 10px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+  .status.info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; display: block; }
+  .status.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; display: block; }
+  .status.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; display: block; }
+
+  .count-badge {
+    background: #1a3a5c;
+    color: white;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 12px;
+    margin-left: 6px;
+  }
+
+  .footer-row { display: flex; gap: 12px; align-items: center; justify-content: flex-end; margin-top: 8px; }
+  .item-count { font-size: 13px; color: #666; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="h1">RIKCAD → OPEN EX アップロード</div>
+    <div class="sub">数量拾い出しデータを物件フォルダに保存します</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ① ファイル選択 -->
+  <div class="card">
+    <div class="card-title">① JSONファイルを選択</div>
+    <div class="drop-zone" id="dropZone">
+      <div class="icon">📂</div>
+      <div>クリックまたはドラッグ＆ドロップ</div>
+      <div style="font-size:12px; margin-top:4px;">RIKCADから出力した .json ファイル</div>
+      <input type="file" id="fileInput" accept=".json">
+    </div>
+    <div class="status" id="fileStatus"></div>
+  </div>
+
+  <!-- ② 物件選択 -->
+  <div class="card">
+    <div class="card-title">② 物件フォルダを選択</div>
+    <div class="row">
+      <select id="propertySelect" disabled>
+        <option value="">読み込み中...</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ③ プレビュー -->
+  <div class="card" id="previewCard" style="display:none">
+    <div class="card-title">
+      ③ 内容確認
+      <span class="count-badge" id="countBadge">0件</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>要素</th>
+            <th>商品名</th>
+            <th>仕様・パラメータ</th>
+            <th style="text-align:right">数量</th>
+          </tr>
+        </thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+    <div class="footer-row">
+      <span class="item-count" id="itemCount"></span>
+      <button class="btn btn-secondary" onclick="clearAll()">クリア</button>
+      <button class="btn btn-primary" id="uploadBtn" onclick="doUpload()" disabled>
+        📤 アップロード
+      </button>
+    </div>
+    <div class="status" id="uploadStatus"></div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8767';
+
+// ── 物件一覧を取得 ────────────────────────────────────
+async function loadProperties() {
+  try {
+    const r = await fetch(`${API}/api/rikcad/properties`);
+    const d = await r.json();
+    const sel = document.getElementById('propertySelect');
+    sel.innerHTML = '<option value="">-- 物件を選択 --</option>';
+    (d.properties || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name || `ID:${p.id}`;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+    sel.addEventListener('change', checkReady);
+  } catch(e) {
+    const sel = document.getElementById('propertySelect');
+    sel.innerHTML = '<option value="">⚠ 物件取得失敗（サーバー起動確認）</option>';
+  }
+}
+
+// ── ドロップゾーン ─────────────────────────────────────
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+let parsedItems = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) readFile(fileInput.files[0]);
+});
+
+function readFile(file) {
+  const st = document.getElementById('fileStatus');
+  if (!file.name.endsWith('.json')) {
+    showStatus(st, 'error', 'JSONファイルを選択してください');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const items = Array.isArray(data) ? data : (data.items || []);
+      if (!items.length) { showStatus(st, 'error', 'データが空です'); return; }
+      parsedItems = items;
+      showStatus(st, 'info', `✓ ${file.name} を読み込みました（${items.length}件）`);
+      renderPreview(items);
+      checkReady();
+    } catch(err) {
+      showStatus(st, 'error', 'JSONの解析に失敗しました: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── typeラベル ────────────────────────────────────────
+const TYPE_LABEL = {
+  1: ['オブジェクト', 'obj'],
+  3: ['ランプ',       'lamp'],
+  4: ['壁',           'wall'],
+  5: ['スラブ',       'slab'],
+  6: ['メッシュ',     'mesh'],
+  7: ['屋根',         'wall'],
+  8: ['窓',           'win'],
+};
+
+function typeInfo(t) {
+  return TYPE_LABEL[t] || ['その他', 'other'];
+}
+
+function suuryoDisplay(item) {
+  const t = item.type;
+  const params = item.parameters || '';
+  if (t === 4) {
+    // 壁: 基準線面積 と 基準線長さ を抽出
+    const ma = params.match(/基準線面積:([\d.]+)㎡/);
+    const ml = params.match(/基準線長さ:([\d.]+)m/);
+    const parts = [];
+    if (ma) parts.push(`${ma[1]} ㎡`);
+    if (ml) parts.push(`${ml[1]} m`);
+    return parts.join(' / ') || `${item.suuryo}`;
+  }
+  if (t === 5) {
+    const ma = params.match(/3D上面積:([\d.]+)㎡/);
+    return ma ? `${ma[1]} ㎡` : `${item.suuryo}`;
+  }
+  if (t === 6) {
+    const ma = params.match(/3D上面積:([\d.]+)㎡/);
+    return ma ? `${ma[1]} ㎡` : `${item.suuryo}`;
+  }
+  return `${item.suuryo} 個`;
+}
+
+// ── プレビュー描画 ────────────────────────────────────
+function renderPreview(items) {
+  const tbody = document.getElementById('previewBody');
+  tbody.innerHTML = '';
+  items.forEach(item => {
+    const [label, cls] = typeInfo(item.type);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="badge badge-${cls}">${label}</span></td>
+      <td>${escHtml(item.name || '')}</td>
+      <td class="params-cell">${escHtml(item.parameters || '')}</td>
+      <td style="text-align:right; white-space:nowrap">${suuryoDisplay(item)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('previewCard').style.display = '';
+  document.getElementById('countBadge').textContent = `${items.length}件`;
+  document.getElementById('itemCount').textContent = `${items.length}件`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── アップロード可否チェック ──────────────────────────
+function checkReady() {
+  const ok = parsedItems && document.getElementById('propertySelect').value;
+  document.getElementById('uploadBtn').disabled = !ok;
+}
+
+// ── アップロード実行 ──────────────────────────────────
+async function doUpload() {
+  const propertyId = document.getElementById('propertySelect').value;
+  const propertyName = document.getElementById('propertySelect').selectedOptions[0]?.textContent || '';
+  if (!propertyId || !parsedItems) return;
+
+  const btn = document.getElementById('uploadBtn');
+  const st  = document.getElementById('uploadStatus');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+  showStatus(st, 'info', '送信中...');
+
+  try {
+    const r = await fetch(`${API}/api/rikcad/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ property_id: propertyId, items: parsedItems }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showStatus(st, 'success',
+        `✓ アップロード完了！　物件：${propertyName}　${d.item_count}件　ファイル：${d.file}`);
+      btn.textContent = '✓ 完了';
+    } else {
+      showStatus(st, 'error', 'エラー: ' + d.error);
+      btn.disabled = false;
+      btn.textContent = '📤 アップロード';
+    }
+  } catch(e) {
+    showStatus(st, 'error', '通信エラー: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '📤 アップロード';
+  }
+}
+
+function clearAll() {
+  parsedItems = null;
+  document.getElementById('previewCard').style.display = 'none';
+  document.getElementById('fileStatus').className = 'status';
+  document.getElementById('uploadStatus').className = 'status';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('uploadBtn').textContent = '📤 アップロード';
+  document.getElementById('propertySelect').value = '';
+}
+
+function showStatus(el, type, msg) {
+  el.className = `status ${type}`;
+  el.textContent = msg;
+}
+
+// ── 起動時処理 ────────────────────────────────────────
+loadProperties();
+
+// URLパラメータ ?file=パス でファイルを自動ロード（ウォッチャー連携用）
+const urlParams = new URLSearchParams(location.search);
+const autoFile = urlParams.get('file');
+if (autoFile) {
+  // サーバー経由でファイル内容を取得
+  fetch(`${API}/api/files?path=rikcad-watch/latest.json`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const items = Array.isArray(data) ? data : (data.items || []);
+      if (!items.length) return;
+      parsedItems = items;
+      const st = document.getElementById('fileStatus');
+      showStatus(st, 'info', `✓ 自動読み込み完了（${items.length}件）`);
+      renderPreview(items);
+      checkReady();
+    })
+    .catch(() => {});
+}
+</script>
+</body>
+</html>

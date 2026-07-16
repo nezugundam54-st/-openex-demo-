@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet" />
+  <title>見積管理 - OPEN EX</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', sans-serif; font-size: 14px; background: #f5f6f8; color: #363d53; min-height: 100vh; }
+
+    .breadcrumb { display: flex; align-items: center; gap: 6px; padding: 8px 24px; background: #fff; height: 36px; border-bottom: 1px solid #e9eaec; }
+    .bc-link { color: #00b27d; font-size: 13px; cursor: pointer; text-decoration: none; }
+    .bc-link:hover { text-decoration: underline; }
+    .bc-sep { color: #b0b7c3; font-size: 13px; }
+    .bc-current { color: #363d53; font-size: 13px; }
+
+    .page-header { display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; background: #fff; height: 56px; padding: 0 24px; gap: 12px; }
+    .page-title { font-size: 22px; font-weight: 500; color: #1e2939; margin-right: 16px; white-space: nowrap; }
+    .tab-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 16px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; font-family: inherit; font-size: 14px; color: #374151; cursor: pointer; white-space: nowrap; transition: border-color 0.15s, background 0.15s; }
+    .tab-btn:hover { background: #f9fafb; border-color: #9ca3af; }
+    .tab-btn.active { background: #f3f4f6; border-color: #9ca3af; font-weight: 500; }
+    .tab-num { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 1.5px solid #6b7280; border-radius: 50%; font-size: 11px; font-weight: 600; flex-shrink: 0; line-height: 1; color: #6b7280; }
+
+    .content { padding: 20px 24px; }
+    .card { background: #fff; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .card-title { font-size: 15px; font-weight: 600; color: #1e2939; padding: 16px 20px 12px; border-bottom: 1px dashed #dde1e7; }
+
+    /* 物件情報 */
+    .info-grid { display: flex; flex-direction: column; }
+    .info-labels { display: flex; padding: 8px 20px 6px; }
+    .info-divider { border: none; border-top: 1px dashed #dde1e7; margin: 0 20px; }
+    .info-values { display: flex; padding: 8px 20px 14px; }
+    .info-item { flex: 1; padding-right: 16px; border-right: 1px dashed #dde1e7; margin-right: 16px; }
+    .info-item:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+    .info-item-label { font-size: 12.5px; color: #8f96a3; }
+    .info-item-value { font-size: 14px; color: #1e2939; font-weight: 500; }
+    .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 10px; border-radius: 4px; font-size: 13px; font-weight: 500; border: 1px solid; white-space: nowrap; }
+    .status-badge.shodan { background: #e8f4fc; color: #2196c9; border-color: #9dd0ea; }
+    .status-badge.juchu  { background: #e8fff3; color: #00b27d; border-color: #6adbb5; }
+
+    /* アクションバー */
+    .action-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 0 12px; }
+    .btn-new { background: #00b27d; color: #fff; border: none; border-radius: 6px; padding: 0 20px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; height: 34px; display: flex; align-items: center; gap: 6px; }
+    .btn-new:hover { background: #009668; }
+    .btn-new-outline { background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 16px; font-size: 14px; font-family: inherit; font-weight: 400; cursor: pointer; height: 34px; display: flex; align-items: center; gap: 6px; transition: background 0.12s, border-color 0.12s; }
+    .btn-new-outline:hover { background: #f9fafb; border-color: #9ca3af; }
+    .btn-new-outline svg, .btn-new svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+    /* モーダル共通 */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 500; justify-content: center; align-items: center; }
+    .overlay.active { display: flex; }
+    .modal-close-btn { width: 26px; height: 26px; border: none; background: transparent; font-size: 18px; color: #9ca3af; cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: inherit; line-height: 1; }
+    .modal-close-btn:hover { background: #f3f4f6; color: #374151; }
+    .btn-modal-cancel { padding: 7px 22px; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-modal-cancel:hover { background: #f9fafb; }
+    .btn-modal-ok { padding: 7px 22px; border-radius: 6px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: #00b27d; color: #fff; border: none; }
+    .btn-modal-ok:hover { background: #009668; }
+
+    /* 物件情報モーダル */
+    .propinfo-box { background: #fff; border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); width: 480px; overflow: hidden; }
+    .propinfo-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #f0f1f3; }
+    .propinfo-title { font-size: 15px; font-weight: 600; color: #1e2939; }
+    .propinfo-body { padding: 20px 24px 8px; }
+    .propinfo-row { display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
+    .propinfo-label { width: 80px; flex-shrink: 0; font-size: 13px; color: #8f96a3; padding-top: 2px; }
+    .propinfo-value { flex: 1; font-size: 14px; color: #1e2939; }
+    .propinfo-name-kana { font-size: 12px; color: #8f96a3; margin-bottom: 2px; }
+    .propinfo-name { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .propinfo-id { font-size: 12px; color: #8f96a3; margin-top: 4px; }
+    .propinfo-status { display: inline-flex; align-items: center; justify-content: center; padding: 3px 14px; border-radius: 4px; font-size: 13px; border: 1px solid #ccc; color: #555; }
+    .propinfo-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px 16px; }
+    .propinfo-detail-link { color: #00b27d; font-size: 13px; cursor: pointer; text-decoration: none; }
+    .propinfo-detail-link:hover { text-decoration: underline; }
+    .propinfo-ok-btn { background: #00b27d; color: #fff; border: none; border-radius: 6px; padding: 8px 28px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; }
+    .propinfo-ok-btn:hover { background: #009668; }
+
+    /* テンプレートモーダル */
+    .tmpl-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); width: 440px; overflow: hidden; }
+    .tmpl-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid #f0f1f3; }
+    .tmpl-header-title { font-size: 15px; font-weight: 600; color: #1e2939; }
+    .tmpl-body { padding: 16px 20px 20px; }
+    .tmpl-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .tmpl-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid #e5e7eb; border-radius: 8px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .tmpl-item:hover { border-color: #00b27d; background: #f8fffe; }
+    .tmpl-item.selected { border-color: #00b27d; background: #f0fdf9; }
+    .tmpl-radio { appearance: none; -webkit-appearance: none; width: 17px; height: 17px; border: 2px solid #d1d5db; border-radius: 50%; background: #fff; flex-shrink: 0; position: relative; cursor: pointer; }
+    .tmpl-radio:checked { border-color: #00b27d; background: #00b27d; }
+    .tmpl-radio:checked::after { content: ''; position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .tmpl-item-name { font-size: 14px; color: #1e2939; font-weight: 500; }
+    .tmpl-item-desc { font-size: 12px; color: #9ca3af; }
+    .tmpl-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #f3f4f6; }
+
+    /* 過去見積モーダル */
+    .past-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
+    .past-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid #f0f1f3; flex-shrink: 0; }
+    .past-header-title { font-size: 15px; font-weight: 600; color: #1e2939; }
+    .past-search-bar { padding: 14px 20px 12px; border-bottom: 1px solid #f0f1f3; flex-shrink: 0; display: flex; gap: 8px; }
+    .past-search-input { flex: 1; height: 36px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 12px; font-size: 14px; font-family: inherit; color: #1e2939; outline: none; }
+    .past-search-input:focus { border-color: #00b27d; box-shadow: 0 0 0 3px rgba(0,178,125,0.1); }
+    .past-search-btn { height: 36px; padding: 0 18px; border-radius: 6px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; background: #00b27d; color: #fff; border: none; }
+    .past-body { overflow-y: auto; flex: 1; }
+    .past-table { width: 100%; border-collapse: collapse; }
+    .past-table thead tr { border-bottom: 1px dashed #dde1e7; }
+    .past-table thead th { padding: 10px 14px; font-size: 12px; font-weight: 500; color: #8f96a3; text-align: left; white-space: nowrap; background: #fafafa; position: sticky; top: 0; }
+    .past-table tbody tr { border-bottom: 1px dashed #dde1e7; cursor: pointer; transition: background 0.1s; }
+    .past-table tbody tr:hover { background: #f6f8fa; }
+    .past-table tbody tr.past-selected { background: #e8fff3 !important; }
+    .past-table tbody td { padding: 12px 14px; font-size: 13px; color: #363d53; }
+    .past-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .past-badge.sakusei { background: #fef9c3; color: #a16207; }
+    .past-badge.mitsumori { background: #fef9c3; color: #a16207; }
+    .past-badge.iraichu { background: #eff6ff; color: #1d4ed8; }
+    .past-badge.sashimodoshi { background: #fff7ed; color: #c2410c; }
+    .past-badge.shonin { background: #f0fdf4; color: #15803d; }
+    .past-badge.juchu { background: #e8fff3; color: #00b27d; }
+    .past-badge.shicchu { background: #f3f4f6; color: #6b7280; }
+    .past-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #f3f4f6; flex-shrink: 0; }
+
+    /* プラン名入力ウィンドウ */
+    .plan-input-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.2); width: 440px; overflow: hidden; }
+    .plan-input-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #f0f1f3; }
+    .plan-input-header-title { font-size: 15px; font-weight: 600; color: #1e2939; }
+    .plan-input-body { padding: 20px 20px 4px; display: flex; flex-direction: column; gap: 16px; }
+    .plan-field { display: flex; flex-direction: column; gap: 6px; }
+    .plan-field-label { font-size: 13px; color: #374151; font-weight: 500; }
+    .plan-field-label .req { color: #ef4444; margin-left: 2px; }
+    .plan-text-input { width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 12px; font-size: 14px; font-family: inherit; color: #1e2939; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .plan-text-input:focus { border-color: #00b27d; box-shadow: 0 0 0 3px rgba(0,178,125,0.1); }
+    .plan-sel { width: 100%; height: 40px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 36px 0 12px; font-size: 14px; font-family: inherit; color: #1e2939; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center; }
+    .plan-sel:focus { border-color: #00b27d; box-shadow: 0 0 0 3px rgba(0,178,125,0.1); }
+    .plan-input-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid #f3f4f6; margin-top: 16px; }
+    .btn-plan-cancel { padding: 8px 22px; border-radius: 8px; font-family: inherit; font-size: 14px; cursor: pointer; background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-plan-cancel:hover { background: #f9fafb; }
+    .btn-plan-ok { padding: 8px 22px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: #00b27d; color: #fff; border: none; }
+    .btn-plan-ok:hover { background: #009668; }
+
+    /* TABLE */
+    .est-table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+    .est-table thead tr { border-bottom: 1px dashed #dde1e7; }
+    .est-table thead th { padding: 10px 14px; font-size: 12.5px; font-weight: 500; text-align: left; white-space: nowrap; color: #8f96a3; }
+    .est-table thead th.right { text-align: right; }
+    .col-no { width: 48px; text-align: center; }
+    .col-estno { width: 155px; }
+    .col-status { width: 100px; }
+    .col-plan { width: 170px; }
+    .col-koujiku { width: 100px; }
+    .col-cdate { width: 94px; }
+    .col-udate { width: 94px; }
+    .col-cost { width: 100px; }
+    .col-amount { width: 100px; }
+    .col-hmamount { width: 140px; }
+    .col-tantou { width: 100px; }
+    .col-ops { width: 104px; }
+    .est-table tbody tr { border-bottom: 1px dashed #dde1e7; cursor: pointer; background: #fff; transition: background 0.1s; }
+    .est-table tbody tr:hover { background: rgb(246,248,250); }
+    .est-table tbody tr.row-selected { background: #e8fff3 !important; }
+    .est-table tbody td { padding: 0 14px; font-size: 14px; vertical-align: middle; height: 54px; }
+    .est-table tbody td.right { text-align: right; }
+    .td-no { color: #b0b7c3; text-align: center; font-size: 13px; }
+    .td-estno { color: #363d53; font-size: 13px; cursor: text; }
+    .status-select { appearance: none; -webkit-appearance: none; border: none; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M1 1l3.5 3.5L8 1' stroke='%23717182' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 4px center; padding: 0 20px 0 0; font-size: 13px; font-family: inherit; color: #374151; cursor: pointer; outline: none; min-width: 68px; }
+    .koujiku-row-select { appearance: none; -webkit-appearance: none; border: none; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M1 1l3.5 3.5L8 1' stroke='%23717182' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 4px center; padding: 0 22px 0 0; font-size: 13px; font-family: inherit; color: #374151; cursor: pointer; outline: none; min-width: 74px; }
+    .plan-cell { cursor: text; color: #363d53; }
+    .inline-input { border: 1.5px solid #00b27d; border-radius: 4px; padding: 3px 8px; font-size: 13px; font-family: inherit; color: #363d53; outline: none; width: 100%; min-width: 130px; box-shadow: 0 0 0 3px rgba(0,178,125,0.1); }
+    .inline-input.estno-input { min-width: 155px; }
+    .ops-wrap { display: flex; align-items: center; gap: 4px; }
+    .op-btn { width: 28px; height: 28px; border: none; border-radius: 5px; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; position: relative; transition: background 0.12s; }
+    .op-btn:hover { background: #f0f1f3; }
+    .op-btn.danger:hover { background: #fef2f2; }
+    .op-btn svg { width: 15px; height: 15px; stroke: #8f96a3; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .op-btn.danger svg { stroke: #ef4444; }
+    .op-btn::after { content: attr(title); position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); background: #374151; color: #fff; font-size: 11px; white-space: nowrap; padding: 3px 7px; border-radius: 4px; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+    .op-btn:hover::after { opacity: 1; }
+
+    .back-bar { padding: 14px 24px; border-top: 1px solid #e5e7eb; background: #fff; margin-top: 8px; }
+    .btn-back { background: #f0fdf8; color: #00b27d; border: 1px solid #00b27d; border-radius: 6px; padding: 0 28px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; height: 34px; display: inline-flex; align-items: center; }
+    .btn-back:hover { background: #dcfce7; }
+    .table-scroll { overflow-x: auto; padding: 0 4px; }
+
+    /* コピー・削除ダイアログ */
+    .dialog-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.16); padding: 32px 36px 28px; width: 340px; text-align: center; }
+    .dialog-box p { font-size: 15px; color: #1e2939; font-weight: 500; margin-bottom: 24px; line-height: 1.6; }
+    .dialog-actions { display: flex; gap: 12px; justify-content: center; }
+    .btn-dialog-cancel { padding: 8px 28px; border-radius: 8px; font-family: inherit; font-size: 14px; cursor: pointer; background: #fff; color: #374151; border: 1px solid #d1d5db; min-width: 100px; }
+    .btn-dialog-cancel:hover { background: #f9fafb; }
+    .btn-dialog-ok { padding: 8px 28px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: #00b27d; color: #fff; border: none; min-width: 100px; }
+    .btn-dialog-ok:hover { background: #009668; }
+    .confirm-box { background: #fff; border-radius: 12px; box-shadow: 0 8px 40px rgba(0,0,0,0.16); padding: 28px 32px 24px; width: 340px; text-align: center; }
+    .confirm-box h3 { font-size: 16px; color: #1e2939; margin-bottom: 10px; }
+    .confirm-box p  { font-size: 14px; color: #6b7280; margin-bottom: 22px; }
+    .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+    .btn-confirm-cancel { padding: 7px 22px; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; background: #fff; color: #6b7280; border: 1px solid #d1d5db; }
+    .btn-confirm-cancel:hover { background: #f9fafb; }
+    .btn-confirm-delete { padding: 7px 22px; border-radius: 6px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; background: #ef4444; color: #fff; border: none; }
+    .btn-confirm-delete:hover { background: #dc2626; }
+
+    /* 帳票出力ダイアログ */
+    .chohyo-dialog { background: #fff; border-radius: 12px; width: 460px; padding: 28px 28px 24px; box-shadow: 0 8px 40px rgba(0,0,0,0.18); max-height: 90vh; overflow-y: auto; }
+    .chohyo-title { font-size: 17px; font-weight: 600; color: #1a1a1a; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; margin-bottom: 22px; }
+    .ch-section { margin-bottom: 20px; }
+    .ch-section-label { font-size: 12px; font-weight: 500; color: #6b7280; letter-spacing: 0.04em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .ch-section-label::after { content: ''; flex: 1; height: 1px; background: #f3f4f6; }
+    .ch-step-num { width: 18px; height: 18px; background: #00b27d; color: #fff; border-radius: 50%; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .ch-sub-label { font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 8px; margin-top: 16px; }
+    .ch-sub-label:first-child { margin-top: 0; }
+    .ch-card-group-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ch-card-option { position: relative; border: 1.5px solid #e5e7eb; border-radius: 8px; height: 52px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #374151; cursor: pointer; transition: border-color 0.15s, background 0.15s; user-select: none; text-align: center; padding: 0 8px; }
+    .ch-card-option:hover { border-color: #00b27d; }
+    .ch-card-option.selected { border-color: #00b27d; background: #f0fdf9; color: #00b27d; font-weight: 500; }
+    .ch-check-badge { display: none; position: absolute; top: -1px; right: -1px; width: 20px; height: 20px; background: #00b27d; border-radius: 0 8px 0 8px; align-items: center; justify-content: center; }
+    .ch-card-option.selected .ch-check-badge { display: flex; }
+    .ch-check-badge svg { width: 10px; height: 10px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .ch-accordion { overflow: hidden; max-height: 0; opacity: 0; transition: max-height 0.32s ease, opacity 0.25s ease, margin 0.32s ease; margin-top: 0; }
+    .ch-accordion.open { opacity: 1; margin-top: 14px; }
+    .ch-tmpl-wrap { background: #f8fdf9; border: 1px solid #d1fae5; border-radius: 8px; padding: 12px 14px; }
+    .ch-tmpl-label { font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+    .ch-validity-grid { display: flex; flex-direction: column; gap: 10px; }
+    .ch-form-row { display: flex; align-items: center; gap: 10px; }
+    .ch-form-row-label { font-size: 13px; color: #374151; width: 80px; flex-shrink: 0; }
+    .ch-form-row-hint { font-size: 11.5px; color: #9ca3af; margin-top: 2px; padding-left: 90px; }
+    .ch-full-sel { appearance: none; -webkit-appearance: none; border: 1px solid #e5e7eb; border-radius: 6px; height: 36px; padding: 0 28px 0 10px; font-size: 13px; font-family: inherit; color: #374151; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center; cursor: pointer; outline: none; width: 100%; }
+    .ch-full-sel:focus { border-color: #00b27d; }
+    .ch-sel { appearance: none; -webkit-appearance: none; border: 1px solid #e5e7eb; border-radius: 6px; height: 34px; padding: 0 28px 0 10px; font-size: 13px; font-family: inherit; color: #374151; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center; cursor: pointer; outline: none; }
+    .ch-sel:focus { border-color: #00b27d; }
+    .ch-num-input { border: 1px solid #e5e7eb; border-radius: 6px; height: 34px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #374151; width: 70px; text-align: center; outline: none; }
+    .ch-num-input:focus { border-color: #00b27d; }
+    .ch-date-input { border: 1px solid #e5e7eb; border-radius: 6px; height: 34px; padding: 0 10px; font-size: 13px; font-family: inherit; color: #374151; outline: none; }
+    .ch-date-input:focus { border-color: #00b27d; }
+    .ch-unit-text { font-size: 13px; color: #6b7280; white-space: nowrap; }
+    .ch-addr-radio-group { display: flex; gap: 20px; }
+    .ch-addr-radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .ch-addr-radio-item input[type="radio"] { appearance: none; -webkit-appearance: none; width: 17px; height: 17px; border: 2px solid #d1d5db; border-radius: 50%; background: #fff; cursor: pointer; flex-shrink: 0; position: relative; transition: border-color 0.15s; }
+    .ch-addr-radio-item input[type="radio"]:checked { border-color: #00b27d; background: #00b27d; }
+    .ch-addr-radio-item input[type="radio"]:checked::after { content: ''; position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .ch-addr-label { font-size: 14px; color: #374151; }
+    .ch-addr-label.active { color: #00b27d; font-weight: 500; }
+    .ch-branch-acc { overflow: hidden; max-height: 0; opacity: 0; transition: max-height 0.28s ease, opacity 0.22s ease, margin 0.28s ease; margin-top: 0; }
+    .ch-branch-acc.open { opacity: 1; max-height: 60px; margin-top: 8px; }
+    .ch-format-group { display: flex; gap: 10px; }
+    .ch-format-btn { flex: 1; height: 46px; border: 1.5px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 13.5px; font-family: inherit; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .ch-format-btn:hover { border-color: #00b27d; }
+    .ch-format-btn.selected { border-color: #00b27d; background: #f0fdf9; color: #00b27d; font-weight: 500; }
+    .ch-format-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .ch-radio-group { display: flex; flex-direction: column; gap: 8px; }
+    .ch-radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .ch-radio-item input[type="radio"] { appearance: none; -webkit-appearance: none; width: 17px; height: 17px; border: 2px solid #d1d5db; border-radius: 50%; background: #fff; cursor: pointer; flex-shrink: 0; position: relative; transition: border-color 0.15s; }
+    .ch-radio-item input[type="radio"]:checked { border-color: #00b27d; background: #00b27d; }
+    .ch-radio-item input[type="radio"]:checked::after { content: ''; position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .ch-radio-label { font-size: 14px; color: #374151; }
+    .ch-radio-label.active { color: #00b27d; font-weight: 500; }
+    .ch-radio-hint { font-size: 11.5px; color: #9ca3af; margin-top: 4px; padding-left: 25px; }
+    .ch-folder-list-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; margin-top: 12px; }
+    .ch-folder-list-wrap { border: 1px solid #e5e7eb; border-radius: 6px; max-height: 150px; overflow-y: auto; }
+    .ch-folder-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+    .ch-folder-item:last-child { border-bottom: none; }
+    .ch-folder-item:hover { background: #f9fafb; }
+    .ch-folder-radio { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; border: 2px solid #d1d5db; border-radius: 50%; background: #fff; cursor: pointer; flex-shrink: 0; position: relative; }
+    .ch-folder-radio:checked { border-color: #00b27d; background: #00b27d; }
+    .ch-folder-radio:checked::after { content: ''; position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .ch-folder-name { font-size: 13px; color: #374151; }
+    .ch-divider { height: 1px; background: #e5e7eb; margin: 22px 0 20px; }
+    .ch-footer { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .ch-btn { height: 38px; padding: 0 28px; border-radius: 6px; font-size: 14px; font-family: inherit; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+    .ch-btn-cancel { background: #e6faf4; color: #00b27d; border: 1px solid #00b27d; }
+    .ch-btn-cancel:hover { background: #d1f5e8; }
+    .ch-btn-primary { background: #00b27d; color: #fff; border: none; }
+    .ch-btn-primary:hover { background: #009668; }
+    /* ===== ナビバー ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      background: none; border-top: none; border-left: none; border-right: none;
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right {
+      display: flex; align-items: center;
+      margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+    }
+    body { padding-top: 48px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+  <!-- BREADCRUMB -->
+  <div class="breadcrumb">
+    <a class="bc-link" id="bcBack">物件参照</a>
+    <span class="bc-sep">&gt;</span>
+    <span class="bc-current" id="bcPropName">—</span>
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <span class="page-title">見積管理</span>
+    <button class="tab-btn active" id="tabProperty" onclick="onTabClick(this, 'property')"><span class="tab-num">①</span>物件情報</button>
+    <button class="tab-btn" id="tabCustomer" onclick="onTabClick(this, 'customer')"><span class="tab-num">②</span>顧客情報</button>
+  </div>
+
+  <div class="content">
+
+    <!-- 物件情報カード -->
+    <div class="card" id="cardProperty">
+      <div class="card-title">物件情報</div>
+      <div class="info-grid">
+        <div class="info-labels">
+          <div class="info-item"><div class="info-item-label">顧客名</div></div>
+          <div class="info-item"><div class="info-item-label">物件名</div></div>
+          <div class="info-item"><div class="info-item-label">物件状況</div></div>
+          <div class="info-item"><div class="info-item-label">営業責任者</div></div>
+        </div>
+        <hr class="info-divider">
+        <div class="info-values">
+          <div class="info-item"><div class="info-item-value" id="infoCustName">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoPropName">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoPropStatus">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoSalesName">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 顧客情報カード -->
+    <div class="card" id="cardCustomer" style="display:none;">
+      <div class="card-title">顧客情報</div>
+      <div class="info-grid">
+        <div class="info-labels">
+          <div class="info-item"><div class="info-item-label">顧客名</div></div>
+          <div class="info-item"><div class="info-item-label">住所</div></div>
+          <div class="info-item"><div class="info-item-label">電話番号</div></div>
+          <div class="info-item"><div class="info-item-label">メール</div></div>
+        </div>
+        <hr class="info-divider">
+        <div class="info-values">
+          <div class="info-item"><div class="info-item-value" id="infoCustName2">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoCustAddr">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoCustTel">—</div></div>
+          <div class="info-item"><div class="info-item-value" id="infoCustEmail">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 作成ボタン群 -->
+    <div class="action-bar">
+      <button class="btn-new-outline" onclick="openPastDialog()">
+        <svg viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5"/><polyline points="7,4 7,7 9,9"/></svg>
+        過去見積から作成
+      </button>
+      <button class="btn-new-outline" onclick="openTmplDialog()">
+        <svg viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1.5"/><line x1="5" y1="5" x2="9" y2="5"/><line x1="5" y1="7.5" x2="9" y2="7.5"/></svg>
+        テンプレートから作成
+      </button>
+      <button class="btn-new" onclick="openPlanInputDialog('new', '新規作成')">
+        <svg viewBox="0 0 14 14"><line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/></svg>
+        新規作成
+      </button>
+    </div>
+
+    <!-- 見積一覧 -->
+    <div class="card">
+      <div class="card-title">見積一覧</div>
+      <div class="table-scroll">
+        <table class="est-table" id="estTable">
+          <thead>
+            <tr>
+              <th class="col-no" style="text-align:center;">No</th>
+              <th class="col-estno">見積No</th>
+              <th class="col-status">見積状況</th>
+              <th class="col-plan">プラン名</th>
+              <th class="col-koujiku">工事区分</th>
+              <th class="col-cdate">作成日</th>
+              <th class="col-udate">更新日</th>
+              <th class="col-cost right">原価</th>
+              <th class="col-amount right">見積金額</th>
+              <th class="col-hmamount right">見積金額（HM出し）</th>
+              <th class="col-tantou">見積担当</th>
+              <th class="col-ops">操作</th>
+            </tr>
+          </thead>
+          <tbody id="estTbody">
+            <tr><td colspan="12" style="text-align:center;padding:48px 0;color:#bbb;font-size:13px;">見積データがありません。「新規作成」から作成してください。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="back-bar"><button class="btn-back" onclick="goBack()">戻る</button></div>
+
+  <!-- ===== 物件情報モーダル ===== -->
+  <div class="overlay" id="propInfoOverlay" style="z-index:700;">
+    <div class="propinfo-box">
+      <div class="propinfo-header">
+        <span class="propinfo-title">物件情報</span>
+        <button class="modal-close-btn" onclick="closePropInfoModal()">×</button>
+      </div>
+      <div class="propinfo-body">
+        <div class="propinfo-row">
+          <div class="propinfo-label">物件名</div>
+          <div class="propinfo-value">
+            <div class="propinfo-name-kana" id="modalPropKana"></div>
+            <div class="propinfo-name" id="modalPropName"></div>
+            <div class="propinfo-id" id="modalPropCode"></div>
+          </div>
+        </div>
+        <div class="propinfo-row">
+          <div class="propinfo-label">物件状況</div>
+          <div class="propinfo-value"><span class="propinfo-status" id="modalPropStatus">—</span></div>
+        </div>
+        <div class="propinfo-row">
+          <div class="propinfo-label">現場住所</div>
+          <div class="propinfo-value" id="modalPropAddr">—</div>
+        </div>
+      </div>
+      <div class="propinfo-footer">
+        <a class="propinfo-detail-link" id="modalDetailLink">詳しくはこちら</a>
+        <button class="propinfo-ok-btn" onclick="closePropInfoModal()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== テンプレートモーダル ===== -->
+  <div class="overlay" id="tmplOverlay">
+    <div class="tmpl-box">
+      <div class="tmpl-header"><span class="tmpl-header-title">テンプレートから作成</span><button class="modal-close-btn" onclick="closeTmplDialog()">×</button></div>
+      <div class="tmpl-body">
+        <div class="tmpl-list" id="tmplList">
+          <label class="tmpl-item" onclick="selectTmpl(this)"><input class="tmpl-radio" type="radio" name="tmpl" value="empty"/><div><div class="tmpl-item-name">空白テンプレート</div><div class="tmpl-item-desc">何もない状態から作成します</div></div></label>
+          <div id="tmplLoadingMsg" style="padding:16px;text-align:center;font-size:13px;color:#aaa;">読み込み中...</div>
+        </div>
+        <div class="tmpl-footer">
+          <button class="btn-modal-cancel" onclick="closeTmplDialog()">キャンセル</button>
+          <button class="btn-modal-ok" onclick="executeTmplCreate()">このテンプレートで作成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 過去見積モーダル ===== -->
+  <div class="overlay" id="pastOverlay">
+    <div class="past-box">
+      <div class="past-header"><span class="past-header-title">過去見積から作成</span><button class="modal-close-btn" onclick="closePastDialog()">×</button></div>
+      <div class="past-search-bar">
+        <input class="past-search-input" type="text" id="pastSearchInput" placeholder="プラン名・見積No・顧客名で検索..."/>
+        <button class="past-search-btn" onclick="searchPast()">検索</button>
+      </div>
+      <div class="past-body">
+        <table class="past-table">
+          <thead><tr><th>見積No</th><th>顧客名</th><th>プラン名</th><th>見積状況</th><th class="right">見積金額</th><th>更新日</th></tr></thead>
+          <tbody id="pastTbody">
+            <tr><td colspan="6" style="text-align:center;padding:32px;color:#bbb;font-size:13px;">過去の見積データがありません</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="past-footer">
+        <button class="btn-modal-cancel" onclick="closePastDialog()">キャンセル</button>
+        <button class="btn-modal-ok" onclick="executePastCreate()">この見積を複製して作成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== プラン名入力ウィンドウ ===== -->
+  <div class="overlay" id="planInputOverlay" style="z-index:800;">
+    <div class="plan-input-box">
+      <div class="plan-input-header">
+        <span class="plan-input-header-title" id="planInputTitle">新規作成</span>
+        <button class="modal-close-btn" onclick="closePlanInputDialog()">×</button>
+      </div>
+      <div class="plan-input-body">
+        <div class="plan-field">
+          <label class="plan-field-label">プラン名</label>
+          <input class="plan-text-input" type="text" id="planInputName" placeholder="プラン名を入力してください">
+        </div>
+        <div class="plan-field">
+          <label class="plan-field-label">帳票表記社名<span class="req">*</span></label>
+          <select class="plan-sel" id="planInputCompany">
+            <option value="" disabled selected>社名を選択してください</option>
+          </select>
+        </div>
+        <div class="plan-field">
+          <label class="plan-field-label">工事区分<span class="req">*</span></label>
+          <select class="plan-sel" id="planInputKoujiku">
+            <option value="motouri" selected>元請工事</option>
+            <option value="shitauke">下請工事</option>
+          </select>
+        </div>
+      </div>
+      <div class="plan-input-footer">
+        <button class="btn-plan-cancel" onclick="closePlanInputDialog()">キャンセル</button>
+        <button class="btn-plan-ok" onclick="executePlanInput()">登録・編集</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== コピーダイアログ ===== -->
+  <div class="overlay" id="copyDialog">
+    <div class="dialog-box">
+      <p>選択した見積をコピーしますか</p>
+      <div class="dialog-actions">
+        <button class="btn-dialog-cancel" onclick="closeCopyDialog()">キャンセル</button>
+        <button class="btn-dialog-ok" onclick="executeCopy()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 削除確認ダイアログ ===== -->
+  <div class="overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <h3>削除の確認</h3>
+      <p>この見積を削除してもよろしいですか？<br>この操作は元に戻せません。</p>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" onclick="closeConfirm()">キャンセル</button>
+        <button class="btn-confirm-delete" onclick="executeDelete()">削除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 帳票出力ダイアログ ===== -->
+  <div class="overlay" id="chohyoOverlay" style="z-index:600;">
+    <div class="chohyo-dialog">
+      <div class="chohyo-title">帳票出力</div>
+      <div class="ch-section">
+        <div class="ch-section-label"><span class="ch-step-num">1</span>出力する帳票</div>
+        <div class="ch-sub-label" style="margin-top:0;">帳票の種類</div>
+        <div class="ch-card-group-2">
+          <div class="ch-card-option" id="ch-card-keisan" onclick="chSelectDocType('keisan')">
+            <span class="ch-check-badge"><svg viewBox="0 0 13 10"><polyline points="1.5,5 5,8.5 11.5,1.5"/></svg></span>見積計算書
+          </div>
+          <div class="ch-card-option" id="ch-card-mitsumori" onclick="chSelectDocType('mitsumori')">
+            <span class="ch-check-badge"><svg viewBox="0 0 13 10"><polyline points="1.5,5 5,8.5 11.5,1.5"/></svg></span>見積書
+          </div>
+        </div>
+        <div class="ch-accordion" id="chMitsumoriAcc">
+          <div class="ch-tmpl-wrap">
+            <div class="ch-tmpl-label">出力する帳票を選択してください</div>
+            <select class="ch-full-sel" id="chTemplateSelect">
+              <option value="" disabled selected>帳票を選択してください</option>
+              <option value="tate">見積書＿縦</option>
+              <option value="yoko">見積書＿横</option>
+              <option value="tate-hm">見積書＿縦（HM）</option>
+              <option value="yoko-hm">見積書＿横（HM）</option>
+            </select>
+          </div>
+          <div class="ch-validity-grid" style="margin-top:14px;">
+            <div>
+              <div class="ch-form-row">
+                <span class="ch-form-row-label">有効期限</span>
+                <select class="ch-sel" id="chValidityType" onchange="chOnValidityTypeChange()" style="width:120px;">
+                  <option value="days">日数指定</option>
+                  <option value="months">ヶ月指定</option>
+                  <option value="date">日にち指定</option>
+                </select>
+              </div>
+            </div>
+            <div id="chValidityDaysRow">
+              <div class="ch-form-row">
+                <span class="ch-form-row-label"></span>
+                <input class="ch-num-input" type="number" id="chValidityDays" value="30" min="1"/>
+                <span class="ch-unit-text" id="chValidityUnit">日</span>
+              </div>
+              <div class="ch-form-row-hint">（出力日にプラスする日数を入力してください）</div>
+            </div>
+            <div id="chValidityDateRow" style="display:none;">
+              <div class="ch-form-row">
+                <span class="ch-form-row-label"></span>
+                <input class="ch-date-input" type="date" id="chValidityDate"/>
+              </div>
+            </div>
+            <div class="ch-form-row">
+              <span class="ch-form-row-label">作成日</span>
+              <input class="ch-date-input" type="date" id="chCreatedDate"/>
+            </div>
+          </div>
+        </div>
+        <div class="ch-sub-label">帳票表記社名</div>
+        <select class="ch-full-sel" id="chCompanySelect">
+          <option value="" disabled selected>社名を選択してください</option>
+        </select>
+        <div class="ch-sub-label">住所</div>
+        <div class="ch-addr-radio-group">
+          <label class="ch-addr-radio-item">
+            <input type="radio" name="chAddrType" value="honsha" checked onchange="chOnAddrChange(this)"/>
+            <span class="ch-addr-label active">本社</span>
+          </label>
+          <label class="ch-addr-radio-item">
+            <input type="radio" name="chAddrType" value="kyoten" onchange="chOnAddrChange(this)"/>
+            <span class="ch-addr-label">拠点</span>
+          </label>
+        </div>
+        <div class="ch-branch-acc" id="chBranchAcc">
+          <select class="ch-full-sel" id="chBranchSelect">
+            <option value="" disabled selected>拠点を選択してください</option>
+          </select>
+        </div>
+      </div>
+      <div class="ch-section">
+        <div class="ch-section-label"><span class="ch-step-num">2</span>出力形式</div>
+        <div class="ch-format-group">
+          <button class="ch-format-btn" onclick="chSelectFormat(this)">
+            <svg viewBox="0 0 16 16"><path d="M3 2h7l3 3v9H3z"/><path d="M10 2v3h3"/><path d="M6 9h4M6 11.5h2"/></svg>PDF出力
+          </button>
+          <button class="ch-format-btn" onclick="chSelectFormat(this)">
+            <svg viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M5 5l2.5 3L10 5M5 11h6"/></svg>エクセル出力
+          </button>
+        </div>
+      </div>
+      <div class="ch-section">
+        <div class="ch-section-label"><span class="ch-step-num">3</span>保存方法</div>
+        <div class="ch-radio-group">
+          <label class="ch-radio-item">
+            <input type="radio" name="chSaveMethod" value="pc"/>
+            <span class="ch-radio-label">PCに保存</span>
+          </label>
+          <div class="ch-radio-hint">ダウンロードフォルダに保存されます</div>
+          <label class="ch-radio-item" style="margin-top:4px;">
+            <input type="radio" name="chSaveMethod" value="openex"/>
+            <span class="ch-radio-label">OPEN EXに保存</span>
+          </label>
+        </div>
+        <div class="ch-accordion" id="chFolderAcc">
+          <div class="ch-folder-list-label">保存先フォルダを選択してください</div>
+          <div class="ch-folder-list-wrap">
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="現調写真"/><span class="ch-folder-name">現調写真</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="施工写真"/><span class="ch-folder-name">施工写真</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="完工写真"/><span class="ch-folder-name">完工写真</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="図面"/><span class="ch-folder-name">図面</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="書類"/><span class="ch-folder-name">書類</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="見積書"/><span class="ch-folder-name">見積書</span></label>
+            <label class="ch-folder-item"><input class="ch-folder-radio" type="radio" name="chFolder" value="契約書"/><span class="ch-folder-name">契約書</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="ch-divider"></div>
+      <div class="ch-footer">
+        <button class="ch-btn ch-btn-cancel" onclick="closeChohyoDialog()">閉じる</button>
+        <button class="ch-btn ch-btn-primary">出力</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ========== Supabase 設定 ==========
+  const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const API = `${SUPABASE_URL}/rest/v1`;
+  const HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+  };
+
+  // ========== ユーティリティ ==========
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function $(id) { return document.getElementById(id); }
+
+  // ========== 物件・顧客データ ==========
+  let currentProperty = null;
+  let currentCustomer = null;
+  // index.htmlへ戻る用URL（呼び出し元から渡される）
+  let backUrl = 'index.html';
+
+  // ========== 初期ロード ==========
+  async function init() {
+    const params = new URLSearchParams(location.search);
+    const propertyId = params.get('property_id');
+    backUrl = params.get('back') || 'index.html';
+
+    if (!propertyId) {
+      $('bcPropName').textContent = '物件が指定されていません';
+      return;
+    }
+
+    // 物件情報を取得
+    try {
+      const r = await fetch(`${API}/properties?id=eq.${propertyId}`, { headers: HEADERS });
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      if (!data[0]) throw new Error();
+      currentProperty = data[0];
+      renderPropertyInfo();
+    } catch {
+      $('bcPropName').textContent = 'データ取得エラー';
+      return;
+    }
+
+    // 会社名マスタを取得
+    loadCompanyMaster();
+    // 見積一覧をSupabaseから取得
+    loadEstimatesFromDB(propertyId);
+  }
+
+  // ========== 見積一覧をSupabaseから取得 ==========
+  async function loadEstimatesFromDB(propertyId) {
+    try {
+      const r = await fetch(
+        `${API}/estimates?property_id=eq.${propertyId}&order=created_at.asc`,
+        { headers: HEADERS }
+      );
+      if (!r.ok) return;
+      const estimates = await r.json();
+      if (!estimates || estimates.length === 0) return;
+      const tbody = $('estTbody');
+      tbody.querySelectorAll('tr.empty-row').forEach(r => r.remove());
+      tbody.innerHTML = '';
+      estimates.forEach(est => {
+        addEstimateRow(
+          est.plan_name || '—',
+          est.koujiku   || 'motouri',
+          est.id,
+          est.estimate_no,
+          est.status,
+          est.total_amount,
+          est.cost_amount
+        );
+      });
+    } catch (e) {
+      console.warn('見積一覧取得失敗:', e);
+    }
+  }
+
+  function renderPropertyInfo() {
+    const prop = currentProperty;
+    $('bcPropName').textContent = prop.name;
+    $('bcBack').onclick = () => goBack();
+    $('infoPropName').textContent = prop.name;
+
+    const blueStatus = new Set(['商談中','契約済','施工中']);
+    const sc = blueStatus.has(prop.status) ? 'shodan' : '';
+    $('infoPropStatus').innerHTML = `<span class="status-badge ${sc}">${escHtml(prop.status||'商談前')}</span>`;
+
+    // 営業担当者
+    $('infoSalesName').textContent = '—';
+    if (prop.sales_staff_id) {
+      fetch(`${API}/staffs?id=eq.${prop.sales_staff_id}&select=name`, { headers: HEADERS })
+        .then(r => r.json()).then(d => { if (d[0]) $('infoSalesName').textContent = d[0].name; }).catch(()=>{});
+    }
+
+    // 顧客情報
+    $('infoCustName').textContent = '—';
+    $('infoCustName2').textContent = '—';
+    if (prop.customer_id) {
+      fetch(`${API}/customers?id=eq.${prop.customer_id}`, { headers: HEADERS })
+        .then(r => r.json()).then(d => {
+          if (!d[0]) return;
+          currentCustomer = d[0];
+          $('infoCustName').textContent = d[0].name || '—';
+          $('infoCustName2').textContent = d[0].name || '—';
+          $('infoCustAddr').textContent = d[0].address || '—';
+          $('infoCustTel').textContent = d[0].tel || '—';
+          $('infoCustEmail').textContent = d[0].email || '—';
+        }).catch(()=>{});
+    }
+
+    // 物件情報モーダルの内容もセット
+    $('modalPropKana').textContent = prop.name_kana || '';
+    $('modalPropName').textContent = prop.name || '';
+    $('modalPropCode').textContent = prop.code ? `ID: ${prop.code}` : '';
+    $('modalPropStatus').textContent = prop.status || '商談前';
+    $('modalPropAddr').textContent = prop.address || '—';
+    $('modalDetailLink').onclick = (e) => { e.preventDefault(); closePropInfoModal(); goBack(); };
+  }
+
+  // ========== 会社名マスタ取得 ==========
+  async function loadCompanyMaster() {
+    try {
+      const r = await fetch(`${API}/company_master?order=sort_order.asc,created_at.asc`, { headers: HEADERS });
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      ['planInputCompany','chCompanySelect'].forEach(id => {
+        const sel = $(id);
+        if (!sel) return;
+        sel.innerHTML = '';
+        if (data && data.length > 0) {
+          data.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt);
+          });
+          sel.selectedIndex = 0; // 先頭を初期選択
+        }
+      });
+    } catch {
+      ['planInputCompany','chCompanySelect'].forEach(id => {
+        const sel = $(id);
+        if (sel) sel.innerHTML = '';
+      });
+    }
+  }
+
+  // ========== 戻る ==========
+  function goBack() {
+    // index.htmlに戻る場合は見積管理タブを復元
+    if (backUrl === 'index.html' || backUrl.startsWith('index.html')) {
+      sessionStorage.setItem('openex_nav_target', 'estimate');
+      console.log('[BACK] set openex_nav_target = estimate, backUrl=', backUrl);
+    }
+    console.log('[BACK] navigating to', backUrl);
+    window.location.href = backUrl;
+  }
+
+  // ========== タブ切り替え ==========
+  function onTabClick(btn, tab) {
+    // 物件情報タブが既にアクティブな状態でクリック → モーダルを開く
+    if (tab === 'property' && btn.classList.contains('active')) {
+      openPropInfoModal();
+      return;
+    }
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $('cardProperty').style.display = tab === 'property' ? '' : 'none';
+    $('cardCustomer').style.display = tab === 'customer' ? '' : 'none';
+  }
+
+  // ========== 物件情報モーダル ==========
+  function openPropInfoModal() { $('propInfoOverlay').classList.add('active'); }
+  function closePropInfoModal() { $('propInfoOverlay').classList.remove('active'); }
+
+  // ========== プラン名入力ウィンドウ ==========
+  let _planMode = 'new';
+  function openPlanInputDialog(mode, title) {
+    _planMode = mode;
+    $('planInputTitle').textContent = title || '新規作成';
+    $('planInputName').value = '';
+    $('planInputCompany').selectedIndex = 0; // 先頭を選択
+    $('planInputKoujiku').selectedIndex = 0;
+    $('planInputOverlay').classList.add('active');
+    setTimeout(() => $('planInputName').focus(), 80);
+  }
+  function closePlanInputDialog() { $('planInputOverlay').classList.remove('active'); }
+  async function executePlanInput() {
+    const planName   = $('planInputName').value.trim() || '新規見積';
+    const compSel    = $('planInputCompany');
+    const koujiku    = $('planInputKoujiku').value;
+    const companyId   = compSel.value;
+    const companyName = compSel.options[compSel.selectedIndex]?.text || '';
+
+    // 見積Noを生成
+    const tbody = $('estTbody');
+    const rows = tbody.querySelectorAll('tr[data-est]');
+    const propCode = currentProperty ? String(currentProperty.id).padStart(6,'0') : '000000';
+    const lastEstno = rows.length > 0
+      ? rows[rows.length-1].querySelector('.td-estno').textContent.trim()
+      : `0001-B${propCode}-0`;
+    const m = lastEstno.match(/^(.*-)(\d+)$/);
+    const newEstno = m ? m[1] + (parseInt(m[2],10)+1) : `0001-B${propCode}-1`;
+
+    closePlanInputDialog();
+    const baseParams = {
+      property_id:    currentProperty ? currentProperty.id : '',
+      estimate_no:    newEstno,
+      plan_name:      planName,
+      company_id:     companyId,
+      company_name:   companyName,
+      koujiku:        koujiku,
+      sales_staff_id: currentProperty?.sales_staff_id || '',
+      back:           location.href
+    };
+
+    // テンプレートから作成（テンプレートが選択されている場合はSupabaseに先行作成）
+    if (_planMode === 'tmpl' && _selectedTmplId) {
+      try {
+        const now = new Date().toISOString();
+        // 1. 見積ヘッダーを作成
+        const estData = {
+          property_id:    currentProperty ? currentProperty.id : null,
+          title:          planName,
+          estimate_no:    newEstno,
+          plan_name:      planName,
+          company_id:     companyId || null,
+          koujiku:        koujiku,
+          sales_staff_id: currentProperty?.sales_staff_id || null,
+          status:         '作成中',
+          created_at:     now,
+          updated_at:     now
+        };
+        const hRes = await fetch(`${API}/estimates`, {
+          method: 'POST',
+          headers: { ...HEADERS, 'Prefer': 'return=representation' },
+          body: JSON.stringify(estData)
+        });
+        if (!hRes.ok) throw new Error('見積作成失敗');
+        const created = await hRes.json();
+        const newEstimateId = created[0]?.id;
+        if (!newEstimateId) throw new Error('estimate_id取得失敗');
+
+        // 2. テンプレート明細行を取得して estimate_rows に変換
+        const tRes = await fetch(`${API}/estimate_template_rows?template_id=eq.${_selectedTmplId}&order=sort_order.asc`, { headers: HEADERS });
+        if (tRes.ok) {
+          const tmplRows = await tRes.json();
+          if (tmplRows.length > 0) {
+            const estRows = tmplRows.map((r, i) => ({
+              estimate_id: newEstimateId,
+              sort_order:  i,
+              row_type:    r.row_type,
+              folder_id:   null,
+              parent_id:   null,
+              level:       r.row_type === 'cat' ? 1 : r.row_type === 'subcat' ? 2 : null,
+              name:        r.name  || null,
+              spec:        r.spec  || null,
+              qty:         r.qty,
+              unit:        r.unit  || null,
+              list_price:  r.list_price,
+              rate:        r.rate,
+              unit_price:  r.unit_price,
+              cost:        r.cost,
+              memo:        r.biko  || null,
+              note:        r.memo  || null,
+            }));
+            await fetch(`${API}/estimate_rows`, {
+              method: 'POST',
+              headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+              body: JSON.stringify(estRows)
+            });
+          }
+        }
+
+        // 3. 一覧UIに行を追加して遷移
+        addEstimateRow(planName, koujiku, newEstimateId, newEstno, '作成中');
+        window.location.href = `estimate-edit-demo.html?${new URLSearchParams({ ...baseParams, estimate_id: newEstimateId }).toString()}`;
+        return;
+      } catch(e) {
+        alert('テンプレートからの作成に失敗しました: ' + (e.message || ''));
+        return;
+      }
+    }
+
+    // 通常の新規作成（空白テンプレート含む）
+    // Supabaseへの先行登録は行わない（EstimateEditの「保存」時に登録）
+    window.location.href = `estimate-edit-demo.html?${new URLSearchParams(baseParams).toString()}`;
+  }
+
+  function addEstimateRow(planName, koujikuVal, estimateId, estimateNo, statusVal, totalAmount, costAmount) {
+    const tbody = $('estTbody');
+    tbody.querySelectorAll('tr.empty-row').forEach(r => r.remove());
+    const rows = tbody.querySelectorAll('tr[data-est]');
+    const nextNum = rows.length + 1;
+    const propCode = currentProperty ? String(currentProperty.id).padStart(6,'0') : '000000';
+    let newEstno = estimateNo;
+    if (!newEstno) {
+      const lastEstno = rows.length > 0
+        ? rows[rows.length-1].querySelector('.td-estno').textContent.trim()
+        : `0001-B${propCode}-0`;
+      const m = lastEstno.match(/^(.*-)(\d+)$/);
+      newEstno = m ? m[1] + (parseInt(m[2],10)+1) : `0001-B${propCode}-1`;
+    }
+    const today = new Date();
+    const ds = today.getFullYear() + '/' + String(today.getMonth()+1).padStart(2,'0') + '/' + String(today.getDate()).padStart(2,'0');
+
+    // 金額フォーマット
+    const fmtNum = n => (n != null && n !== '') ? Number(n).toLocaleString('ja-JP') : '—';
+    const costStr   = fmtNum(costAmount);
+    const amountStr = fmtNum(totalAmount);
+    // 粗利率
+    let profitStr = '—';
+    if (totalAmount != null && costAmount != null && totalAmount > 0) {
+      profitStr = ((totalAmount - costAmount) / totalAmount * 100).toFixed(1) + '%';
+    }
+
+    const newRow = document.createElement('tr');
+    newRow.dataset.est = '1';
+    if (estimateId) newRow.dataset.estimateId = estimateId;
+    newRow.setAttribute('onclick','onRowClick(this)');
+    newRow.setAttribute('ondblclick','openEstimate(this)');
+    newRow.innerHTML = `
+      <td class="td-no" style="text-align:center;">${nextNum}</td>
+      <td class="td-estno" onclick="startEditEstno(this,event)">${escHtml(newEstno)}</td>
+      <td><select class="status-select" onclick="event.stopPropagation()" onchange="event.stopPropagation()"><option value="sakusei"${!statusVal||statusVal==='sakusei'||statusVal==='見積中'||statusVal==='mitsumori'?' selected':''}>作成中</option><option value="iraichu"${statusVal==='iraichu'?' selected':''}>依頼中</option><option value="sashimodoshi"${statusVal==='sashimodoshi'?' selected':''}>差戻し</option><option value="shonin"${statusVal==='shonin'?' selected':''}>承認済</option><option value="juchu"${statusVal==='juchu'?' selected':''}>受注</option></select></td>
+      <td onclick="startEditPlan(this,event)"><span class="plan-cell">${escHtml(planName)}</span></td>
+      <td><select class="koujiku-row-select" onclick="event.stopPropagation()" onchange="event.stopPropagation()"><option value="motouri"${koujikuVal==='motouri'?' selected':''}>元請工事</option><option value="shitauke"${koujikuVal==='shitauke'?' selected':''}>下請工事</option></select></td>
+      <td>${ds}</td><td>${ds}</td>
+      <td class="right td-cost">${costStr}</td>
+      <td class="right td-amount">${amountStr}</td>
+      <td class="right td-hmamount">—</td>
+      <td class="td-tantou"></td>
+      <td><div class="ops-wrap" onclick="event.stopPropagation()">
+        <button class="op-btn" title="コピー" onclick="onCopy(this)"><svg viewBox="0 0 16 16"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M3 11V2h9"/></svg></button>
+        <button class="op-btn danger" title="削除" onclick="onDelete(this)"><svg viewBox="0 0 16 16"><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><path d="M6 4.5V3h4v1.5"/><rect x="3" y="4.5" width="10" height="9" rx="1"/><line x1="6.5" y1="7" x2="6.5" y2="11"/><line x1="9.5" y1="7" x2="9.5" y2="11"/></svg></button>
+        <button class="op-btn" title="帳票出力" onclick="openChohyoDialog()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="6" rx="1"/><path d="M5 7V3.5h6V7"/><path d="M5 10.5h6"/><rect x="5" y="9" width="2" height="1.5" rx="0.3" fill="currentColor" stroke="none"/></svg></button>
+        <button class="op-btn" title="デモで開く" onclick="openInDemo(this)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="8" rx="1"/><path d="M6.2 6.1v3.8l3.3-1.9z" fill="currentColor" stroke="none"/><line x1="6" y1="13.5" x2="10" y2="13.5"/><line x1="8" y1="11" x2="8" y2="13.5"/></svg></button>
+      </div></td>`;
+    tbody.appendChild(newRow);
+    renumberRows();
+  }
+
+  // ========== テンプレートモーダル ==========
+  let _selectedTmplId = null;
+
+  async function openTmplDialog() {
+    document.querySelectorAll('.tmpl-item').forEach(i => i.classList.remove('selected'));
+    document.querySelectorAll('input[name="tmpl"]').forEach(r => r.checked = false);
+    _selectedTmplId = null;
+    $('tmplOverlay').classList.add('active');
+
+    // 動的テンプレート行をリセット
+    $('tmplList').querySelectorAll('.tmpl-item-db').forEach(el => el.remove());
+    const loadMsg = $('tmplLoadingMsg');
+    if (loadMsg) loadMsg.style.display = '';
+
+    try {
+      const res = await fetch(`${API}/estimate_templates?order=updated_at.desc`, { headers: HEADERS });
+      if (!res.ok) throw new Error();
+      const templates = await res.json();
+      if (loadMsg) loadMsg.style.display = 'none';
+      templates.forEach(t => {
+        const label = document.createElement('label');
+        label.className = 'tmpl-item tmpl-item-db';
+        label.setAttribute('onclick', 'selectTmpl(this)');
+        const updDate = t.updated_at ? t.updated_at.slice(0,10).replace(/-/g,'/') + ' 更新' : '';
+        label.innerHTML = `<input class="tmpl-radio" type="radio" name="tmpl" value="${escHtml(String(t.id))}"/><div><div class="tmpl-item-name">${escHtml(t.name)}</div><div class="tmpl-item-desc">${escHtml(updDate)}</div></div>`;
+        $('tmplList').appendChild(label);
+      });
+      if (!templates.length && loadMsg) {
+        loadMsg.textContent = 'テンプレートが登録されていません';
+        loadMsg.style.display = '';
+      }
+    } catch {
+      if (loadMsg) { loadMsg.textContent = '読み込みに失敗しました'; loadMsg.style.display = ''; }
+    }
+  }
+  function closeTmplDialog() { $('tmplOverlay').classList.remove('active'); }
+  function selectTmpl(label) {
+    document.querySelectorAll('.tmpl-item').forEach(i => i.classList.remove('selected'));
+    label.classList.add('selected');
+  }
+  function executeTmplCreate() {
+    const sel = document.querySelector('input[name="tmpl"]:checked');
+    if (!sel) { alert('テンプレートを選択してください。'); return; }
+    _selectedTmplId = sel.value === 'empty' ? null : sel.value;
+    closeTmplDialog();
+    openPlanInputDialog('tmpl', 'テンプレートから作成');
+  }
+
+  // ========== 過去見積モーダル ==========
+  let _selectedPastRow = null;
+  let _pastEstimates = []; // 取得した過去見積データ
+
+  async function openPastDialog() {
+    _selectedPastRow = null;
+    $('pastSearchInput').value = '';
+    $('pastOverlay').classList.add('active');
+    await loadPastEstimates('');
+  }
+
+  function closePastDialog() { $('pastOverlay').classList.remove('active'); _selectedPastRow = null; }
+
+  async function loadPastEstimates(keyword) {
+    const tbody = $('pastTbody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#bbb;font-size:13px;">読み込み中...</td></tr>';
+    try {
+      // 全物件のマップ取得（顧客名用）
+      let propMap = window._pastPropMap;
+      if (!propMap) {
+        const pr = await fetch(`${API}/properties?select=id,name,customer_id`, { headers: HEADERS });
+        const props = pr.ok ? await pr.json() : [];
+        propMap = {};
+        props.forEach(p => propMap[p.id] = p);
+        window._pastPropMap = propMap;
+      }
+      // 顧客マップ
+      let custMap = window._pastCustMap;
+      if (!custMap) {
+        const cr = await fetch(`${API}/customers?select=id,name`, { headers: HEADERS });
+        const custs = cr.ok ? await cr.json() : [];
+        custMap = {};
+        custs.forEach(c => custMap[c.id] = c.name);
+        window._pastCustMap = custMap;
+      }
+
+      // 見積取得（最新100件→フィルタ後10件表示）
+      let url = `${API}/estimates?order=created_at.desc&limit=100`;
+      const res = await fetch(url, { headers: HEADERS });
+      let estimates = res.ok ? await res.json() : [];
+
+      // キーワードフィルタ
+      if (keyword) {
+        const q = keyword.toLowerCase();
+        estimates = estimates.filter(e => {
+          const prop = propMap[e.property_id];
+          const custName = prop?.customer_id ? (custMap[prop.customer_id]||'') : '';
+          return (e.estimate_no||'').toLowerCase().includes(q)
+            || (e.plan_name||'').toLowerCase().includes(q)
+            || custName.toLowerCase().includes(q)
+            || (prop?.name||'').toLowerCase().includes(q);
+        });
+      }
+
+      _pastEstimates = estimates.slice(0, 10);
+
+      if (!_pastEstimates.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:#bbb;font-size:13px;">過去の見積データがありません</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = _pastEstimates.map((e, i) => {
+        const prop = propMap[e.property_id];
+        const custName = prop?.customer_id ? (custMap[prop.customer_id]||'—') : '—';
+        const status = e.status || '作成中';
+        const amount = e.total_amount != null ? Number(e.total_amount).toLocaleString('ja-JP') : '—';
+        const updDate = e.updated_at ? e.updated_at.slice(0,10) : '—';
+        return `<tr onclick="selectPastRow(this,${i})" style="cursor:pointer;">
+          <td>${escHtml(e.estimate_no||'—')}</td>
+          <td>${escHtml(custName)}</td>
+          <td>${escHtml(e.plan_name||'—')}</td>
+          <td>${escHtml(status)}</td>
+          <td class="right">${amount}</td>
+          <td>${updDate}</td>
+        </tr>`;
+      }).join('');
+    } catch(err) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:#bbb;font-size:13px;">読み込みに失敗しました</td></tr>';
+    }
+  }
+
+  function selectPastRow(tr, idx) {
+    document.querySelectorAll('#pastTbody tr').forEach(r => r.classList.remove('past-selected'));
+    tr.classList.add('past-selected');
+    _selectedPastRow = idx;
+  }
+
+  async function searchPast() {
+    const q = $('pastSearchInput').value.trim();
+    await loadPastEstimates(q);
+  }
+
+  $('pastSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') searchPast(); });
+
+  async function executePastCreate() {
+    if (_selectedPastRow === null) { alert('複製する見積を選択してください。'); return; }
+    const srcEst = _pastEstimates[_selectedPastRow];
+    if (!srcEst) return;
+
+    closePastDialog();
+
+    // プラン名を「元のプラン名+より複製」に設定
+    const newPlanName = (srcEst.plan_name || '見積') + 'より複製';
+    const propCode = currentProperty ? String(currentProperty.id).padStart(6,'0') : '000000';
+    const tbody = $('estTbody');
+    const rows = tbody.querySelectorAll('tr[data-est]');
+    const lastEstno = rows.length > 0
+      ? rows[rows.length-1].querySelector('.td-estno').textContent.trim()
+      : `0001-B${propCode}-0`;
+    const m = lastEstno.match(/^(.*-)(\d+)$/);
+    const newEstno = m ? m[1] + (parseInt(m[2],10)+1) : `0001-B${propCode}-1`;
+
+    // 1. 見積ヘッダーを新規作成
+    const now = new Date().toISOString();
+    let newEstimateId = null;
+    try {
+      const estData = {
+        property_id:    currentProperty ? currentProperty.id : null,
+        title:          newPlanName,
+        estimate_no:    newEstno,
+        plan_name:      newPlanName,
+        company_id:     srcEst.company_id || null,
+        koujiku:        srcEst.koujiku || 'motouri',
+        hm_rate:        srcEst.hm_rate || null,
+        sales_staff_id: currentProperty?.sales_staff_id || null,
+        status:         '作成中',
+        created_at:     now,
+        updated_at:     now
+      };
+      const res = await fetch(`${API}/estimates`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Prefer': 'return=representation' },
+        body: JSON.stringify(estData)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        newEstimateId = created[0]?.id || null;
+      }
+    } catch(e) { console.warn('estimate作成失敗:', e); }
+
+    // 2. 元見積の明細行を取得してコピー
+    if (newEstimateId && srcEst.id) {
+      try {
+        const rowsRes = await fetch(`${API}/estimate_rows?estimate_id=eq.${srcEst.id}&order=sort_order.asc`, { headers: HEADERS });
+        if (rowsRes.ok) {
+          const srcRows = await rowsRes.json();
+          if (srcRows.length > 0) {
+            const newRows = srcRows.map(r => {
+              const nr = { ...r };
+              delete nr.id;
+              nr.estimate_id = newEstimateId;
+              nr.created_at  = now;
+              return nr;
+            });
+            await fetch(`${API}/estimate_rows`, {
+              method: 'POST',
+              headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+              body: JSON.stringify(newRows)
+            });
+          }
+        }
+      } catch(e) { console.warn('明細コピー失敗:', e); }
+    }
+
+    // 3. 一覧に追加してestimate-editへ遷移
+    addEstimateRow(newPlanName, srcEst.koujiku || 'motouri', newEstimateId, newEstno, '作成中');
+
+    const params = new URLSearchParams({
+      property_id:    currentProperty ? currentProperty.id : '',
+      estimate_no:    newEstno,
+      plan_name:      newPlanName,
+      company_id:     srcEst.company_id || '',
+      koujiku:        srcEst.koujiku || 'motouri',
+      sales_staff_id: currentProperty?.sales_staff_id || '',
+      back:           location.href
+    });
+    if (newEstimateId) params.set('estimate_id', newEstimateId);
+    window.location.href = `estimate-edit-demo.html?${params.toString()}`;
+  }
+
+  // ========== インライン編集 ==========
+  function startEditPlan(td, e) {
+    e.stopPropagation();
+    if (td.querySelector('input')) return;
+    const span = td.querySelector('.plan-cell');
+    const cur = span ? span.textContent.trim() : '';
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.className = 'inline-input'; inp.value = cur;
+    td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
+    const commit = () => { td.innerHTML = `<span class="plan-cell">${escHtml(inp.value.trim()||cur)}</span>`; td.setAttribute('onclick','startEditPlan(this,event)'); };
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('keydown', ev => { if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){td.innerHTML=`<span class="plan-cell">${escHtml(cur)}</span>`;td.setAttribute('onclick','startEditPlan(this,event)');} ev.stopPropagation(); });
+    inp.addEventListener('click', ev => ev.stopPropagation());
+  }
+  function startEditEstno(td, e) {
+    e.stopPropagation();
+    if (td.querySelector('input')) return;
+    const cur = td.textContent.trim();
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.className = 'inline-input estno-input'; inp.value = cur;
+    td.textContent = ''; td.appendChild(inp); inp.focus(); inp.select();
+    const commit = () => { td.textContent = inp.value.trim()||cur; td.setAttribute('onclick','startEditEstno(this,event)'); };
+    inp.addEventListener('blur', commit);
+    inp.addEventListener('keydown', ev => { if(ev.key==='Enter') inp.blur(); if(ev.key==='Escape'){td.textContent=cur;td.setAttribute('onclick','startEditEstno(this,event)');} ev.stopPropagation(); });
+    inp.addEventListener('click', ev => ev.stopPropagation());
+  }
+
+  // ========== 行選択・ダブルクリック ==========
+  function onRowClick(tr) {
+    if (tr.classList.contains('row-selected')) { tr.classList.remove('row-selected'); }
+    else { document.querySelectorAll('#estTbody tr').forEach(r => r.classList.remove('row-selected')); tr.classList.add('row-selected'); }
+  }
+  function openEstimate(tr) {
+    const estimateId  = tr.dataset.estimateId || '';
+    const estimateNo  = tr.querySelector('.td-estno')?.textContent.trim() || '';
+    const planName    = tr.querySelector('.plan-cell')?.textContent.trim() || '';
+    const koujikuSel  = tr.querySelector('.koujiku-row-select');
+    const koujiku     = koujikuSel ? koujikuSel.value : 'motouri';
+
+    const params = new URLSearchParams({
+      property_id:    currentProperty ? currentProperty.id : '',
+      estimate_no:    estimateNo,
+      plan_name:      planName,
+      koujiku:        koujiku,
+      sales_staff_id: currentProperty?.sales_staff_id || '',
+      back:           location.href
+    });
+    if (estimateId) params.set('estimate_id', estimateId);
+    window.location.href = `estimate-edit-demo.html?${params.toString()}`;
+  }
+
+  // ========== デモ画面で開く ==========
+  function openInDemo(btn) {
+    const tr = btn.closest('tr');
+    const estimateId = tr.dataset.estimateId || '';
+    if (!estimateId) { alert('この見積はまだ保存されていないため、デモ表示できません。先に一度保存してください。'); return; }
+    window.open(`estimate-edit-demo.html?${new URLSearchParams({ estimate_id: estimateId }).toString()}`, '_blank');
+  }
+
+  // ========== コピー処理 ==========
+  let _copyTarget = null;
+  function onCopy(btn) { _copyTarget = btn.closest('tr'); $('copyDialog').classList.add('active'); }
+  function closeCopyDialog() { $('copyDialog').classList.remove('active'); _copyTarget = null; }
+  function executeCopy() {
+    if (!_copyTarget) return;
+    const tbody = $('estTbody');
+    const newRow = _copyTarget.cloneNode(true);
+    newRow.classList.remove('row-selected');
+    const pc = newRow.querySelector('.plan-cell');
+    if (pc) pc.textContent = pc.textContent.trim() + '_1';
+    const ec = newRow.querySelector('.td-estno');
+    if (ec) {
+      const orig = ec.textContent.trim(); const m = orig.match(/^(.*-)(\d+)$/);
+      if (m) { const ex = [...tbody.querySelectorAll('.td-estno')].map(e=>e.textContent.trim()); let n=parseInt(m[2],10)+1; while(ex.includes(m[1]+n))n++; ec.textContent=m[1]+n; }
+    }
+    const today = new Date(); const ds = today.getFullYear()+'/'+String(today.getMonth()+1).padStart(2,'0')+'/'+String(today.getDate()).padStart(2,'0');
+    newRow.querySelectorAll('td').forEach(td => { if(/^\d{4}\/\d{2}\/\d{2}$/.test(td.textContent.trim())) td.textContent=ds; });
+    newRow.setAttribute('onclick','onRowClick(this)'); newRow.setAttribute('ondblclick','openEstimate(this)');
+    newRow.querySelectorAll('.op-btn').forEach(b => { const t=b.getAttribute('title'); if(t==='コピー')b.setAttribute('onclick','onCopy(this)'); else if(t==='削除')b.setAttribute('onclick','onDelete(this)'); else if(t==='帳票出力')b.setAttribute('onclick','openChohyoDialog()'); else if(t==='デモで開く')b.setAttribute('onclick','openInDemo(this)'); });
+    ['status-select','koujiku-row-select'].forEach(cls => { const s=newRow.querySelector('.'+cls); if(s){s.setAttribute('onclick','event.stopPropagation()');s.setAttribute('onchange','event.stopPropagation()');} });
+    newRow.querySelector('.ops-wrap').setAttribute('onclick','event.stopPropagation()');
+    tbody.appendChild(newRow); renumberRows(); closeCopyDialog();
+  }
+
+  // ========== 削除処理 ==========
+  let _deleteTarget = null;
+  function onDelete(btn) { _deleteTarget = btn.closest('tr'); $('confirmOverlay').classList.add('active'); }
+  function closeConfirm() { $('confirmOverlay').classList.remove('active'); _deleteTarget = null; }
+  async function executeDelete() {
+    if (!_deleteTarget) { closeConfirm(); return; }
+    const tr = _deleteTarget;
+    const estimateId = tr.dataset.estimateId || '';
+    closeConfirm();
+
+    // Supabaseに登録済みの場合は削除
+    if (estimateId) {
+      try {
+        // 明細行を先に削除
+        await fetch(`${API}/estimate_rows?estimate_id=eq.${estimateId}`, {
+          method: 'DELETE', headers: HEADERS
+        });
+        // 見積ヘッダーを削除
+        const r = await fetch(`${API}/estimates?id=eq.${estimateId}`, {
+          method: 'DELETE', headers: HEADERS
+        });
+        if (!r.ok) throw new Error(await r.text());
+      } catch(e) {
+        alert('削除に失敗しました: ' + e.message);
+        return;
+      }
+    }
+
+    // DOMから行を削除
+    tr.remove();
+    renumberRows();
+  }
+  function renumberRows() { document.querySelectorAll('#estTbody tr[data-est]').forEach((tr,i)=>{ tr.querySelector('.td-no').textContent=i+1; }); }
+
+  // ========== 帳票出力ダイアログ ==========
+  function openChohyoDialog() {
+    const today = new Date().toISOString().split('T')[0];
+    $('chCreatedDate').value = today;
+    $('ch-card-keisan').classList.remove('selected');
+    $('ch-card-mitsumori').classList.remove('selected');
+    document.querySelectorAll('.ch-format-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('input[name="chSaveMethod"]').forEach(r => r.checked = false);
+    document.querySelectorAll('input[name="chAddrType"]').forEach(r => { r.checked = r.value==='honsha'; });
+    document.querySelectorAll('.ch-addr-label').forEach(l => l.classList.remove('active'));
+    document.querySelector('input[name="chAddrType"][value="honsha"]').closest('.ch-addr-radio-item').querySelector('.ch-addr-label').classList.add('active');
+    const mAcc = $('chMitsumoriAcc'); mAcc.style.maxHeight='0'; mAcc.classList.remove('open');
+    const fAcc = $('chFolderAcc'); fAcc.style.maxHeight='0'; fAcc.classList.remove('open');
+    $('chBranchAcc').classList.remove('open');
+    $('chTemplateSelect').value = '';
+    $('chCompanySelect').selectedIndex = 0;
+    $('chohyoOverlay').classList.add('active');
+  }
+  function closeChohyoDialog() { $('chohyoOverlay').classList.remove('active'); }
+  function chSelectDocType(type) {
+    $('ch-card-keisan').classList.toggle('selected', type==='keisan');
+    $('ch-card-mitsumori').classList.toggle('selected', type==='mitsumori');
+    const acc = $('chMitsumoriAcc');
+    if (type==='mitsumori') { acc.style.maxHeight = acc.scrollHeight+300+'px'; acc.classList.add('open'); }
+    else { acc.style.maxHeight='0'; acc.classList.remove('open'); $('chTemplateSelect').value=''; }
+  }
+  function chOnValidityTypeChange() {
+    const type = $('chValidityType').value;
+    $('chValidityDaysRow').style.display = (type==='date')?'none':'block';
+    $('chValidityDateRow').style.display = (type==='date')?'block':'none';
+    $('chValidityUnit').textContent = (type==='months')?'ヶ月':'日';
+    const acc = $('chMitsumoriAcc'); acc.style.maxHeight = acc.scrollHeight+300+'px';
+  }
+  function chOnAddrChange(radio) {
+    document.querySelectorAll('input[name="chAddrType"]').forEach(r => { r.closest('.ch-addr-radio-item').querySelector('.ch-addr-label').classList.remove('active'); });
+    radio.closest('.ch-addr-radio-item').querySelector('.ch-addr-label').classList.add('active');
+    const bAcc = $('chBranchAcc');
+    if (radio.value==='kyoten') { bAcc.classList.add('open'); }
+    else { bAcc.classList.remove('open'); $('chBranchSelect').value=''; }
+  }
+  function chSelectFormat(el) { document.querySelectorAll('.ch-format-btn').forEach(b => b.classList.remove('selected')); el.classList.add('selected'); }
+  document.querySelectorAll('input[name="chSaveMethod"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('input[name="chSaveMethod"]').forEach(r => { r.closest('.ch-radio-item').querySelector('.ch-radio-label').classList.remove('active'); });
+      radio.closest('.ch-radio-item').querySelector('.ch-radio-label').classList.add('active');
+      const acc = $('chFolderAcc');
+      if (radio.value==='openex') { acc.style.maxHeight=acc.scrollHeight+50+'px'; acc.classList.add('open'); }
+      else { acc.style.maxHeight='0'; acc.classList.remove('open'); document.querySelectorAll('input[name="chFolder"]').forEach(r=>r.checked=false); }
+    });
+  });
+
+  // ========== トースト ==========
+  function showToast(msg) {
+    let t = document.getElementById('toast');
+    if (!t) { t = document.createElement('div'); t.id='toast'; t.style.cssText='position:fixed;bottom:32px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:6px;font-size:13px;z-index:2000;opacity:0;transition:opacity 0.3s;pointer-events:none;background:#388e3c;color:#fff;'; document.body.appendChild(t); }
+    t.textContent = msg; t.style.opacity='1';
+    setTimeout(()=>t.style.opacity='0', 2800);
+  }
+
+  // ========== オーバーレイ外クリックで閉じる ==========
+  ['copyDialog','confirmOverlay','tmplOverlay','pastOverlay','chohyoOverlay','planInputOverlay','propInfoOverlay'].forEach(id => {
+    $(id).addEventListener('click', e => {
+      if (e.target !== e.currentTarget) return;
+      if (id==='copyDialog') closeCopyDialog();
+      else if (id==='confirmOverlay') closeConfirm();
+      else if (id==='tmplOverlay') closeTmplDialog();
+      else if (id==='pastOverlay') closePastDialog();
+      else if (id==='chohyoOverlay') closeChohyoDialog();
+      else if (id==='planInputOverlay') closePlanInputDialog();
+      else if (id==='propInfoOverlay') closePropInfoModal();
+    });
+  });
+
+
+  // ===== 共通ナビゲーション =====
+  const NAV_URLS = {
+    bukken: 'index.html',
+    kokyaku: 'index.html',
+    file: 'index.html',
+    shared: 'index.html',
+    estimate: 'index.html',
+    hacchu: 'index.html',
+    juchu: 'index.html',
+    shodan: 'index.html',
+    schedule: 'index.html',
+    maker: 'index.html',
+    settings: 'index.html',
+    manual: 'index.html',
+  };
+  function navClick(key) {
+    // 同じページ内のタブ切り替えがある場合はhash付きで遷移
+    // index.htmlへの遷移は sessionStorage でページを指定
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+  function setActiveNav(key) {
+    document.querySelectorAll('.nav-item[data-nav]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === key);
+    });
+  }
+
+  // 起動
+  setActiveNav('estimate');
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8"/>
+    <title>スタッフ認証APIテスト</title>
+    <meta name="robots" content="noindex,nofollow"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css"
+          integrity="sha512-MV7K8+y+gLIBoVD59lQIYicR65iaqukzvf/nwasF0nqhPay5w/9lJmVM2hMDcnK1OnMGCdVK+iQrJ7lzPJQd1w==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
+</head>
+
+<body>
+
+<div class="container">
+
+    <section class="hero">
+        <div class="hero-body">
+            <h1 class="title">スタッフ認証テスト</h1>
+        </div>
+    </section>
+
+    <div class="field">
+        <label class="label">サーバー</label>
+        <div class="control select">
+            <select id="targetServer">
+                <option value="">このサーバー</option>
+                <option value="production">open-ex.net</option>
+                <option value="staging">staging.open-ex.net</option>
+                <option value="test">test.open-ex.net</option>
+                <option value="local">127.0.0.1:8080</option>
+            </select>
+        </div>
+    </div>
+
+    <form class="form" name="loginForm" enctype="multipart/form-data">
+
+        <div class="field">
+            <label class="label">メールアドレス</label>
+            <div class="control">
+                <input type="text" name="mailaddress" class="input" required="required" value="s_bando@rikcorp.jp"/>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">パスワード</label>
+            <div class="control">
+                <input type="text" name="loginPassword" class="input" required="required"/>
+            </div>
+        </div>
+
+        <div class="field">
+            <div class="control">
+                <button id="login-button" type="button" class="button is-primary is-large">
+                    ログイン
+                </button>
+                <button id="status-button" type="button" class="button is-info is-large">
+                    ステータス確認
+                </button>
+                <button id="refresh-button" type="button" class="button is-info is-large">
+                    リフレッシュ
+                </button>
+                <button id="logout-button" type="button" class="button is-dark is-large">
+                    ログアウト
+                </button>
+            </div>
+        </div>
+
+    </form>
+
+    <div class="field">
+        <label class="label">JWT</label>
+        <input id="jwt" type="text" class="input"/>
+        <textarea id="payload" rows="5" class="textarea"></textarea>
+    </div>
+
+    <hr/>
+
+    <h2 class="title is-5">物件フォルダ構造 取得テスト</h2>
+
+    <div class="field">
+        <label class="label">物件ID（propertyId）</label>
+        <div class="control">
+            <input id="propertyId" type="text" class="input" value="00002-B0000137"/>
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="control">
+            <button id="structure-folders-button" type="button" class="button is-primary is-large">
+                フォルダ構造取得（GET /api/folders/structure-folders）
+            </button>
+        </div>
+    </div>
+
+    <div class="field">
+        <label class="label">レスポンス（生JSON）</label>
+        <textarea id="structureFoldersResult" rows="20" class="textarea" readonly></textarea>
+    </div>
+
+    <!--suppress JSUnusedLocalSymbols, JSUnresolvedVariable -->
+    <script type="text/javascript">/*<![CDATA[*/
+
+    const onDOMContentLoaded = function () {
+
+        const loginForm = document.forms.namedItem('loginForm');
+
+        const getTargetSchemeAndHost = function () {
+            const targetServer = document.getElementById('targetServer').value;
+            switch (targetServer) {
+                case 'production':
+                    return 'https://open-ex.net';
+                case 'staging':
+                    return 'https://staging.open-ex.net';
+                case 'test':
+                    return 'https://test.open-ex.net';
+                case 'local':
+                    return 'http://127.0.0.1:8080';
+            }
+            return location.protocol + '//' + location.host;
+        };
+
+        const decodeJwt = function (jwt) {
+            const base64 = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            return decodeURIComponent(
+                atob(base64).split('').map(function (c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join('')
+            );
+        };
+
+        // ログインAPIを呼ぶ
+        const callLoginApi = function () {
+            const request = new XMLHttpRequest();
+            const formData = new FormData(loginForm);
+            const schemeAndHost = getTargetSchemeAndHost();
+            const apiUri = schemeAndHost + '/auth/login';
+            alert(apiUri);
+            request.open('POST', apiUri, true);
+            request.timeout = 300000;
+            request.onload = function () {
+                if (request.status === 200) {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    /**
+                     * @typedef {Object} data
+                     * @property {int} status
+                     * @property {string} jwt
+                     */
+                    if (typeof data.jwt !== 'undefined') {
+                        document.getElementById('jwt').value = data.jwt;
+                        const payload = decodeJwt(data.jwt);
+                        document.getElementById('payload').value = payload;
+                        const claim = JSON.parse(payload);
+                        if (typeof claim.nameid !== 'undefined' && typeof claim.refresh !== 'undefined') {
+                            alert('ログインに成功しました。');
+                            alert('スタッフID:' + claim.nameid + '/リフレッシュトークン:' + claim.refresh);
+                        }
+                    }
+                } else {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    alert('ログインに失敗しました。');
+                    if (typeof data.errors !== 'undefined') {
+                        for (let key in data.errors) {
+                            if (data.errors.hasOwnProperty(key)) {
+                                alert(data.errors[key]);
+                            }
+                        }
+                    }
+                }
+            };
+
+            request.onerror = function () {
+                alert('ログインに失敗しました：ネットワークエラー');
+            };
+
+            request.ontimeout = function () {
+                alert('ログインに失敗しました：タイムアウト');
+            };
+
+            request.send(formData);
+        };
+
+        // ステータス確認APIを呼ぶ
+        const callStatusApi = function () {
+            const request = new XMLHttpRequest();
+            const schemeAndHost = getTargetSchemeAndHost();
+            const apiUri = schemeAndHost + '/auth/status';
+            const jwt = document.getElementById('jwt').value;
+            alert(apiUri);
+            request.open('GET', apiUri, true);
+            request.setRequestHeader('Authorization', 'Bearer ' + jwt);
+            request.timeout = 300000;
+            request.onload = function () {
+                if (request.status === 200) {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    /**
+                     * @typedef {Object} data
+                     * @property {int} status
+                     * @property {Object} staff
+                     */
+                    if (typeof data.staff !== 'undefined') {
+                        if (typeof data.staff.staffId !== 'undefined') {
+                            alert('ステータス確認に成功しました。');
+                            alert('スタッフID:' + data.staff.staffId);
+                        }
+                    }
+                } else {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    alert('ステータス確認に失敗しました。');
+                    if (typeof data.errors !== 'undefined') {
+                        for (let key in data.errors) {
+                            if (data.errors.hasOwnProperty(key)) {
+                                alert(data.errors[key]);
+                            }
+                        }
+                    }
+                }
+            };
+
+            request.onerror = function () {
+                alert('ステータス確認に失敗しました：ネットワークエラー');
+            };
+
+            request.ontimeout = function () {
+                alert('ステータス確認に失敗しました：タイムアウト');
+            };
+
+            request.send();
+        };
+
+        // リフレッシュAPIを呼ぶ
+        const callRefreshApi = function () {
+            const request = new XMLHttpRequest();
+            const schemeAndHost = getTargetSchemeAndHost();
+            const apiUri = schemeAndHost + '/auth/refresh';
+            const jwt = document.getElementById('jwt').value;
+            alert(apiUri);
+            request.open('POST', apiUri, true);
+            request.setRequestHeader('Authorization', 'Bearer ' + jwt);
+            request.timeout = 300000;
+            request.onload = function () {
+                if (request.status === 200) {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    /**
+                     * @typedef {Object} data
+                     * @property {int} status
+                     * @property {string} jwt
+                     */
+                    if (typeof data.jwt !== 'undefined') {
+                        document.getElementById('jwt').value = data.jwt;
+                        const payload = decodeJwt(data.jwt);
+                        document.getElementById('payload').value = payload;
+                        const claim = JSON.parse(payload);
+                        if (typeof claim.nameid !== 'undefined' && typeof claim.refresh !== 'undefined') {
+                            alert('リフレッシュに成功しました。');
+                            alert('スタッフID:' + claim.nameid + '/リフレッシュトークン:' + claim.refresh);
+                        }
+                    }
+                } else {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    alert('リフレッシュに失敗しました。');
+                    if (typeof data.errors !== 'undefined') {
+                        for (let key in data.errors) {
+                            if (data.errors.hasOwnProperty(key)) {
+                                alert(data.errors[key]);
+                            }
+                        }
+                    }
+                }
+            };
+
+            request.onerror = function () {
+                alert('リフレッシュに失敗しました：ネットワークエラー');
+            };
+
+            request.ontimeout = function () {
+                alert('リフレッシュに失敗しました：タイムアウト');
+            };
+
+            request.send();
+        };
+
+
+        // ログアウトAPIを呼ぶ
+        const callLogoutApi = function () {
+            const request = new XMLHttpRequest();
+            const schemeAndHost = getTargetSchemeAndHost();
+            const apiUri = schemeAndHost + '/auth/logout';
+            const jwt = document.getElementById('jwt').value;
+            alert(apiUri);
+            request.open('POST', apiUri, true);
+            request.setRequestHeader('Authorization', 'Bearer ' + jwt);
+            request.timeout = 300000;
+            request.onload = function () {
+                if (request.status === 200) {
+                    alert('ログアウトに成功しました。');
+                } else {
+                    const data = JSON.parse(request.responseText);
+                    console.log(data);
+                    alert('ログアウトに失敗しました。');
+                    if (typeof data.errors !== 'undefined') {
+                        for (let key in data.errors) {
+                            if (data.errors.hasOwnProperty(key)) {
+                                alert(data.errors[key]);
+                            }
+                        }
+                    }
+                }
+            };
+
+            request.onerror = function () {
+                alert('ログアウトに失敗しました：ネットワークエラー');
+            };
+
+            request.ontimeout = function () {
+                alert('ログアウトに失敗しました：タイムアウト');
+            };
+
+            request.send();
+        };
+
+        // ログイン
+        document.getElementById('login-button').addEventListener('click', function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            return callLoginApi();
+        });
+
+        // ステータス確認
+        document.getElementById('status-button').addEventListener('click', function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            return callStatusApi();
+        });
+
+        // リフレッシュ
+        document.getElementById('refresh-button').addEventListener('click', function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            return callRefreshApi();
+        });
+
+        // ログアウト
+        document.getElementById('logout-button').addEventListener('click', function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            return callLogoutApi();
+        });
+
+        // 物件フォルダ構造取得APIを呼ぶ
+        const callStructureFoldersApi = function () {
+            const request = new XMLHttpRequest();
+            const schemeAndHost = getTargetSchemeAndHost();
+            const propertyId = document.getElementById('propertyId').value;
+            const apiUri = schemeAndHost + '/api/folders/structure-folders?propertyId=' + encodeURIComponent(propertyId);
+            const jwt = document.getElementById('jwt').value;
+            const resultArea = document.getElementById('structureFoldersResult');
+            resultArea.value = '取得中... ' + apiUri;
+
+            request.open('GET', apiUri, true);
+            request.setRequestHeader('Authorization', 'Bearer ' + jwt);
+            request.timeout = 300000;
+            request.onload = function () {
+                try {
+                    const data = JSON.parse(request.responseText);
+                    resultArea.value = 'HTTP ' + request.status + '\n\n' + JSON.stringify(data, null, 2);
+                    console.log(data);
+                } catch (e) {
+                    resultArea.value = 'HTTP ' + request.status + '\n\n(JSONとして解釈できませんでした)\n\n' + request.responseText;
+                }
+            };
+
+            request.onerror = function () {
+                resultArea.value = 'フォルダ構造取得に失敗しました：ネットワークエラー';
+            };
+
+            request.ontimeout = function () {
+                resultArea.value = 'フォルダ構造取得に失敗しました：タイムアウト';
+            };
+
+            request.send();
+        };
+
+        document.getElementById('structure-folders-button').addEventListener('click', function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            return callStructureFoldersApi();
+        });
+
+    };
+
+    if (document.readyState !== 'loading') {
+        onDOMContentLoaded();
+    } else {
+        document.addEventListener('DOMContentLoaded', onDOMContentLoaded);
+    }
+
+    /*]]>*/</script>
+
+</div>
+
+<footer class="footer">
+    <div class="container">
+        <div class="content has-text-centered">
+            <p>&copy;2022 UNIMAT RIK inc. All Rights Reserved.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

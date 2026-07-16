@@ -1,0 +1,2747 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>RIKCADビューワー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { font-family: 'Noto Sans JP', 'Meiryo', sans-serif; background: #f0f2f5; color: #333; display: flex; flex-direction: column; }
+
+  /* ===== ナビバー ===== */
+  .navbar {
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    flex: 0 0 auto;
+  }
+  .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 11px; font-size: 12px; color: #555;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .nav-item:hover { color: #1a6fc4; }
+  .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+  .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+  .nav-item.hacchukanri svg { color: #e53935; }
+  .nav-right {
+    display: flex; align-items: center;
+    margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+  }
+
+  .header {
+    background: rgb(246, 248, 250);
+    color: #1f2937;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid #e0e3e7;
+  }
+  .header h1 { font-size: 16px; font-weight: bold; }
+  .header .sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+  }
+  .btn-primary { background: #4a7cc7; color: white; }
+  .btn-primary:hover { background: #3d6bb0; }
+  .btn-secondary { background: rgba(255,255,255,0.15); color: white; }
+  .btn-secondary:hover { background: rgba(255,255,255,0.25); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .header .btn-secondary { background: rgb(0, 178, 125); color: white; }
+  .header .btn-secondary:hover { background: rgb(0, 153, 107); }
+
+  .main { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
+
+  /* ── ドロップゾーン（初期表示） ───────────────────── */
+  .drop-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #eef1f6;
+    z-index: 5;
+  }
+  .drop-zone {
+    border: 2px dashed #aab;
+    border-radius: 8px;
+    padding: 48px 64px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    color: #778;
+    font-size: 14px;
+    background: white;
+  }
+  .drop-zone:hover, .drop-zone.dragover { background: #f0f4ff; border-color: #4a7cc7; }
+  .drop-zone .icon { font-size: 40px; margin-bottom: 10px; }
+  .drop-zone input { display: none; }
+
+  /* ── 3Dビューア ──────────────────────────────────── */
+  .viewer { flex: 1 1 auto; position: relative; min-width: 0; }
+  #viewerCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .loading-overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(240,242,245,0.85);
+    z-index: 10;
+    font-size: 14px;
+    color: #1a3a5c;
+    font-weight: bold;
+  }
+  .loading-overlay.show { display: flex; }
+
+  .measure-toast {
+    position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%) translateY(10px);
+    background: rgba(26,58,92,0.92); color: #fff;
+    padding: 8px 16px; border-radius: 6px; font-size: 13px;
+    pointer-events: none; z-index: 20; white-space: nowrap;
+    opacity: 0; transition: opacity .2s, transform .2s;
+  }
+  .measure-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .hint {
+    position: absolute; left: 12px; bottom: 12px;
+    background: rgba(0,0,0,0.55); color: white;
+    padding: 6px 12px; border-radius: 4px; font-size: 12px;
+    pointer-events: none;
+  }
+
+  /* ── PDF重ね表示パネル ──────────────────────────── */
+  .pdf-panel {
+    position: absolute; right: 12px; top: 12px;
+    width: 240px;
+    background: rgba(255,255,255,0.97);
+    border: 1px solid #ddd; border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    padding: 10px 12px;
+    font-size: 12px;
+    display: none;
+  }
+  .pdf-panel.show { display: block; }
+  .pdf-panel .pdf-title { font-weight: bold; color: #1a3a5c; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .pdf-panel .pdf-title .close-btn { cursor: pointer; color: #999; background: none; border: none; font-size: 14px; }
+  .pdf-panel label { display: block; color: #666; margin: 8px 0 2px; }
+  .pdf-panel input[type="range"] { width: 100%; }
+  .pdf-panel input[type="number"] { width: 100%; padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+  .pdf-panel .pdf-row { display: flex; align-items: center; gap: 6px; }
+  .pdf-panel .pdf-row span { width: 46px; text-align: right; color: #444; font-variant-numeric: tabular-nums; }
+  .pdf-panel .pdf-page-nav { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+  .pdf-panel .pdf-page-nav button { padding: 2px 8px; }
+  .pdf-panel .btn { width: 100%; margin-top: 8px; }
+  .pdf-edit-btn.active, .btn.active { background: #ff8800 !important; }
+
+  /* ── 情報パネル ──────────────────────────────────── */
+  .panel {
+    width: 340px; flex: 0 0 auto;
+    background: white;
+    border-left: 1px solid #ddd;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px; font-weight: bold; color: #555;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel-header .close-btn {
+    cursor: pointer; color: #999; font-size: 16px; line-height: 1;
+    background: none; border: none;
+  }
+  .panel-body { flex: 1; overflow-y: auto; padding: 14px 16px; font-size: 13px; }
+  .panel-empty { color: #999; font-size: 13px; padding: 16px; text-align: center; }
+
+  .prop-name { font-size: 15px; font-weight: bold; color: #1a3a5c; margin-bottom: 2px; word-break: break-all; }
+  .prop-type { font-size: 11px; color: #888; margin-bottom: 12px; }
+
+  table.prop-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  table.prop-table th {
+    text-align: left; font-size: 11px; color: #888; font-weight: normal;
+    padding: 4px 6px; width: 40%; vertical-align: top; border-bottom: 1px solid #f0f0f0;
+  }
+  table.prop-table td {
+    font-size: 12px; padding: 4px 6px; vertical-align: top;
+    word-break: break-all; border-bottom: 1px solid #f0f0f0;
+  }
+
+  .pset-title {
+    font-size: 12px; font-weight: bold; color: #444;
+    margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid #eee;
+  }
+
+  /* ── 数量一覧パネル ──────────────────────────────── */
+  .qty-panel {
+    width: 380px; flex: 0 0 auto;
+    background: white;
+    border-right: 1px solid #ddd;
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  .qty-panel.show { display: flex; }
+  .qty-resize-handle {
+    width: 5px; flex: 0 0 auto; cursor: col-resize;
+    background: transparent; position: relative; z-index: 5; display: none;
+  }
+  .qty-panel.show + .qty-resize-handle { display: block; }
+  .qty-resize-handle:hover, .qty-resize-handle.dragging { background: #cfe0ff; }
+  .qty-panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    font-size: 13px; font-weight: bold; color: #555;
+    flex: 0 0 auto;
+  }
+  .qty-panel-body { flex: 1; overflow-y: auto; }
+  .qty-empty { color: #999; font-size: 13px; padding: 24px 16px; text-align: center; }
+
+  table.qty-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.qty-table thead th {
+    position: sticky; top: 0; background: #f5f6f8; z-index: 1;
+    text-align: left; font-size: 11px; color: #888; font-weight: normal;
+    padding: 6px 8px; border-bottom: 1px solid #ddd;
+  }
+  table.qty-table td {
+    padding: 5px 8px; border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle; word-break: break-all;
+  }
+  table.qty-table td.qty-cat { font-weight: bold; color: #1a3a5c; background: #f7f9fc; }
+  table.qty-table td.qty-group { color: #333; background: #fbfbfd; }
+  table.qty-table td.qty-param { color: #555; }
+  table.qty-table td.qty-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.qty-table td.qty-unit { color: #888; white-space: nowrap; }
+  table.qty-table tr.qty-row { cursor: pointer; }
+  table.qty-table tr.qty-row:hover td { background: #eef4ff; }
+  table.qty-table tr.qty-row.active td { background: #cfe0ff; }
+  table.qty-table td.qty-price { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: #1a6f4c; }
+
+  /* ── 価格検索（Dify連携）─────────────────────────── */
+  .dify-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  .dify-modal-overlay.show { display: flex; }
+  .dify-modal {
+    background: white; border-radius: 8px; width: 520px; max-width: 92vw;
+    max-height: 82vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .dify-modal-header {
+    padding: 12px 16px; border-bottom: 1px solid #eee;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: bold; color: #555;
+  }
+  .dify-modal-header button { background: none; border: none; font-size: 16px; cursor: pointer; color: #888; }
+  .dify-modal-body { padding: 14px 18px; overflow-y: auto; flex: 1 1 auto; font-size: 12px; }
+  .dify-modal-footer { padding: 12px 18px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end; }
+  .dify-status { font-size: 12px; color: #666; margin-bottom: 10px; }
+  .dify-status.error { color: #c0392b; }
+  table.dify-result-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  table.dify-result-table th, table.dify-result-table td {
+    padding: 5px 6px; border-bottom: 1px solid #f0f0f0; font-size: 12px; text-align: left;
+  }
+  table.dify-result-table th { background: #f5f6f8; color: #666; font-weight: normal; }
+  table.dify-result-table td.dify-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .dify-result-meta { font-size: 11.5px; color: #888; margin: -4px 0 10px; }
+  .dify-result-meta .tag-nohit { color: #c0392b; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item" data-nav="keiyaku" onclick="navClick('keiyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      契約管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+<script>
+  // ===== ナビバー：index.htmlへの遷移 =====
+  function navClick(key) {
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+  function setActiveNav(key) {
+    document.querySelectorAll('.nav-item[data-nav]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === key);
+    });
+  }
+  setActiveNav('bukken');
+</script>
+
+<div class="header">
+  <div>
+    <div class="h1">RIKCADビューワー</div>
+    <div class="sub">IFCファイルを表示し、部材をクリックすると情報を確認できます</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-secondary" id="buildQtyBtn" style="display:none">📋 一覧表作成</button>
+    <button class="btn btn-secondary" id="planViewToggle" style="display:none">📐 平面図モード: OFF</button>
+    <button class="btn btn-secondary" id="measureToggle" style="display:none">📏 距離計測: OFF</button>
+    <button class="btn btn-secondary" id="areaMeasureToggle" style="display:none">🟩 面積計測: OFF</button>
+    <button class="btn btn-secondary" id="hidePlantsToggle" style="display:none">🌳 植栽を非表示</button>
+    <button class="btn btn-secondary" id="showAllBtn" style="display:none">👁 表示を戻す</button>
+    <button class="btn btn-secondary" id="pdfLoadBtn" style="display:none">📄 図面を重ねる</button>
+    <input type="file" id="pdfFileInput" accept=".pdf,.dxf" style="display:none">
+    <button class="btn btn-secondary" id="reloadBtn" style="display:none">📂 別のファイルを開く</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-zone" id="dropZone">
+      <div class="icon">🏢</div>
+      <div>クリックまたはドラッグ＆ドロップ</div>
+      <div style="font-size:12px; margin-top:4px;">.ifc ファイルを選択してください</div>
+      <input type="file" id="fileInput" accept=".ifc">
+    </div>
+  </div>
+
+  <div class="qty-panel" id="qtyPanel">
+    <div class="qty-panel-header">
+      数量一覧
+      <button class="btn btn-primary" id="transferToEstimateBtn" style="display:block; width:100%; margin-top:8px; font-size:12px; padding:6px 10px;">選択した要素を見積へ転記</button>
+    </div>
+    <div class="qty-panel-body" id="qtyBody">
+      <div class="qty-empty">IFCファイルを読み込むと数量が表示されます</div>
+    </div>
+  </div>
+
+  <div class="qty-resize-handle" id="qtyResizeHandle" title="ドラッグで幅を調整"></div>
+
+  <div class="viewer">
+    <canvas id="viewerCanvas"></canvas>
+    <div class="loading-overlay" id="loadingOverlay">読み込み中...</div>
+    <div class="hint" id="hint" style="display:none">部材をクリックすると詳細が表示されます（ドラッグで回転、ホイールでズーム、Shift+クリックで複数選択）</div>
+    <div class="measure-toast" id="measureToast"></div>
+
+    <div class="pdf-panel" id="pdfPanel">
+      <div class="pdf-title">
+        <span id="overlayPanelTitle">📄 図面重ね表示</span>
+        <button class="close-btn" id="pdfCloseBtn">✕</button>
+      </div>
+
+      <div class="pdf-page-nav" id="pdfPageNav" style="display:none">
+        <button class="btn btn-secondary" id="pdfPrevPage">◀</button>
+        <span id="pdfPageLabel">1 / 1</span>
+        <button class="btn btn-secondary" id="pdfNextPage">▶</button>
+      </div>
+
+      <label style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+        <input type="checkbox" id="pdfVisibleToggle" checked style="width:auto;">
+        表示する（外すと削除せず一時的に隠せます）
+      </label>
+
+      <button class="btn btn-primary pdf-edit-btn" id="pdfEditToggle">🖐 位置調整モード: OFF</button>
+      <div style="font-size:11px; color:#888; margin-top:4px;">ONの間、ドラッグで図面を移動できます</div>
+
+      <label>高さ (Y): <span id="pdfHeightVal">0.02</span> m</label>
+      <input type="range" id="pdfHeight" min="-5" max="10" step="0.01" value="0.02">
+
+      <label>X移動: <span id="pdfOffsetXVal">0.0</span> m</label>
+      <input type="number" id="pdfOffsetX" step="0.5" value="0">
+
+      <label>Z移動: <span id="pdfOffsetZVal">0.0</span> m</label>
+      <input type="number" id="pdfOffsetZ" step="0.5" value="0">
+
+      <label>回転: <span id="pdfRotVal">0</span>°</label>
+      <input type="range" id="pdfRot" min="0" max="360" step="1" value="0">
+
+      <label>拡大率: <span id="pdfScaleVal">1.00</span>× <span id="pdfScaleHint" style="font-size:10px;color:#999;"></span></label>
+      <input type="number" id="pdfScale" min="0.000001" step="any" value="1">
+
+      <label>不透明度: <span id="pdfOpacityVal">70</span>%</label>
+      <input type="range" id="pdfOpacity" min="10" max="100" step="1" value="70">
+
+      <label>文字サイズ（全テキスト共通）: <span id="dxfTextScaleVal">0.30</span> m</label>
+      <input type="range" id="dxfTextScale" min="0.05" max="2" step="0.05" value="0.3">
+
+      <button class="btn btn-secondary" id="pdfRemoveBtn">🗑 図面を削除</button>
+    </div>
+  </div>
+
+  <div class="panel" id="panel" style="display:none">
+    <div class="panel-header">
+      <span>部材情報</span>
+      <button class="close-btn" id="closePanelBtn">✕</button>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="panel-empty">部材をクリックしてください</div>
+    </div>
+  </div>
+
+  <div class="dify-modal-overlay" id="difyModalOverlay">
+    <div class="dify-modal">
+      <div class="dify-modal-header">
+        <span>💰 価格検索（RIKCAD材料引き当て）</span>
+        <button id="difyModalCloseBtn">✕</button>
+      </div>
+      <div class="dify-modal-body" id="difyModalBody"></div>
+      <div class="dify-modal-footer">
+        <button class="btn btn-secondary" id="difyModalCancelBtn" style="background:#eee; color:#333;">閉じる</button>
+        <button class="btn btn-primary" id="difyTransferBtn" style="display:none;">📋 一覧表に転記</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!--
+  three / web-ifc は esm.sh 経由だと Node.js の process ポリフィルが混入し、
+  web-ifc（Emscriptenビルド）が ENVIRONMENT_IS_NODE=true と誤判定して
+  require("fs") を呼び出しWASM読み込みに失敗する。そのためunpkgの生ファイルを
+  importmapで直接解決する（process等のポリフィルが一切注入されない）。
+-->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/examples/jsm/controls/OrbitControls.js": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js",
+    "three/examples/jsm/utils/BufferGeometryUtils": "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js",
+    "web-ifc": "https://unpkg.com/web-ifc@0.0.39/web-ifc-api.js",
+    "web-ifc-three/IFCLoader": "https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.js",
+    "pdfjs-dist": "https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.mjs"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { IFCLoader } from 'web-ifc-three/IFCLoader';
+import {
+  IFCWALL, IFCWALLSTANDARDCASE, IFCSLAB, IFCREINFORCINGMESH, IFCROOF,
+  IFCCOLUMN, IFCFURNISHINGELEMENT, IFCBUILDINGELEMENTPROXY, IFCRAMP, IFCWINDOW,
+  IFCDOOR, IFCPLATE, IFCMEMBER, IFCCOVERING, IFCSTAIR, IFCSTAIRFLIGHT,
+  IFCRAILING, IFCBEAM, IFCFOOTING,
+} from 'web-ifc';
+import * as pdfjsLib from 'pdfjs-dist';
+
+const WASM_PATH = 'https://unpkg.com/web-ifc@0.0.39/';
+const SB_URL   = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SB       = `${SB_URL}/rest/v1`;
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const H        = { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' };
+// ── RIKCAD材料引き当て（Dify ワークフロー）設定 ──────────────────
+// Dify管理画面で「RIKCAD材料引き当て_v2」を公開→APIアクセスから発行したキー
+const DIFY_API_BASE = 'https://api.dify.ai/v1';
+const DIFY_API_KEY  = 'app-cxBfFgqfP5HVP04LXt47mJ6I';
+let _ifcFileName = '';
+// workerSrcにCDNのURLを直接指定するとクロスオリジンWorker起動に失敗し
+// page.render()が無反応のまま固まることがあるため、Workerスクリプトを取得して
+// 同一オリジンのBlob URL化してから渡す
+const pdfWorkerReady = fetch('https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.mjs')
+  .then(res => res.blob())
+  .then(blob => { pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob); });
+
+// ── Three.js 基本セットアップ ────────────────────────────
+const canvas = document.getElementById('viewerCanvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f2f5);
+
+const perspectiveCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 5000);
+perspectiveCamera.position.set(15, 15, 15);
+// 平面図モード用。真の平行投影で見下ろすためPerspectiveCameraとは別に用意し、
+// enterPlanView/exitPlanViewで`camera`変数の参照先を切り替える
+const orthoCamera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.1, 5000);
+let camera = perspectiveCamera;
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+// ホイールボタン(中クリック)ドラッグでも右クリックと同じ平行移動ができるようにする
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,
+  MIDDLE: THREE.MOUSE.PAN,
+  RIGHT: THREE.MOUSE.PAN,
+};
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.2));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(10, 20, 10);
+scene.add(dirLight);
+// IFCはSI単位(m)で読み込まれるため、size/divisions=100/100 で1マス=1m=1000mmピッチ
+scene.add(new THREE.GridHelper(100, 100, 0xcccccc, 0xe5e5e5));
+
+function resize() {
+  const el = canvas.parentElement;
+  const w = el.clientWidth, h = el.clientHeight;
+  renderer.setSize(w, h, false);
+  const aspect = w / h;
+  if (camera.isPerspectiveCamera) {
+    camera.aspect = aspect;
+  } else {
+    // OrthographicCamera: orthoHalfHeight（ズーム前の縦半分の世界サイズ）を基準に
+    // アスペクト比に合わせてleft/right/top/bottomを再計算する
+    camera.left = -orthoHalfHeight * aspect;
+    camera.right = orthoHalfHeight * aspect;
+    camera.top = orthoHalfHeight;
+    camera.bottom = -orthoHalfHeight;
+  }
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+// window自体のリサイズだけでなく、部材情報パネル・数量一覧パネルの開閉でも
+// .viewer の幅が変わる（flexレイアウト）。その際にレンダラー/カメラのアスペクト比を
+// 追従させないと、キャンバスの見た目の縦横比だけ変わって表示が横に縮んで見える。
+// window resizeイベントは発火しないため、コンテナ自体のサイズ変化を監視する。
+new ResizeObserver(() => resize()).observe(canvas.parentElement);
+
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+
+// ── IFCLoader セットアップ ───────────────────────────────
+const ifcLoader = new IFCLoader();
+let wasmReady = ifcLoader.ifcManager.setWasmPath(WASM_PATH);
+
+let currentModel = null;
+// depthTest:falseで常に手前に描画する（元の壁面などと同一平面上でのZファイティングによる
+// 「ハイライトが作成されているのに見えない」問題を防ぐ）
+let highlightMaterial = new THREE.MeshBasicMaterial({
+  color: 0x2266ff, transparent: true, opacity: 0.75, depthTest: false,
+});
+// 一覧表チェック（拾い出しチェック用）で黄色にする要素。クリック選択(青)とは別のsubsetで管理し、
+// 選択状態が変わってもチェック色は消えないようにする
+let checkedIds = new Set();
+const checkMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffdd00, transparent: true, opacity: 0.6, depthTest: false,
+});
+
+// ── ファイル読み込み ─────────────────────────────────────
+const dropOverlay = document.getElementById('dropOverlay');
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const loadingOverlay = document.getElementById('loadingOverlay');
+const reloadBtn = document.getElementById('reloadBtn');
+const hint = document.getElementById('hint');
+const measureToggle = document.getElementById('measureToggle');
+const areaMeasureToggle = document.getElementById('areaMeasureToggle');
+const showAllBtn = document.getElementById('showAllBtn');
+const hidePlantsToggle = document.getElementById('hidePlantsToggle');
+const buildQtyBtn = document.getElementById('buildQtyBtn');
+const transferToEstimateBtn = document.getElementById('transferToEstimateBtn');
+
+// 非表示機能: 元モデルをまるごと隠すことはできないため、
+// 「非表示にしたいID以外」を集めた複製サブセットに丸ごと差し替えて表示する
+let hiddenIds = new Set();
+let allModelIdsCache = null; // モデル内の全expressID（初回のみ収集しキャッシュ）
+let _currentDifyTarget = null; // 部材情報パネルで選択中の要素のDify価格検索用パラメータ
+// 「植栽を非表示」トグル専用: このトグルで追加したIDだけを覚えておき、OFFに戻す際に
+// hiddenIdsから正確に取り除く（個別要素の一時非表示と混ざっても影響しないようにするため）
+let plantsHidden = false;
+let plantHiddenIds = new Set();
+let visibleSubsetMesh = null; // 非表示適用中に currentModel の代わりに表示・ピック対象にするメッシュ
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+});
+reloadBtn.addEventListener('click', () => {
+  dropOverlay.style.display = 'flex';
+  fileInput.value = '';
+});
+buildQtyBtn.addEventListener('click', async () => {
+  if (!currentModel) return;
+  const qtyPanel = document.getElementById('qtyPanel');
+  if (qtyPanel.classList.contains('show')) {
+    qtyPanel.classList.remove('show');
+    return;
+  }
+  const originalLabel = buildQtyBtn.textContent;
+  buildQtyBtn.disabled = true;
+  buildQtyBtn.textContent = '作成中...';
+  try {
+    await buildQuantityTable(currentModel.modelID);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('qtyBody').innerHTML = '<div class="qty-empty">数量集計に失敗しました</div>';
+  } finally {
+    buildQtyBtn.disabled = false;
+    buildQtyBtn.textContent = originalLabel;
+  }
+});
+// ── 数量一覧パネルの幅ドラッグ調整 ─────────────────────
+(function setupQtyResize() {
+  const handle = document.getElementById('qtyResizeHandle');
+  const panel = document.getElementById('qtyPanel');
+  const QTY_MIN_WIDTH = 260, QTY_MAX_WIDTH = 800;
+  let dragging = false, startX = 0, startWidth = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startWidth = panel.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const newWidth = Math.min(QTY_MAX_WIDTH, Math.max(QTY_MIN_WIDTH, startWidth + (e.clientX - startX)));
+    panel.style.width = newWidth + 'px';
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  });
+})();
+
+transferToEstimateBtn.addEventListener('click', async () => {
+  const checked = document.querySelectorAll('#qtyBody input.qty-select:checked');
+  if (!checked.length) { alert('行を選択してください'); return; }
+
+  // property_id を StorageURL から取得
+  const urlParam = new URLSearchParams(location.search).get('url') || '';
+  const pidMatch = urlParam.match(/property-files\/([^/]+)\//);
+  const propertyId = pidMatch ? pidMatch[1] : null;
+  if (!propertyId) {
+    alert('物件IDを特定できません。\n物件ファイル一覧からIFCファイルを開いてください。');
+    return;
+  }
+
+  // チェック済みグループをRIKCAD互換JSONに変換
+  const CATEGORY_TYPE = { '壁': 4, 'スラブ': 5, 'メッシュ': 6, '屋根': 7, 'オブジェクト': 1, 'ランプ': 3, '窓': 8, '柱': 1 };
+  const items = [];
+  const seen = new Set();
+  for (const chk of checked) {
+    const key = chk.dataset.group;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const meta = groupKeyToMeta.get(key);
+    if (!meta) continue;
+    const type = CATEGORY_TYPE[meta.category] ?? 1;
+    const p = meta.params || {};
+    let suuryo = 0, paramParts = [];
+    if (type === 4) {
+      const h = p['高さ'], a = p['表面積'], l = p['壁中心長さ'];
+      if (h != null) { paramParts.push(`塀高さ:${(h / 1000).toFixed(3)}m`); suuryo = parseFloat((h / 1000).toFixed(3)); }
+      if (a != null) { paramParts.push(`基準線面積:${a.toFixed(3)}㎡`); }
+      if (l != null) { paramParts.push(`基準線長さ:${(l / 1000).toFixed(3)}m`); if (!suuryo) suuryo = parseFloat((l / 1000).toFixed(3)); }
+    } else if ([5, 6, 7].includes(type)) {
+      const a = p['面積'] ?? p['表面積'];
+      if (a != null) { paramParts.push(`3D上面積:${a.toFixed(3)}㎡`); suuryo = parseFloat(a.toFixed(3)); }
+    } else {
+      suuryo = Math.round(p['数量'] ?? 1);
+    }
+    items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: 0, parameters: paramParts.join('\n') });
+  }
+  if (!items.length) { alert('変換できる行がありませんでした'); return; }
+
+  transferToEstimateBtn.disabled = true;
+  transferToEstimateBtn.textContent = '保存中...';
+  try {
+    const ts = Date.now();
+    const safeName = _ifcFileName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.ifc$/i, '');
+    const fileName = `${ts}_${safeName}.json`;
+    const storagePath = `${propertyId}/${fileName}`;
+    const jsonStr = JSON.stringify(items, null, 2);
+
+    // Storage にアップロード
+    const upRes = await fetch(`${SB_URL}/storage/v1/object/property-files/${storagePath}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json', 'x-upsert': 'false' },
+      body: jsonStr,
+    });
+    if (!upRes.ok) throw new Error(`Storage upload failed: ${upRes.status}`);
+
+    // property_files テーブルに登録
+    const dbRes = await fetch(`${SB}/property_files`, {
+      method: 'POST',
+      headers: { ...H, Prefer: 'return=minimal' },
+      body: JSON.stringify({ property_id: propertyId, name: fileName, storage_path: storagePath, size: new Blob([jsonStr]).size, mime_type: 'application/json', tags: ['ifc-export'] }),
+    });
+    if (!dbRes.ok) throw new Error(`DB insert failed: ${dbRes.status}`);
+
+    alert(`${items.length}件をJSONとして保存しました。\nファイル名: ${fileName}\n\n「CADから引用」から引用できます。`);
+  } catch (err) {
+    console.error(err);
+    alert('保存に失敗しました: ' + err.message);
+  } finally {
+    transferToEstimateBtn.disabled = false;
+    transferToEstimateBtn.textContent = '選択した要素を見積へ転記';
+  }
+});
+
+async function loadFile(file) {
+  if (!file.name.toLowerCase().endsWith('.ifc')) {
+    alert('.ifc ファイルを選択してください');
+    return;
+  }
+  _ifcFileName = file.name || 'model.ifc';
+  loadingOverlay.classList.add('show');
+  dropOverlay.style.display = 'none';
+  try {
+    await wasmReady;
+    const buffer = await file.arrayBuffer();
+
+    if (currentModel) {
+      scene.remove(currentModel);
+      currentModel = null;
+    }
+    if (visibleSubsetMesh) {
+      scene.remove(visibleSubsetMesh);
+      visibleSubsetMesh = null;
+    }
+    clearMeasurement();
+    clearAreaMeasurement();
+    exitPlanView();
+    if (pdfPivot) removePdf();
+
+    const model = await ifcLoader.parse(buffer);
+    scene.add(model);
+    currentModel = model;
+
+    fitCameraToModel(model);
+    reloadBtn.style.display = '';
+    hint.style.display = '';
+    pdfLoadBtn.style.display = '';
+    measureToggle.style.display = '';
+    areaMeasureToggle.style.display = '';
+    planViewToggle.style.display = '';
+    buildQtyBtn.style.display = '';
+    hiddenIds.clear();
+    checkedIds.clear();
+    selectedIds = new Set();
+    document.getElementById('panel').style.display = 'none';
+    setActiveQtyGroup(null);
+    allModelIdsCache = null;
+    visibleSubsetMesh = null;
+    showAllBtn.style.display = 'none';
+    hidePlantsToggle.style.display = '';
+    plantsHidden = false;
+    plantHiddenIds.clear();
+    hidePlantsToggle.textContent = '🌳 植栽を非表示';
+    hidePlantsToggle.classList.remove('active');
+
+    document.getElementById('qtyPanel').classList.remove('show');
+    document.getElementById('qtyBody').innerHTML = '<div class="qty-empty">「一覧表作成」ボタンを押すと数量が表示されます</div>';
+  } catch (err) {
+    console.error(err);
+    alert('IFCファイルの読み込みに失敗しました: ' + err.message);
+    dropOverlay.style.display = 'flex';
+  } finally {
+    loadingOverlay.classList.remove('show');
+  }
+}
+
+// 初期カメラの水平方向オフセット倍率（モデル最大辺長に対する比率）
+const CAMERA_XZ_RATIO = 0.9;
+// 初期カメラの垂直方向オフセット倍率。正=中心より上（見下ろす）、負=中心より下（見上げる）
+const CAMERA_Y_RATIO = -0.15;
+
+function fitCameraToModel(model) {
+  const box = new THREE.Box3().setFromObject(model);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z) || 10;
+
+  controls.target.copy(center);
+  perspectiveCamera.position.set(
+    center.x + maxDim * CAMERA_XZ_RATIO,
+    center.y + maxDim * CAMERA_Y_RATIO,
+    center.z + maxDim * CAMERA_XZ_RATIO
+  );
+  perspectiveCamera.near = maxDim / 100;
+  perspectiveCamera.far = maxDim * 50;
+  perspectiveCamera.updateProjectionMatrix();
+  controls.update();
+}
+
+// ── 平面図モード（真上から見下ろす表示） ─────────────────
+// OrthographicCameraへの切替で真の平行投影にする（PLAN_FOVで疑似平行投影していた旧実装から変更）
+const PLAN_POLAR_EPSILON = 0.0001; // 極角ちょうど0だと向きが不安定になるための微小値
+let planViewMode = false;
+let savedCameraState = null; // 平面図モードOFF時に元の視点へ戻すための退避先
+let orthoHalfHeight = 10; // OrthographicCameraのズーム前の縦半分の世界サイズ（resize()が参照）
+
+const planViewToggle = document.getElementById('planViewToggle');
+planViewToggle.addEventListener('click', () => {
+  if (planViewMode) exitPlanView(); else enterPlanView();
+});
+
+function enterPlanView() {
+  if (!currentModel || planViewMode) return;
+  savedCameraState = {
+    position: perspectiveCamera.position.clone(),
+    target: controls.target.clone(),
+  };
+
+  const anchor = getModelGroundAnchor();
+  const target = anchor
+    ? new THREE.Vector3(anchor.x, anchor.y, anchor.z)
+    : controls.target.clone();
+  const span = anchor ? Math.max(anchor.spanX, anchor.spanZ, 1) : 20;
+  const height = span * 1.5; // 見下ろす高さ（値自体はほぼ任意、near/farが収まればよい）
+
+  camera = orthoCamera;
+  controls.object = orthoCamera;
+
+  orthoHalfHeight = (span / 2) * 1.15; // 余白を持たせて全体が収まるようにする
+  orthoCamera.zoom = 1;
+  orthoCamera.near = Math.max(height / 100, 0.01);
+  orthoCamera.far = height * 3;
+  resize(); // orthoHalfHeightを反映してleft/right/top/bottomを設定
+
+  controls.target.copy(target);
+  orthoCamera.position.set(target.x, target.y + height, target.z);
+  controls.minPolarAngle = PLAN_POLAR_EPSILON;
+  controls.maxPolarAngle = PLAN_POLAR_EPSILON;
+  controls.update();
+
+  planViewMode = true;
+  planViewToggle.textContent = '📐 平面図モード: ON';
+  planViewToggle.classList.add('active');
+}
+
+function exitPlanView() {
+  if (!planViewMode) return;
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI;
+
+  camera = perspectiveCamera;
+  controls.object = perspectiveCamera;
+  if (savedCameraState) {
+    perspectiveCamera.position.copy(savedCameraState.position);
+    controls.target.copy(savedCameraState.target);
+  }
+  resize();
+  controls.update();
+
+  planViewMode = false;
+  savedCameraState = null;
+  planViewToggle.textContent = '📐 平面図モード: OFF';
+  planViewToggle.classList.remove('active');
+}
+
+// ── クリックで部材選択 ───────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let pointerDownPos = null;
+
+canvas.addEventListener('pointerdown', e => {
+  pointerDownPos = { x: e.clientX, y: e.clientY };
+  if (pdfEditMode && pdfPivot) {
+    const point = groundPointAt(e, pdfPivot.position.y);
+    if (point) {
+      pdfDragOffset.copy(pdfPivot.position).sub(point);
+      pdfDragging = true;
+    }
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (pdfDragging && pdfPivot) {
+    const point = groundPointAt(e, pdfPivot.position.y);
+    if (point) pdfPivot.position.copy(point.add(pdfDragOffset));
+    return;
+  }
+  updateSnapHover(e);
+});
+
+canvas.addEventListener('pointerup', e => {
+  const wasDraggingPdf = pdfDragging;
+  pdfDragging = false;
+  if (wasDraggingPdf && pdfPivot) {
+    // ドラッグ後にX/Zコントロールへ現在位置を反映
+    const cx = +(pdfPivot.position.x - pdfBaseX).toFixed(2);
+    const cz = +(pdfPivot.position.z - pdfBaseZ).toFixed(2);
+    pdfOffsetXInput.value = cx; document.getElementById('pdfOffsetXVal').textContent = cx.toFixed(1);
+    pdfOffsetZInput.value = cz; document.getElementById('pdfOffsetZVal').textContent = cz.toFixed(1);
+  }
+  if (!pointerDownPos) return;
+  const dx = e.clientX - pointerDownPos.x;
+  const dy = e.clientY - pointerDownPos.y;
+  pointerDownPos = null;
+  if (wasDraggingPdf || pdfEditMode) return;
+  // 軽くドラッグ（カメラ回転操作）した場合はクリックとみなさない
+  if (Math.hypot(dx, dy) > 4) return;
+  if (measureMode) {
+    handleMeasureClick(e);
+  } else if (areaMeasureMode) {
+    handleAreaMeasureClick(e);
+  } else {
+    handlePick(e);
+  }
+});
+
+// ワールド座標をキャンバス上のピクセル座標（左上原点）に変換する
+function worldToScreen(worldPos, rect) {
+  const ndc = worldPos.clone().project(camera);
+  return {
+    x: (ndc.x * 0.5 + 0.5) * rect.width,
+    y: (1 - (ndc.y * 0.5 + 0.5)) * rect.height,
+  };
+}
+
+// 距離計測・面積計測共通: マウス位置から拾う点を決める。
+// 頂点の近く（画面上でSNAP_PIXEL_RADIUS以内）ならその頂点にスナップし、
+// そうでなければ面上のraycast交点をそのまま使う。
+const SNAP_PIXEL_RADIUS = 18;
+
+function computeSnapCandidate(e) {
+  if (!currentModel) return null;
+  const rect = canvas.getBoundingClientRect();
+  const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+
+  const intersects = raycaster.intersectObject(visibleSubsetMesh || currentModel, true);
+  if (!intersects.length) return null;
+  const hit = intersects[0];
+
+  let point = hit.point.clone();
+  let snapped = false;
+
+  const posAttr = hit.face && hit.object.geometry && hit.object.geometry.attributes.position;
+  if (posAttr) {
+    const idxs = [hit.face.a, hit.face.b, hit.face.c];
+    let bestDist = Infinity, bestWorld = null;
+    for (const idx of idxs) {
+      const world = new THREE.Vector3().fromBufferAttribute(posAttr, idx).applyMatrix4(hit.object.matrixWorld);
+      const screen = worldToScreen(world, rect);
+      const dx = (e.clientX - rect.left) - screen.x;
+      const dy = (e.clientY - rect.top) - screen.y;
+      const d = Math.hypot(dx, dy);
+      if (d < bestDist) { bestDist = d; bestWorld = world; }
+    }
+    if (bestWorld && bestDist <= SNAP_PIXEL_RADIUS) {
+      point = bestWorld;
+      snapped = true;
+    }
+  }
+
+  return { point, snapped };
+}
+
+// 頂点スナップ候補にカーソルが乗っている間、目印を表示する
+const snapHoverMarker = new THREE.Mesh(
+  new THREE.SphereGeometry(0.09, 12, 12),
+  new THREE.MeshBasicMaterial({ color: 0x22cc44, transparent: true, opacity: 0.9, depthTest: false })
+);
+snapHoverMarker.renderOrder = 1000;
+snapHoverMarker.visible = false;
+scene.add(snapHoverMarker);
+
+function updateSnapHover(e) {
+  if (!(measureMode || areaMeasureMode) || !currentModel) {
+    snapHoverMarker.visible = false;
+    return;
+  }
+  const result = computeSnapCandidate(e);
+  if (result && result.snapped) {
+    snapHoverMarker.position.copy(result.point);
+    snapHoverMarker.visible = true;
+  } else {
+    snapHoverMarker.visible = false;
+  }
+}
+
+// キャンバス上のポインタ位置から、指定した高さ(y)の水平面との交点を求める
+function groundPointAt(e, y) {
+  const rect = canvas.getBoundingClientRect();
+  const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -y);
+  const point = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(plane, point) ? point : null;
+}
+
+// Shiftキー押下中のクリックは選択への追加/解除、通常クリックは単一選択に置き換える
+let selectedIds = new Set();
+
+async function handlePick(e) {
+  if (!currentModel) return;
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  // 非表示適用中は表示中サブセットのみを対象にする（隠した要素は選択できない）
+  const intersects = raycaster.intersectObject(visibleSubsetMesh || currentModel, true);
+  if (!intersects.length) {
+    // Shift押下中の空クリックは既存の複数選択を維持する（誤クリックでの解除を防ぐ）
+    if (!e.shiftKey) clearSelection();
+    return;
+  }
+
+  const hit = intersects[0];
+  const expressId = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+  if (expressId == null) {
+    if (!e.shiftKey) clearSelection();
+    return;
+  }
+
+  if (e.shiftKey) {
+    if (selectedIds.has(expressId)) selectedIds.delete(expressId);
+    else selectedIds.add(expressId);
+  } else {
+    selectedIds = new Set([expressId]);
+  }
+
+  await refreshSelectionUI();
+}
+
+// 選択状態(selectedIds)を3Dハイライト・情報パネル・一覧表のアクティブ行に反映する共通処理
+// （3Dビューアでのクリックと一覧表でのクリックの両方から呼び出す）
+async function refreshSelectionUI() {
+  await applySelectionHighlight();
+
+  if (selectedIds.size === 0) {
+    document.getElementById('panel').style.display = 'none';
+    setActiveQtyGroup(null);
+  } else if (selectedIds.size === 1) {
+    const onlyId = selectedIds.values().next().value;
+    await showProperties(currentModel.modelID, onlyId);
+    setActiveQtyGroup(idToGroupKeyMap.get(onlyId) || null);
+  } else {
+    await showMultiSelectionSummary();
+    const groupKeys = Array.from(selectedIds).map(id => idToGroupKeyMap.get(id)).filter(Boolean);
+    setActiveQtyGroups(groupKeys);
+  }
+}
+
+async function applySelectionHighlight() {
+  if (!currentModel) return;
+  if (selectedIds.size === 0) {
+    ifcLoader.ifcManager.removeSubset(currentModel.modelID, highlightMaterial, 'ifc-viewer-highlight');
+    return;
+  }
+  const subset = ifcLoader.ifcManager.createSubset({
+    scene,
+    modelID: currentModel.modelID,
+    ids: Array.from(selectedIds),
+    removePrevious: true,
+    material: highlightMaterial,
+    customID: 'ifc-viewer-highlight',
+  });
+  if (subset) subset.renderOrder = 999; // 元の面より必ず手前に描画する
+}
+
+// 複数選択中は個別のプロパティ表は出さず、件数・名称・数量の一覧と縦計のみの簡易表示にする
+async function showMultiSelectionSummary() {
+  const panel = document.getElementById('panel');
+  const body = document.getElementById('panelBody');
+  panel.style.display = 'flex';
+  body.innerHTML = '<div class="panel-empty">読み込み中...</div>';
+
+  const ids = Array.from(selectedIds);
+  // 一覧表と同じ材質・名称・数量パラメータを表示する（一覧表に集計済みの要素のみ数量が出る）
+  const items = await Promise.all(ids.map(async id => {
+    const groupKey = idToGroupKeyMap.get(id);
+    const meta = groupKey ? groupKeyToMeta.get(groupKey) : null;
+    if (meta) return { label: meta.label, category: meta.category, params: meta.params };
+    try {
+      const props = await ifcLoader.ifcManager.getItemProperties(currentModel.modelID, id, false);
+      return { label: fieldValue(props.Name) || `(ExpressID: ${id})`, category: null, params: null };
+    } catch (err) {
+      return { label: `(ExpressID: ${id})`, category: null, params: null };
+    }
+  }));
+
+  // 項目名（＋単位）ごとの縦計を集計
+  const totals = new Map(); // key: paramName -> { paramName, unit, sum }
+  let rowsHtml = '';
+  for (const item of items) {
+    const paramNames = item.category ? (CATEGORY_PARAMS[item.category] || []) : [];
+    const visibleParams = paramNames.filter(p => item.params && item.params[p] != null);
+
+    if (!visibleParams.length) {
+      rowsHtml += `<tr class="qty-row"><td class="qty-group" colspan="2">${escHtml(item.label)}</td><td class="qty-value" colspan="2" style="color:#999;">-</td></tr>`;
+      continue;
+    }
+    visibleParams.forEach((paramName, i) => {
+      const value = item.params[paramName];
+      const unit = UNIT_MAP[paramName] || '';
+      const valueText = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(2);
+      rowsHtml += '<tr class="qty-row">'
+        + (i === 0 ? `<td class="qty-group" rowspan="${visibleParams.length}">${escHtml(item.label)}</td>` : '')
+        + `<td class="qty-param">${escHtml(paramName)}</td><td class="qty-value">${valueText}</td><td class="qty-unit">${unit}</td></tr>`;
+      const key = paramName + '||' + unit;
+      const acc = totals.get(key) || { paramName, unit, sum: 0 };
+      acc.sum += value;
+      totals.set(key, acc);
+    });
+  }
+
+  const totalsHtml = Array.from(totals.values()).map(t => {
+    const valueText = INT_PARAMS.has(t.paramName) ? String(Math.round(t.sum)) : t.sum.toFixed(2);
+    return `<tr><td class="qty-cat" colspan="2" style="text-align:right;">${escHtml(t.paramName)} 合計</td>`
+      + `<td class="qty-value" style="font-weight:bold;">${valueText}</td><td class="qty-unit">${t.unit}</td></tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="prop-name">${ids.length}件選択中</div>
+    <div class="prop-type">Shift+クリックで選択を追加・解除できます</div>
+    <table class="qty-table" style="margin-top:8px;">
+      <tbody>${rowsHtml}</tbody>
+      ${totalsHtml ? `<tfoot>${totalsHtml}</tfoot>` : ''}
+    </table>
+  `;
+}
+
+function clearSelection() {
+  selectedIds = new Set();
+  if (currentModel) {
+    ifcLoader.ifcManager.removeSubset(currentModel.modelID, highlightMaterial, 'ifc-viewer-highlight');
+  }
+  document.getElementById('panel').style.display = 'none';
+  setActiveQtyGroup(null);
+}
+
+document.getElementById('closePanelBtn').addEventListener('click', clearSelection);
+
+// ── 情報パネル描画 ───────────────────────────────────────
+function fieldValue(v) {
+  if (v == null) return '';
+  if (typeof v === 'object' && 'value' in v) return String(v.value);
+  return String(v);
+}
+
+async function showProperties(modelID, expressId) {
+  const panel = document.getElementById('panel');
+  const body = document.getElementById('panelBody');
+  panel.style.display = 'flex';
+  body.innerHTML = '<div class="panel-empty">読み込み中...</div>';
+
+  let props, psets = [];
+  try {
+    props = await ifcLoader.ifcManager.getItemProperties(modelID, expressId, false);
+  } catch (err) {
+    body.innerHTML = `<div class="panel-empty">プロパティの取得に失敗しました<br>${err.message}</div>`;
+    return;
+  }
+  try {
+    psets = await ifcLoader.ifcManager.getPropertySets(modelID, expressId, true);
+  } catch (err) {
+    psets = [];
+  }
+
+  // 見出しの名称は分類ごとに使い分ける（buildQuantityTableのラベル決定ロジックと合わせる）:
+  // 壁・スラブ・メッシュ・屋根・柱は「材質(全て)」、オブジェクト・ランプ・窓は「名称」、植栽は「樹木名称」
+  const elementName = fieldValue(props.Name) || '';
+  const globalId = fieldValue(props.GlobalId);
+  const category = detectCategory(elementName);
+  let name;
+  if (category === '植栽') {
+    name = readArchicadText(psets, '樹木名称') || elementName || `(ExpressID: ${expressId})`;
+  } else if (category && FIXED_QTY_CATEGORIES.has(category)) {
+    name = readArchicadText(psets, '名称') || readArchicadText(psets, '呼称')
+      || readArchicadText(psets, 'ライブラリ部品名') || elementName || `(ExpressID: ${expressId})`;
+  } else if (category) {
+    name = readArchicadText(psets, '材質(全て)') || '(材質未設定)';
+  } else {
+    name = elementName || `(ExpressID: ${expressId})`;
+  }
+
+  const skipKeys = new Set(['expressID', 'Name', 'GlobalId', 'OwnerHistory', 'type', 'ObjectPlacement', 'Representation', 'Tag', 'PredefinedType']);
+  const rows = Object.keys(props)
+    .filter(k => !skipKeys.has(k))
+    .map(k => {
+      const v = props[k];
+      if (v && typeof v === 'object' && !('value' in v)) return null; // 複雑な参照値は割愛
+      const text = fieldValue(v);
+      if (!text) return null;
+      return `<tr><th>${escHtml(k)}</th><td>${escHtml(text)}</td></tr>`;
+    })
+    .filter(Boolean)
+    .join('');
+
+  // 価格系パラメータ（RIKCAD側の参考価格情報）は表示対象外にする（全角/半角表記ゆれをNFKC正規化して比較）
+  const normKey = s => String(s).trim().normalize('NFKC');
+  const HIDDEN_PSET_NAMES = new Set(['参考価格セット'].map(normKey));
+  const HIDDEN_PROP_NAMES = new Set(['tanka', '小計', '参考価格(円)', '参考価格（円）'].map(normKey));
+  // ArchiCADPropertiesは情報量が多いため、材質・要素ID・レイヤー・ライブラリ部品名のみ表示する
+  const ARCHICAD_PSET_NAME = normKey('ArchiCADProperties');
+  const ARCHICAD_ALLOWED_PROPS = new Set(['材質', '材質(全て)', '要素ID', 'レイヤー', 'ライブラリ部品名'].map(normKey));
+
+  // AC_Pset_*（ライブラリ部品固有の情報。AC_Pset_RenovationAndPhasingは対象外）は
+  // Difyの価格検索に渡すNAME・仕様値として収集する（画面表示はしない）。
+  // 「名称」はDifyのNAMEに使う商品名そのものなのでSIYOU側には含めない。
+  const difySpecs = [];
+  let difyName = '';
+
+  let psetsHtml = '';
+  for (const pset of psets) {
+    const psetName = fieldValue(pset.Name) || 'Property Set';
+    if (HIDDEN_PSET_NAMES.has(normKey(psetName))) continue;
+    const isArchicad = normKey(psetName) === ARCHICAD_PSET_NAME;
+    const isAcSpecPset = psetName.startsWith('AC_Pset_') && psetName !== 'AC_Pset_RenovationAndPhasing';
+    // IfcPropertySet は HasProperties(+NominalValue)、
+    // IfcElementQuantity（面積・長さ等）は Quantities(+AreaValue/LengthValue/...) に値が入る
+    const items = pset.HasProperties || pset.Quantities || [];
+    const psetRows = items
+      .map(p => {
+        const pName = fieldValue(p.Name);
+        if (!pName || HIDDEN_PROP_NAMES.has(normKey(pName))) return null;
+        const pVal = fieldValue(
+          p.NominalValue ?? p.AreaValue ?? p.LengthValue ?? p.VolumeValue
+          ?? p.WeightValue ?? p.CountValue ?? p.TimeValue
+        );
+        if (isAcSpecPset && pVal) {
+          if (!difyName && normKey(pName) === normKey('名称')) {
+            difyName = pVal;
+          } else {
+            difySpecs.push(pVal);
+          }
+        }
+        if (isArchicad && !ARCHICAD_ALLOWED_PROPS.has(normKey(pName))) return null;
+        return `<tr><th>${escHtml(pName)}</th><td>${escHtml(pVal)}</td></tr>`;
+      })
+      .filter(Boolean)
+      .join('');
+    if (psetRows) {
+      psetsHtml += `<div class="pset-title">${escHtml(psetName)}</div><table class="prop-table">${psetRows}</table>`;
+    }
+  }
+
+  _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20) };
+
+  const hideLabel = hiddenIds.has(expressId) ? '👁 表示に戻す' : '🙈 一時的に非表示にする';
+  body.innerHTML = `
+    <div class="prop-name">${escHtml(name)}</div>
+    <div class="prop-type">ExpressID: ${expressId}　${globalId ? 'GlobalId: ' + escHtml(globalId) : ''}</div>
+    <button class="btn btn-secondary hide-toggle-btn" data-id="${expressId}" style="width:100%; margin-bottom:12px;">${hideLabel}</button>
+    <button class="btn btn-primary dify-search-btn" style="width:100%; margin-bottom:12px;">💰 価格検索</button>
+    <table class="prop-table">${rows}</table>
+    ${psetsHtml}
+  `;
+}
+
+document.getElementById('panelBody').addEventListener('click', async e => {
+  if (e.target.closest('.dify-search-btn')) {
+    openDifySearch();
+    return;
+  }
+  const btn = e.target.closest('.hide-toggle-btn');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (hiddenIds.has(id)) {
+    hiddenIds.delete(id);
+  } else {
+    hiddenIds.add(id);
+  }
+  await applyHiddenIds();
+  if (hiddenIds.has(id)) {
+    clearSelection(); // 非表示にした要素は選択状態も解除する
+  } else {
+    btn.textContent = '🙈 一時的に非表示にする';
+  }
+});
+
+// ── 価格検索（RIKCAD材料引き当て / Dify ワークフロー）─────────────
+const difyModalOverlay = document.getElementById('difyModalOverlay');
+const difyModalBody = document.getElementById('difyModalBody');
+const difyTransferBtn = document.getElementById('difyTransferBtn');
+let _difyLastResult = null; // 直近の検索結果（一覧表への転記用）
+
+function closeDifyModal() {
+  difyModalOverlay.classList.remove('show');
+}
+document.getElementById('difyModalCloseBtn').addEventListener('click', closeDifyModal);
+document.getElementById('difyModalCancelBtn').addEventListener('click', closeDifyModal);
+
+async function callDifyWorkflow(name, siyouValues) {
+  const inputs = { NAME: name };
+  siyouValues.forEach((v, i) => { inputs[`SIYOU${i + 1}`] = v; });
+  const res = await fetch(`${DIFY_API_BASE}/workflows/run`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${DIFY_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs, response_mode: 'blocking', user: 'ifc-viewer' }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Dify API エラー (${res.status}): ${text.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const resultText = data?.data?.outputs?.result;
+  if (!resultText) throw new Error('Difyからの応答に result が含まれていません');
+  try {
+    return JSON.parse(resultText);
+  } catch (e) {
+    throw new Error('Difyの応答をJSONとして解釈できませんでした: ' + resultText.slice(0, 200));
+  }
+}
+
+async function openDifySearch() {
+  if (!_currentDifyTarget) return;
+  const target = _currentDifyTarget;
+  difyTransferBtn.style.display = 'none';
+  _difyLastResult = null;
+  difyModalBody.innerHTML = `<div class="dify-status">「${escHtml(target.name)}」を検索中...</div>`;
+  difyModalOverlay.classList.add('show');
+
+  try {
+    const parsed = await callDifyWorkflow(target.name, target.siyouValues);
+    _difyLastResult = { target, parsed };
+    renderDifyResult(parsed);
+    // 数量一覧に該当行があれば「一覧表に転記」を出す
+    const groupKey = idToGroupKeyMap.get(target.expressId);
+    if (groupKey && groupKeyToRows.has(groupKey)) {
+      difyTransferBtn.style.display = '';
+    }
+  } catch (err) {
+    console.error(err);
+    difyModalBody.innerHTML = `<div class="dify-status error">検索に失敗しました: ${escHtml(err.message)}</div>`;
+  }
+}
+
+function renderDifyResult(parsed) {
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  let html = '<div class="dify-result-meta">一致度: '
+    + `<span class="${parsed.一致度 === '該当なし' ? 'tag-nohit' : ''}">${escHtml(parsed.一致度 || '-')}</span>`
+    + (parsed.備考 ? ` ／ 備考: ${escHtml(parsed.備考)}` : '') + '</div>';
+  if (items.length) {
+    html += '<table class="dify-result-table"><thead><tr><th>部材名</th><th>商品名</th><th>仕様</th><th>単価</th><th>数量</th><th>小計</th></tr></thead><tbody>';
+    for (const it of items) {
+      html += `<tr><td>${escHtml(it.部材名 || '')}</td><td>${escHtml(it.商品名 || '')}</td><td>${escHtml(it.仕様 || '')}</td>`
+        + `<td class="dify-num">${escHtml(String(it.単価 ?? ''))}</td><td class="dify-num">${escHtml(String(it.数量 ?? ''))}</td><td class="dify-num">${escHtml(String(it.小計 ?? ''))}</td></tr>`;
+    }
+    html += '</tbody>';
+  }
+  html += `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:bold;">合計金額</td><td class="dify-num" style="font-weight:bold;">${escHtml(String(parsed.合計金額 ?? ''))}</td></tr></tfoot></table>`;
+  difyModalBody.innerHTML = html;
+}
+
+difyTransferBtn.addEventListener('click', () => {
+  if (!_difyLastResult) return;
+  const { target, parsed } = _difyLastResult;
+  const groupKey = idToGroupKeyMap.get(target.expressId);
+  const qtyBodyEl = document.getElementById('qtyBody');
+  const cell = groupKey && qtyBodyEl.querySelector(`.qty-price[data-group="${cssEscape(groupKey)}"]`);
+  if (!cell) { alert('数量一覧に該当行が見つかりませんでした'); return; }
+  const total = parsed?.合計金額;
+  cell.textContent = (total !== undefined && total !== null && total !== '') ? `${total}円` : '-';
+  cell.title = JSON.stringify(parsed.items || [], null, 1);
+  closeDifyModal();
+});
+
+function cssEscape(s) {
+  return String(s).replace(/["\\]/g, '\\$&');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── 数量一覧パネル ───────────────────────────────────────
+// RIKCAD/TapirのIFC出力ではIFCエンティティ型が壁・スラブ等で共通化されており
+// （例: すべてIFCBUILDINGELEMENTPROXY）、IFC型では分類できない。
+// 実際の分類情報は要素名（例:「壁-004」「スラブ-029」）の接頭辞に入っているため、
+// 名称の接頭辞（末尾の「-番号」を除いた部分）で分類する。
+const ALL_SCAN_TYPES = [
+  IFCWALL, IFCWALLSTANDARDCASE, IFCSLAB, IFCREINFORCINGMESH, IFCROOF,
+  IFCCOLUMN, IFCFURNISHINGELEMENT, IFCBUILDINGELEMENTPROXY, IFCRAMP, IFCWINDOW,
+];
+// 非表示機能用: 数量一覧の対象外（ドア・階段等）も含め広めにスキャンする
+const HIDE_SCAN_TYPES = [
+  ...ALL_SCAN_TYPES, IFCDOOR, IFCPLATE, IFCMEMBER, IFCCOVERING,
+  IFCSTAIR, IFCSTAIRFLIGHT, IFCRAILING, IFCBEAM, IFCFOOTING,
+];
+const CATEGORY_NAMES = ['壁', 'スラブ', 'メッシュ', '屋根', '柱', 'オブジェクト', 'ランプ', '植栽', '窓'];
+const CATEGORY_PARAMS = {
+  '壁': ['高さ', '壁中心長さ', '表面積'],
+  'スラブ': ['高さ', '平面図外周', '面積'],
+  'メッシュ': ['平面図外周', '表面積'],
+  '屋根': ['表面積'],
+  '柱': ['躯体高さ/直径', '最大高さ'],
+  'オブジェクト': ['数量', 'フェンス本体枚数', '枚数', 'フリー支柱'],
+  'ランプ': ['数量'],
+  '植栽': ['数量'],
+  '窓': ['数量'],
+};
+// 数量は1決め打ち（＝名称でグルーピングし、同名要素の件数を積算する）
+const FIXED_QTY_CATEGORIES = new Set(['オブジェクト', 'ランプ', '植栽', '窓']);
+const UNIT_MAP = {
+  '高さ': 'mm', '壁中心長さ': 'mm', '表面積': 'm²', '平面図外周': 'mm', '面積': 'm²',
+  '躯体高さ/直径': 'mm', '最大高さ': 'mm', '数量': '個', 'フェンス本体枚数': '枚', '枚数': '枚', 'フリー支柱': '本',
+};
+const INT_PARAMS = new Set(['数量', 'フェンス本体枚数', '枚数', 'フリー支柱']);
+
+// 「壁-004」→「壁」のように末尾の連番を除いた接頭辞を取り出し、対象分類か判定する
+// RIKCADの出力では「ｽﾗﾌﾞ」「ﾒｯｼｭ」等、分類名が半角カナのことがあるためNFKCで正規化する
+function detectCategory(name) {
+  if (!name) return null;
+  const normalized = name.trim().normalize('NFKC');
+  const m = /^(.+?)[-－―ー]\d+$/.exec(normalized);
+  const prefix = m ? m[1] : normalized;
+  return CATEGORY_NAMES.includes(prefix) ? prefix : null;
+}
+
+let idToGroupKeyMap = new Map(); // expressId → "分類||expressId"（行グループの一意キー）
+let groupKeyToRows = new Map();  // 上記キー → <tr>要素の配列
+let groupKeyToMeta = new Map();  // 上記キー → { category, label, ids }
+
+// プロパティ名の表記ゆれ（例:「ﾌｪﾝｽ本体枚数」のように一部だけ半角カナ）を吸収して比較する
+function namesMatch(actualName, targetName) {
+  return !!actualName && actualName.trim().normalize('NFKC') === targetName;
+}
+
+// PropertySet群から指定Pset名＋パラメータ名一致の値を取得（Pset/Quantity両対応）
+// psetName未指定時は全Pset横断で検索する（数量系パラメータ用）
+function readParamValue(psets, paramName, psetName) {
+  for (const pset of psets) {
+    if (psetName && fieldValue(pset.Name) !== psetName) continue;
+    const items = pset.HasProperties || pset.Quantities || [];
+    for (const p of items) {
+      if (!namesMatch(fieldValue(p.Name), paramName)) continue;
+      const raw = p.NominalValue ?? p.AreaValue ?? p.LengthValue ?? p.VolumeValue
+        ?? p.WeightValue ?? p.CountValue ?? p.TimeValue;
+      const num = parseFloat(fieldValue(raw));
+      if (!Number.isNaN(num)) return num;
+    }
+  }
+  return null;
+}
+
+// ArchiCADPropertiesパラメータ（材質(全て)／ライブラリ部品名など）を文字列として取得
+// まずArchiCADProperties限定で探し、見つからない場合は念のため全Pset横断で探す
+function readArchicadText(psets, paramName) {
+  return findPropText(psets, paramName, 'ArchiCADProperties') || findPropText(psets, paramName, null);
+}
+
+function findPropText(psets, paramName, psetName) {
+  for (const pset of psets) {
+    if (psetName && fieldValue(pset.Name) !== psetName) continue;
+    const items = pset.HasProperties || [];
+    for (const p of items) {
+      if (!namesMatch(fieldValue(p.Name), paramName)) continue;
+      const text = fieldValue(p.NominalValue);
+      if (text) return text;
+    }
+  }
+  return null;
+}
+
+async function buildQuantityTable(modelID) {
+  const qtyPanel = document.getElementById('qtyPanel');
+  const qtyBody = document.getElementById('qtyBody');
+  qtyPanel.classList.add('show');
+  qtyBody.innerHTML = '<div class="qty-empty">数量を集計中...</div>';
+  console.time('[数量一覧] 集計時間'); // 体感速度の切り分け用（ジオメトリ読込とは別に計測）
+
+  // 表を作り直すとチェックボックスは未チェック状態になるため、青ハイライトも一緒にリセットする
+  checkedIds.clear();
+  await applyCheckedIds();
+
+  idToGroupKeyMap = new Map();
+  const manager = ifcLoader.ifcManager;
+
+  // 1段目: getAllItemsOfType(..., verbose=true)でタイプごとに一括取得し、
+  // 要素ごとに個別のgetItemProperties呼び出しをしない（WASM呼び出し回数を約半減）
+  const targets = [];
+  for (const t of ALL_SCAN_TYPES) {
+    let items = [];
+    try { items = await manager.getAllItemsOfType(modelID, t, true); } catch (err) { items = []; }
+    for (const props of items) {
+      const elementName = fieldValue(props.Name) || '';
+      const category = detectCategory(elementName);
+      if (category) targets.push({ id: props.expressID, elementName, category });
+    }
+  }
+
+  // 2段目: 対象要素（対象9分類のみ）だけPropertySetsを並列取得して材質・名称と数量パラメータを組み立てる
+  // （フェンス本体枚数等のライブラリ部品パラメータもインスタンス側Psetに直接ついているため
+  //   タイプ側の追加取得は不要と実データで確認済み。呼び出し削減のため行わない）
+  const rows = await Promise.all(targets.map(async ({ id, elementName, category }) => {
+    let psets = [];
+    try { psets = await manager.getPropertySets(modelID, id, true); } catch (err) { psets = []; }
+
+    const fixedQty = FIXED_QTY_CATEGORIES.has(category);
+    // 壁・スラブ・メッシュ・屋根・柱: ArchiCADProperties「材質(全て)」
+    // オブジェクト・ランプ・窓: 「名称」or「呼称」、無ければ「ライブラリ部品名」
+    // 植栽: 「樹木名称」
+    let label;
+    if (category === '植栽') {
+      label = readArchicadText(psets, '樹木名称') || elementName || `ID${id}`;
+    } else if (fixedQty) {
+      label = readArchicadText(psets, '名称') || readArchicadText(psets, '呼称')
+        || readArchicadText(psets, 'ライブラリ部品名') || elementName || `ID${id}`;
+    } else {
+      label = readArchicadText(psets, '材質(全て)') || '(材質未設定)';
+    }
+
+    const params = {};
+    for (const paramName of CATEGORY_PARAMS[category]) {
+      if (fixedQty && paramName === '数量') {
+        params['数量'] = 1; // オブジェクト・ランプ・窓は要素1件＝数量1決め打ち
+        continue;
+      }
+      const val = readParamValue(psets, paramName);
+      if (val != null) params[paramName] = val;
+    }
+
+    return { id, category, label, params };
+  }));
+
+  const categoryRows = new Map(CATEGORY_NAMES.map(n => [n, []])); // 分類 → [{ id, label, params }]（要素1件＝1エントリ）
+  for (const r of rows) {
+    categoryRows.get(r.category).push({ id: r.id, label: r.label, params: r.params });
+    idToGroupKeyMap.set(r.id, `${r.category}||${r.id}`);
+  }
+
+  const categoryResults = CATEGORY_NAMES.map(name => ({
+    def: { name, params: CATEGORY_PARAMS[name] },
+    rows: categoryRows.get(name),
+  }));
+
+  renderQuantityTable(categoryResults);
+  console.timeEnd('[数量一覧] 集計時間');
+}
+
+function renderQuantityTable(categoryResults) {
+  const qtyBody = document.getElementById('qtyBody');
+
+  const prepared = categoryResults.map(({ def, rows }) => {
+    const rowList = [];
+    for (const r of rows) {
+      const visibleParams = def.params.filter(p => r.params[p] != null);
+      if (!visibleParams.length) continue;
+      rowList.push({ id: r.id, label: r.label, visibleParams, params: r.params });
+    }
+    rowList.sort((a, b) => a.label.localeCompare(b.label, 'ja')); // 分類内は「材質・名称」の名称順
+    return { def, rowList };
+  }).filter(c => c.rowList.length);
+
+  if (!prepared.length) {
+    qtyBody.innerHTML = '<div class="qty-empty">数量データが見つかりませんでした</div>';
+    return;
+  }
+
+  let html = '<table class="qty-table"><thead><tr>'
+    + '<th style="width:26px;"></th><th>分類</th><th>材質・名称</th><th>項目</th><th>数量</th><th>単位</th><th>参考価格</th>'
+    + '</tr></thead><tbody>';
+
+  groupKeyToMeta = new Map();
+
+  for (const { def, rowList } of prepared) {
+    const catRowCount = rowList.reduce((sum, r) => sum + r.visibleParams.length, 0);
+    let catFirst = true;
+
+    for (const r of rowList) {
+      const groupKey = `${def.name}||${r.id}`;
+      groupKeyToMeta.set(groupKey, { category: def.name, label: r.label, ids: [r.id], params: r.params });
+      let rowFirst = true;
+
+      for (const paramName of r.visibleParams) {
+        const value = r.params[paramName];
+        const unit = UNIT_MAP[paramName] || '';
+        const valueText = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(2);
+
+        const isFirstRow = rowFirst;
+        html += `<tr class="qty-row" data-group="${escHtml(groupKey)}">`;
+        if (rowFirst) {
+          html += `<td class="qty-check" rowspan="${r.visibleParams.length}"><input type="checkbox" class="qty-select" data-group="${escHtml(groupKey)}" onclick="event.stopPropagation()"></td>`;
+        }
+        if (catFirst) {
+          html += `<td class="qty-cat" rowspan="${catRowCount}">${escHtml(def.name)}</td>`;
+          catFirst = false;
+        }
+        if (rowFirst) {
+          html += `<td class="qty-group" rowspan="${r.visibleParams.length}">${escHtml(r.label)}</td>`;
+          rowFirst = false;
+        }
+        html += `<td class="qty-param">${escHtml(paramName)}</td><td class="qty-value">${valueText}</td><td class="qty-unit">${unit}</td>`;
+        if (isFirstRow) {
+          html += `<td class="qty-price" rowspan="${r.visibleParams.length}" data-group="${escHtml(groupKey)}">-</td>`;
+        }
+        html += '</tr>';
+      }
+    }
+  }
+
+  html += '</tbody></table>';
+  qtyBody.innerHTML = html;
+
+  groupKeyToRows = new Map();
+  qtyBody.querySelectorAll('tr.qty-row').forEach(tr => {
+    const key = tr.dataset.group;
+    if (!groupKeyToRows.has(key)) groupKeyToRows.set(key, []);
+    groupKeyToRows.get(key).push(tr);
+    tr.addEventListener('click', async (ev) => {
+      const meta = groupKeyToMeta.get(key);
+      if (!meta) return;
+      if (ev.shiftKey || ev.ctrlKey || ev.metaKey) {
+        // Shift/Ctrlクリックは3Dビューア側と同じく複数選択への追加/解除にする
+        const allSelected = meta.ids.every(id => selectedIds.has(id));
+        if (allSelected) meta.ids.forEach(id => selectedIds.delete(id));
+        else meta.ids.forEach(id => selectedIds.add(id));
+      } else {
+        selectedIds = new Set(meta.ids);
+      }
+      await refreshSelectionUI();
+    });
+  });
+
+  // チェック（拾い出しチェック用）: ONでIFC側を黄色に、OFFで色を外す（クリック選択の色とは独立）
+  // 3Dビューアで複数選択中（Shift+クリック）にそのうちの1行をチェックした場合は、
+  // 選択している要素すべてにチェックを反映する
+  qtyBody.querySelectorAll('input.qty-select').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const meta = groupKeyToMeta.get(cb.dataset.group);
+      if (!meta) return;
+      const isPartOfMultiSelection = selectedIds.size > 1 && meta.ids.some(id => selectedIds.has(id));
+      const targetIds = isPartOfMultiSelection ? Array.from(selectedIds) : meta.ids;
+      for (const id of targetIds) {
+        if (cb.checked) checkedIds.add(id); else checkedIds.delete(id);
+      }
+      await applyCheckedIds();
+      if (isPartOfMultiSelection) {
+        const targetIdSet = new Set(targetIds);
+        qtyBody.querySelectorAll('input.qty-select').forEach(otherCb => {
+          const otherMeta = groupKeyToMeta.get(otherCb.dataset.group);
+          if (otherMeta && otherMeta.ids.some(id => targetIdSet.has(id))) {
+            otherCb.checked = cb.checked;
+          }
+        });
+      }
+    });
+  });
+}
+
+async function applyCheckedIds() {
+  if (!currentModel) return;
+  if (checkedIds.size === 0) {
+    ifcLoader.ifcManager.removeSubset(currentModel.modelID, checkMaterial, 'ifc-viewer-checked');
+    return;
+  }
+  const subset = ifcLoader.ifcManager.createSubset({
+    scene,
+    modelID: currentModel.modelID,
+    ids: Array.from(checkedIds),
+    removePrevious: true,
+    material: checkMaterial,
+    customID: 'ifc-viewer-checked',
+  });
+  if (subset) subset.renderOrder = 900; // クリック選択(999)より下にして、重なった場合はオレンジを優先表示
+}
+
+function setActiveQtyGroup(groupKey) {
+  setActiveQtyGroups(groupKey ? [groupKey] : []);
+}
+
+// 3Dビューアで複数選択した場合に、一覧表側も対応する全行をまとめてアクティブ表示する
+function setActiveQtyGroups(groupKeys) {
+  document.querySelectorAll('#qtyBody tr.qty-row.active').forEach(tr => tr.classList.remove('active'));
+  let firstRow = null;
+  for (const key of (groupKeys || [])) {
+    const rows = groupKeyToRows.get(key);
+    if (!rows) continue;
+    rows.forEach(tr => tr.classList.add('active'));
+    if (!firstRow) firstRow = rows[0];
+  }
+  if (firstRow) firstRow.scrollIntoView({ block: 'nearest' });
+}
+
+// ── PDF重ね表示 ──────────────────────────────────────────
+// PDFページをCanvasにラスタライズし、床面（水平面）に寝かせたテクスチャ板として表示する。
+// pdfPivot（Group）が位置・高さ・回転・拡大率を担い、その子pdfPlaneMeshは
+// 常にrotation.x=-90°で水平に固定する（Y軸回転と干渉させないための親子分離）。
+const PT_TO_M = 0.0254 / 72; // PDFのポイント(1/72inch)をメートルに変換
+const PDF_RENDER_SCALE = 2;  // ラスタライズ解像度倍率（表示の鮮明さ用。位置計算には使わない）
+const DEFAULT_PDF_SCALE = 100; // 建築図面でよくある1:100縮尺を初期拡大率とする
+
+let pdfDoc = null;
+let pdfPageNum = 1;
+let pdfPivot = null;      // 位置・高さ・回転・拡大率を持つGroup
+let pdfPlaneMesh = null;  // PDF実体（ジオメトリ・テクスチャ）
+let dxfMesh = null;       // DXF実体（LineSegments）
+let _overlayType = '';    // 'pdf' | 'dxf'
+let pdfEditMode = false;
+let pdfDragging = false;
+let pdfGroundY = 0; // 検出したモデルの接地面Y（「高さ」スライダーはこの値からの相対オフセット）
+let pdfBaseX = 0, pdfBaseZ = 0; // X/Z移動の基準座標
+const pdfDragOffset = new THREE.Vector3();
+
+// IFCモデルの水平中心・接地面の高さを取得する（初回配置のアンカーに使う）
+function getModelGroundAnchor() {
+  if (!currentModel) return null;
+  const box = new THREE.Box3().setFromObject(currentModel);
+  if (box.isEmpty()) return null;
+  const center = box.getCenter(new THREE.Vector3());
+  return { x: center.x, y: box.min.y, z: center.z, spanX: box.max.x - box.min.x, spanZ: box.max.z - box.min.z };
+}
+
+const pdfPanel = document.getElementById('pdfPanel');
+const pdfLoadBtn = document.getElementById('pdfLoadBtn');
+const pdfFileInput = document.getElementById('pdfFileInput');
+const pdfVisibleToggle = document.getElementById('pdfVisibleToggle');
+const pdfEditToggle = document.getElementById('pdfEditToggle');
+const pdfPageNav = document.getElementById('pdfPageNav');
+const pdfPageLabel = document.getElementById('pdfPageLabel');
+const pdfHeightInput = document.getElementById('pdfHeight');
+const pdfOffsetXInput = document.getElementById('pdfOffsetX');
+const pdfOffsetZInput = document.getElementById('pdfOffsetZ');
+const pdfRotInput = document.getElementById('pdfRot');
+const pdfScaleInput = document.getElementById('pdfScale');
+const pdfOpacityInput = document.getElementById('pdfOpacity');
+
+pdfLoadBtn.addEventListener('click', () => {
+  if (pdfPivot) {
+    pdfPanel.classList.toggle('show');
+  } else {
+    pdfFileInput.click();
+  }
+});
+
+pdfFileInput.addEventListener('change', async () => {
+  const file = pdfFileInput.files[0];
+  pdfFileInput.value = '';
+  if (!file) return;
+  const isDxf = file.name.toLowerCase().endsWith('.dxf');
+  pdfLoadBtn.disabled = true;
+  pdfLoadBtn.textContent = '読込中...';
+  try {
+    if (isDxf) {
+      await loadDxfOverlay(file);
+    } else {
+      if (pdfPivot) removePdf();
+      await pdfWorkerReady;
+      pdfDoc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      pdfPageNum = 1;
+      await renderPdfPage();
+      pdfPanel.classList.add('show');
+      pdfPageNav.style.display = pdfDoc.numPages > 1 ? 'flex' : 'none';
+      updatePdfPageLabel();
+    }
+    pdfLoadBtn.textContent = '📄 図面設定';
+  } catch (err) {
+    console.error(err);
+    alert(`${isDxf ? 'DXF' : 'PDF'}の読み込みに失敗しました: ` + err.message);
+    pdfLoadBtn.textContent = '📄 図面を重ねる';
+  } finally {
+    pdfLoadBtn.disabled = false;
+  }
+});
+
+// page.render()がまれに応答しないまま固まるケースへの保険（一定時間で明示的にエラーにする）
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
+document.getElementById('pdfCloseBtn').addEventListener('click', () => pdfPanel.classList.remove('show'));
+
+pdfVisibleToggle.addEventListener('change', () => {
+  if (pdfPivot) pdfPivot.visible = pdfVisibleToggle.checked;
+});
+
+document.getElementById('pdfPrevPage').addEventListener('click', async () => {
+  if (pdfDoc && pdfPageNum > 1) { pdfPageNum--; await renderPdfPage(); updatePdfPageLabel(); }
+});
+document.getElementById('pdfNextPage').addEventListener('click', async () => {
+  if (pdfDoc && pdfPageNum < pdfDoc.numPages) { pdfPageNum++; await renderPdfPage(); updatePdfPageLabel(); }
+});
+
+function updatePdfPageLabel() {
+  pdfPageLabel.textContent = `${pdfPageNum} / ${pdfDoc.numPages}`;
+}
+
+pdfEditToggle.addEventListener('click', () => {
+  pdfEditMode = !pdfEditMode;
+  controls.enabled = !pdfEditMode; // ドラッグがカメラ回転と競合しないようにする
+  pdfEditToggle.textContent = `🖐 位置調整モード: ${pdfEditMode ? 'ON' : 'OFF'}`;
+  pdfEditToggle.classList.toggle('active', pdfEditMode);
+});
+
+pdfHeightInput.addEventListener('input', () => {
+  const v = parseFloat(pdfHeightInput.value);
+  document.getElementById('pdfHeightVal').textContent = v.toFixed(2);
+  if (pdfPivot) pdfPivot.position.y = pdfGroundY + v;
+});
+pdfOffsetXInput.addEventListener('input', () => {
+  const v = parseFloat(pdfOffsetXInput.value) || 0;
+  document.getElementById('pdfOffsetXVal').textContent = v.toFixed(1);
+  if (pdfPivot) pdfPivot.position.x = pdfBaseX + v;
+});
+pdfOffsetZInput.addEventListener('input', () => {
+  const v = parseFloat(pdfOffsetZInput.value) || 0;
+  document.getElementById('pdfOffsetZVal').textContent = v.toFixed(1);
+  if (pdfPivot) pdfPivot.position.z = pdfBaseZ + v;
+});
+pdfRotInput.addEventListener('input', () => {
+  const v = parseFloat(pdfRotInput.value);
+  document.getElementById('pdfRotVal').textContent = String(Math.round(v));
+  if (pdfPivot) pdfPivot.rotation.y = THREE.MathUtils.degToRad(v);
+});
+pdfScaleInput.addEventListener('input', () => {
+  const v = parseFloat(pdfScaleInput.value);
+  document.getElementById('pdfScaleVal').textContent = v >= 10 ? v.toFixed(2) : parseFloat(v.toPrecision(4)).toString();
+  if (pdfPivot) pdfPivot.scale.setScalar(v);
+});
+pdfOpacityInput.addEventListener('input', () => {
+  const v = parseFloat(pdfOpacityInput.value);
+  document.getElementById('pdfOpacityVal').textContent = String(Math.round(v));
+  if (pdfPlaneMesh) pdfPlaneMesh.material.opacity = v / 100;
+  if (dxfMesh) dxfMesh.traverse(child => { if (child.material) child.material.opacity = v / 100; });
+});
+
+document.getElementById('dxfTextScale').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  document.getElementById('dxfTextScaleVal').textContent = v.toFixed(2);
+  if (dxfMesh) dxfMesh.traverse(child => {
+    if (child.isSprite && child.userData.aspect) child.scale.set(v * child.userData.aspect, v, 1);
+  });
+});
+
+document.getElementById('pdfRemoveBtn').addEventListener('click', removePdf);
+
+async function renderPdfPage() {
+  const page = await pdfDoc.getPage(pdfPageNum);
+  const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+  const canvasEl = document.createElement('canvas');
+  canvasEl.width = viewport.width;
+  canvasEl.height = viewport.height;
+  await withTimeout(
+    page.render({ canvasContext: canvasEl.getContext('2d'), viewport }).promise,
+    20000,
+    'PDF描画がタイムアウトしました'
+  );
+
+  const widthM = (viewport.width / PDF_RENDER_SCALE) * PT_TO_M;
+  const heightM = (viewport.height / PDF_RENDER_SCALE) * PT_TO_M;
+  const texture = new THREE.CanvasTexture(canvasEl);
+
+  if (pdfPlaneMesh) {
+    pdfPlaneMesh.geometry.dispose();
+    pdfPlaneMesh.geometry = new THREE.PlaneGeometry(widthM, heightM);
+    pdfPlaneMesh.material.map.dispose();
+    pdfPlaneMesh.material.map = texture;
+    pdfPlaneMesh.material.needsUpdate = true;
+  } else {
+    const material = new THREE.MeshBasicMaterial({
+      map: texture, transparent: true, opacity: parseFloat(pdfOpacityInput.value) / 100,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    pdfPlaneMesh = new THREE.Mesh(new THREE.PlaneGeometry(widthM, heightM), material);
+    pdfPlaneMesh.rotation.x = -Math.PI / 2; // 常に水平（床面）に固定
+    pdfPlaneMesh.renderOrder = 1;
+
+    // 初回配置時はモデルの水平中心・接地面にアンカーする
+    // （ワールド原点固定だとモデルの位置によっては画面外になり「表示されない」ことがあったため）
+    // 拡大率は建築図面でよくある1:100縮尺を初期値とする（用紙の実寸1:1だとモデルに対して極端に小さいため）
+    const anchor = getModelGroundAnchor();
+    const initialScale = DEFAULT_PDF_SCALE;
+
+    pdfGroundY = anchor ? anchor.y : 0;
+    pdfScaleInput.value = initialScale;
+    document.getElementById('pdfScaleVal').textContent = initialScale.toFixed(2);
+    document.getElementById('pdfScaleHint').textContent = '(1:100縮尺=100)';
+
+    pdfBaseX = anchor ? anchor.x : 0;
+    pdfBaseZ = anchor ? anchor.z : 0;
+    pdfOffsetXInput.value = 0; document.getElementById('pdfOffsetXVal').textContent = '0.0';
+    pdfOffsetZInput.value = 0; document.getElementById('pdfOffsetZVal').textContent = '0.0';
+
+    pdfPivot = new THREE.Group();
+    pdfPivot.position.set(pdfBaseX, pdfGroundY + parseFloat(pdfHeightInput.value), pdfBaseZ);
+    pdfPivot.rotation.y = THREE.MathUtils.degToRad(parseFloat(pdfRotInput.value));
+    pdfPivot.scale.setScalar(initialScale);
+    pdfPivot.add(pdfPlaneMesh);
+    scene.add(pdfPivot);
+    pdfVisibleToggle.checked = true;
+
+    _overlayType = 'pdf';
+    document.getElementById('overlayPanelTitle').textContent = '📄 PDF重ね表示';
+  }
+}
+
+// ── DXF重ね表示 ──────────────────────────────────────────
+// DXFファイルのエンコーディングを判定してデコード（Shift-JIS / UTF-8）
+function decodeDxf(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const probe = new TextDecoder('iso-8859-1').decode(bytes.subarray(0, Math.min(bytes.length, 2048)));
+  // ヘッダーでShift-JIS(ANSI_932)指定を確認
+  if (/ANSI_932/i.test(probe)) return new TextDecoder('shift-jis').decode(bytes);
+  // UTF-8明示またはUnicode BOM
+  if (/UNICODE|UTF-8/i.test(probe)) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch {}
+  }
+  // デフォルト: UTF-8を試してダメならShift-JIS
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch {}
+  return new TextDecoder('shift-jis').decode(bytes);
+}
+
+function parseDxf(text) {
+  // ペア配列を構築
+  const raw = text.split(/\r?\n/);
+  const pairs = [];
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    const code = parseInt(raw[i].trim(), 10);
+    if (!isNaN(code)) pairs.push([code, raw[i + 1].trim()]);
+  }
+
+  // 単位変換係数
+  const UNITS_TO_M = { 0: 1, 1: 0.0254, 2: 0.3048, 4: 0.001, 5: 0.01, 6: 1, 7: 1000 };
+  let toM = 0.001;
+  for (let i = 0; i < pairs.length - 1; i++) {
+    if (pairs[i][0] === 9 && pairs[i][1] === '$INSUNITS') {
+      toM = UNITS_TO_M[parseInt(pairs[i + 1][1], 10)] ?? 0.001;
+      break;
+    }
+  }
+
+  // ── エンティティ処理ヘルパー ────────────────────────────────
+  // LINE/LWPOLYLINE/POLYLINE/ARC/CIRCLE/ELLIPSE/TEXT/MTEXT/INSERT を処理
+  function collectEntity(type, ep, outSegs, outTexts, outInserts, ps) {
+    if (type === 'LINE') {
+      let x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+      for (const [c, v] of ep) {
+        if (c === 10) x1 = parseFloat(v); else if (c === 20) y1 = parseFloat(v);
+        else if (c === 11) x2 = parseFloat(v); else if (c === 21) y2 = parseFloat(v);
+      }
+      outSegs.push(x1, y1, x2, y2);
+    } else if (type === 'LWPOLYLINE') {
+      const pts = []; let closed = false;
+      for (const [c, v] of ep) {
+        if (c === 70) closed = !!(parseInt(v, 10) & 1);
+        else if (c === 10) pts.push([parseFloat(v), 0]);
+        else if (c === 20 && pts.length) pts[pts.length - 1][1] = parseFloat(v);
+      }
+      for (let j = 0; j < pts.length - 1; j++) outSegs.push(pts[j][0], pts[j][1], pts[j+1][0], pts[j+1][1]);
+      if (closed && pts.length > 1) outSegs.push(pts[pts.length-1][0], pts[pts.length-1][1], pts[0][0], pts[0][1]);
+    } else if (type === 'POLYLINE') {
+      let closed = false;
+      for (const [c, v] of ep) { if (c === 70) closed = !!(parseInt(v, 10) & 1); }
+      ps.poly = { pts: [], closed };
+    } else if (type === 'VERTEX') {
+      if (ps.poly) {
+        let x = 0, y = 0;
+        for (const [c, v] of ep) {
+          if (c === 10) x = parseFloat(v); else if (c === 20) y = parseFloat(v);
+        }
+        ps.poly.pts.push([x, y]);
+      }
+    } else if (type === 'SEQEND') {
+      if (ps.poly && ps.poly.pts.length > 1) {
+        const { pts, closed } = ps.poly;
+        for (let j = 0; j < pts.length - 1; j++) outSegs.push(pts[j][0], pts[j][1], pts[j+1][0], pts[j+1][1]);
+        if (closed) outSegs.push(pts[pts.length-1][0], pts[pts.length-1][1], pts[0][0], pts[0][1]);
+      }
+      ps.poly = null;
+    } else if (type === 'ARC') {
+      let cx = 0, cy = 0, r = 1, a1 = 0, a2 = 360;
+      for (const [c, v] of ep) {
+        if (c === 10) cx = parseFloat(v); else if (c === 20) cy = parseFloat(v);
+        else if (c === 40) r = parseFloat(v);
+        else if (c === 50) a1 = parseFloat(v); else if (c === 51) a2 = parseFloat(v);
+      }
+      const ra1 = a1 * Math.PI / 180;
+      const ra2 = (a2 <= a1 ? a2 + 360 : a2) * Math.PI / 180;
+      const steps = Math.max(8, Math.ceil((ra2 - ra1) * 16 / Math.PI));
+      for (let s = 0; s < steps; s++) {
+        const t1 = ra1 + (ra2 - ra1) * s / steps, t2 = ra1 + (ra2 - ra1) * (s + 1) / steps;
+        outSegs.push(cx + r * Math.cos(t1), cy + r * Math.sin(t1), cx + r * Math.cos(t2), cy + r * Math.sin(t2));
+      }
+    } else if (type === 'CIRCLE') {
+      let cx = 0, cy = 0, r = 1;
+      for (const [c, v] of ep) {
+        if (c === 10) cx = parseFloat(v); else if (c === 20) cy = parseFloat(v);
+        else if (c === 40) r = parseFloat(v);
+      }
+      for (let s = 0; s < 32; s++) {
+        const t1 = (s / 32) * Math.PI * 2, t2 = ((s + 1) / 32) * Math.PI * 2;
+        outSegs.push(cx + r * Math.cos(t1), cy + r * Math.sin(t1), cx + r * Math.cos(t2), cy + r * Math.sin(t2));
+      }
+    } else if (type === 'ELLIPSE') {
+      let cx = 0, cy = 0, mx = 1, my = 0, ratio = 1, p1 = 0, p2 = Math.PI * 2;
+      for (const [c, v] of ep) {
+        if (c === 10) cx = parseFloat(v); else if (c === 20) cy = parseFloat(v);
+        else if (c === 11) mx = parseFloat(v); else if (c === 21) my = parseFloat(v);
+        else if (c === 40) ratio = parseFloat(v);
+        else if (c === 41) p1 = parseFloat(v); else if (c === 42) p2 = parseFloat(v);
+      }
+      const majorLen = Math.sqrt(mx * mx + my * my);
+      const axisAngle = Math.atan2(my, mx);
+      const minorLen = majorLen * ratio;
+      const range = p2 > p1 ? p2 - p1 : p2 + Math.PI * 2 - p1;
+      const steps = Math.max(16, Math.ceil(range * 16 / Math.PI));
+      const cA = Math.cos(axisAngle), sA = Math.sin(axisAngle);
+      for (let s = 0; s < steps; s++) {
+        const t1 = p1 + range * s / steps, t2 = p1 + range * (s + 1) / steps;
+        outSegs.push(
+          cx + majorLen * Math.cos(t1) * cA - minorLen * Math.sin(t1) * sA,
+          cy + majorLen * Math.cos(t1) * sA + minorLen * Math.sin(t1) * cA,
+          cx + majorLen * Math.cos(t2) * cA - minorLen * Math.sin(t2) * sA,
+          cy + majorLen * Math.cos(t2) * sA + minorLen * Math.sin(t2) * cA
+        );
+      }
+    } else if (type === 'TEXT' || type === 'ATTDEF' || type === 'ATTRIB') {
+      let x = 0, y = 0, h = 1, a = 0, str = '';
+      for (const [c, v] of ep) {
+        if (c === 10) x = parseFloat(v); else if (c === 20) y = parseFloat(v);
+        else if (c === 40) h = parseFloat(v);
+        else if (c === 50) a = parseFloat(v);
+        else if (c === 1) str = v;
+      }
+      if (str.trim()) outTexts.push({ x, y, str: str.trim(), height: h, angle: a });
+    } else if (type === 'MTEXT') {
+      let x = 0, y = 0, h = 1, a = 0, str = '', extra = '';
+      for (const [c, v] of ep) {
+        if (c === 10) x = parseFloat(v); else if (c === 20) y = parseFloat(v);
+        else if (c === 40) h = parseFloat(v);
+        else if (c === 50) a = parseFloat(v);
+        else if (c === 1) str = v;
+        else if (c === 3) extra += v;
+      }
+      const cleaned = cleanMtext(extra + str);
+      if (cleaned.trim()) outTexts.push({ x, y, str: cleaned.trim(), height: h, angle: a });
+    } else if (type === 'INSERT') {
+      let name = '', x = 0, y = 0, sx = 1, sy = 1, angle = 0;
+      for (const [c, v] of ep) {
+        if (c === 2) name = v;
+        else if (c === 10) x = parseFloat(v); else if (c === 20) y = parseFloat(v);
+        else if (c === 41) sx = parseFloat(v); else if (c === 42) sy = parseFloat(v);
+        else if (c === 50) angle = parseFloat(v);
+      }
+      if (name) outInserts.push({ name, x, y, sx, sy, angle });
+    } else if (type === 'LEADER') {
+      // 引出線: 頂点(10/20の並び)をそのまま折れ線として描画
+      const pts = [];
+      for (const [c, v] of ep) {
+        if (c === 10) pts.push([parseFloat(v), 0]);
+        else if (c === 20 && pts.length) pts[pts.length - 1][1] = parseFloat(v);
+      }
+      for (let j = 0; j < pts.length - 1; j++) outSegs.push(pts[j][0], pts[j][1], pts[j+1][0], pts[j+1][1]);
+    } else if (type === 'DIMENSION') {
+      // 寸法線: 実体はグループコード2の無名ブロック(*D###)に格納済み（座標はWCS絶対値=ブロック基準点(0,0)基準）
+      // INSERTと同じ展開経路に乗せるため、基準点なしの参照として登録する
+      let name = '';
+      for (const [c, v] of ep) { if (c === 2) name = v; }
+      if (name) outInserts.push({ name, x: 0, y: 0, sx: 1, sy: 1, angle: 0 });
+    }
+  }
+
+  // ── セクション走査ヘルパー ──────────────────────────────────
+  function scanSection(sectionName, callback) {
+    let inSec = false, i = 0;
+    while (i < pairs.length) {
+      const [code, val] = pairs[i];
+      if (!inSec) {
+        if (code === 2 && val === sectionName) { inSec = true; i++; continue; }
+        i++; continue;
+      }
+      if (code === 0 && val === 'ENDSEC') break;
+      if (code !== 0) { i++; continue; }
+      const type = val; i++;
+      const ep = [];
+      while (i < pairs.length && pairs[i][0] !== 0) { ep.push(pairs[i]); i++; }
+      callback(type, ep);
+    }
+  }
+
+  // ── BLOCKSセクションをパース → ブロック定義マップ ──────────
+  const blockDefs = new Map();
+  let curBlock = null, curBlockName = '', ps = { poly: null };
+  scanSection('BLOCKS', (type, ep) => {
+    if (type === 'BLOCK') {
+      let name = '', bx = 0, by = 0;
+      for (const [c, v] of ep) {
+        if (c === 2) name = v;
+        else if (c === 10) bx = parseFloat(v);
+        else if (c === 20) by = parseFloat(v);
+      }
+      curBlockName = name;
+      // bx/by: ブロック基準点（WCS）。entity座標はWCS絶対値なので展開時に引く必要がある
+      curBlock = { segs: [], texts: [], inserts: [], bx, by };
+      ps = { poly: null };
+    } else if (type === 'ENDBLK') {
+      if (curBlockName) blockDefs.set(curBlockName, curBlock);
+      curBlock = null; curBlockName = '';
+    } else if (curBlock) {
+      collectEntity(type, ep, curBlock.segs, curBlock.texts, curBlock.inserts, ps);
+    }
+  });
+
+  // ── ENTITIESセクションをパース ──────────────────────────────
+  const segs = [], texts = [], directInserts = [];
+  ps = { poly: null };
+  scanSection('ENTITIES', (type, ep) => {
+    collectEntity(type, ep, segs, texts, directInserts, ps);
+  });
+
+  // ── INSERT展開（再帰・最大8段）──────────────────────────────
+  // entity座標はWCS絶対値で格納されているため、block.bx/byを引いてからINSERT変換を適用する
+  function expandInserts(inserts, depth) {
+    if (depth > 8) return;
+    for (const ins of inserts) {
+      const block = blockDefs.get(ins.name);
+      if (!block) continue;
+      const rad = ins.angle * Math.PI / 180;
+      const cosA = Math.cos(rad), sinA = Math.sin(rad);
+      // ローカルオフセット（基準点を引く）してからスケール・回転・平行移動
+      const tx = (ex, ey) => { const lx = ex - block.bx, ly = ey - block.by; return ins.x + lx * ins.sx * cosA - ly * ins.sy * sinA; };
+      const ty = (ex, ey) => { const lx = ex - block.bx, ly = ey - block.by; return ins.y + lx * ins.sx * sinA + ly * ins.sy * cosA; };
+      for (let j = 0; j + 3 < block.segs.length; j += 4) {
+        segs.push(tx(block.segs[j], block.segs[j+1]), ty(block.segs[j], block.segs[j+1]),
+                  tx(block.segs[j+2], block.segs[j+3]), ty(block.segs[j+2], block.segs[j+3]));
+      }
+      for (const t of block.texts) {
+        texts.push({ x: tx(t.x, t.y), y: ty(t.x, t.y), str: t.str,
+                     height: t.height * Math.max(Math.abs(ins.sx), Math.abs(ins.sy)),
+                     angle: t.angle + ins.angle });
+      }
+      if (block.inserts.length) {
+        expandInserts(block.inserts.map(ni => ({
+          name: ni.name,
+          x: tx(ni.x, ni.y), y: ty(ni.x, ni.y),
+          sx: ins.sx * ni.sx, sy: ins.sy * ni.sy,
+          angle: ins.angle + ni.angle,
+        })), depth + 1);
+      }
+    }
+  }
+  expandInserts(directInserts, 0);
+
+  return { segs, texts, toM };
+}
+
+// MTEXTの書式コード（\P改行・\H高さ等）を除去してプレーンテキストに変換
+// \P（改行）と\p（段落プロパティ、例:\pxql;）は別物なので大文字小文字を区別する
+function cleanMtext(s) {
+  return s
+    .replace(/\\P/g, '\n')
+    .replace(/\\~/g, ' ')
+    .replace(/\\\\/g, '\x00')
+    .replace(/\\[A-Za-z][^;]*;/g, '')
+    .replace(/[{}]/g, '')
+    .replace(/\x00/g, '\\')
+    .trim();
+}
+
+// テキストをSprite（カメラ常時正面向き）として生成
+function makeTextSprite(str, x, y, toM) {
+  const lines = str.split('\n').filter(Boolean);
+  if (!lines.length) return null;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const px = 32;
+  ctx.font = `${px}px sans-serif`;
+  const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  canvas.width = Math.max(4, Math.ceil(maxW) + 8);
+  canvas.height = Math.max(4, px * lines.length + 8);
+  ctx.font = `${px}px sans-serif`;
+  ctx.fillStyle = '#000000';
+  lines.forEach((line, i) => ctx.fillText(line, 4, px * (i + 1)));
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  // DXF側の文字高さ・ブロック挿入倍率は要素ごとにバラつきが大きいため使わず、
+  // スライダー値をそのまま全テキスト共通の世界座標上の高さ(m)として使う
+  const aspect = canvas.width / canvas.height;
+  const textScale = parseFloat(document.getElementById('dxfTextScale').value) || 1;
+  sprite.userData.aspect = aspect;
+  sprite.scale.set(textScale * aspect, textScale, 1);
+  sprite.position.set(x * toM, 0.01, -(y * toM));
+  sprite.renderOrder = 3;
+  return sprite;
+}
+
+function buildDxfGroup(segs, texts, toM) {
+  const group = new THREE.Group();
+  const opacity = parseFloat(document.getElementById('pdfOpacity').value) / 100;
+
+  // 線分
+  if (segs.length >= 4) {
+    const verts = [];
+    for (let i = 0; i + 3 < segs.length; i += 4) {
+      verts.push(segs[i] * toM, 0, -segs[i + 1] * toM);
+      verts.push(segs[i + 2] * toM, 0, -segs[i + 3] * toM);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    const mat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity, depthTest: false });
+    const lines = new THREE.LineSegments(geom, mat);
+    lines.renderOrder = 2;
+    group.add(lines);
+  }
+
+  // テキスト
+  for (const t of texts) {
+    const sprite = makeTextSprite(t.str, t.x, t.y, toM);
+    if (sprite) { sprite.material.opacity = opacity; group.add(sprite); }
+  }
+
+  return group;
+}
+
+async function loadDxfOverlay(file) {
+  if (pdfPivot) removePdf();
+  const buf = await file.arrayBuffer();
+  const text = decodeDxf(buf);
+  const { segs, texts, toM } = parseDxf(text);
+  if (!segs.length && !texts.length) throw new Error('図形データが見つかりませんでした');
+
+  _overlayType = 'dxf';
+  dxfMesh = buildDxfGroup(segs, texts, toM);
+
+  const anchor = getModelGroundAnchor();
+  pdfGroundY = anchor ? anchor.y : 0;
+
+  pdfBaseX = 0; pdfBaseZ = 0;
+  pdfOffsetXInput.value = 0; document.getElementById('pdfOffsetXVal').textContent = '0.0';
+  pdfOffsetZInput.value = 0; document.getElementById('pdfOffsetZVal').textContent = '0.0';
+
+  pdfScaleInput.value = 1;
+  document.getElementById('pdfScaleVal').textContent = '1.000';
+  document.getElementById('pdfScaleHint').textContent = '(DXF原寸=1.0)';
+
+  pdfPivot = new THREE.Group();
+  pdfPivot.position.set(0, pdfGroundY + parseFloat(pdfHeightInput.value), 0);
+  pdfPivot.rotation.y = THREE.MathUtils.degToRad(parseFloat(pdfRotInput.value));
+  pdfPivot.scale.setScalar(1);
+  pdfPivot.add(dxfMesh);
+  scene.add(pdfPivot);
+  pdfVisibleToggle.checked = true;
+
+  document.getElementById('overlayPanelTitle').textContent = '📐 DXF重ね表示';
+  document.getElementById('pdfPageNav').style.display = 'none';
+  pdfPanel.classList.add('show');
+}
+
+function removePdf() {
+  if (pdfPivot) {
+    scene.remove(pdfPivot);
+    if (pdfPlaneMesh) {
+      pdfPlaneMesh.geometry.dispose();
+      if (pdfPlaneMesh.material.map) pdfPlaneMesh.material.map.dispose();
+      pdfPlaneMesh.material.dispose();
+    }
+    if (dxfMesh) {
+      dxfMesh.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (child.material.map) child.material.map.dispose();
+          child.material.dispose();
+        }
+      });
+    }
+  }
+  pdfPivot = null; pdfPlaneMesh = null; dxfMesh = null; _overlayType = '';
+  pdfDoc = null;
+  pdfVisibleToggle.checked = true;
+  pdfEditMode = false;
+  controls.enabled = true;
+  pdfEditToggle.textContent = '🖐 位置調整モード: OFF';
+  pdfEditToggle.classList.remove('active');
+  pdfPanel.classList.remove('show');
+  pdfLoadBtn.textContent = '📄 図面を重ねる';
+}
+
+// ── 一時非表示 ───────────────────────────────────────────
+// モデル内の全expressIDを収集する（非表示以外のIDだけを集めたサブセットを作るため）
+async function getAllModelIds(modelID) {
+  if (allModelIdsCache) return allModelIdsCache;
+  const manager = ifcLoader.ifcManager;
+  const ids = new Set();
+  for (const t of HIDE_SCAN_TYPES) {
+    const items = await manager.getAllItemsOfType(modelID, t, false);
+    for (const id of items) ids.add(id);
+  }
+  allModelIdsCache = ids;
+  return ids;
+}
+
+// hiddenIdsの内容に合わせて表示を更新する
+// （元モデルの一部だけを消す方法が無いため、非表示分を除いた複製サブセットに丸ごと差し替える）
+async function applyHiddenIds() {
+  if (!currentModel) return;
+  const modelID = currentModel.modelID;
+
+  if (visibleSubsetMesh) {
+    scene.remove(visibleSubsetMesh);
+    ifcLoader.ifcManager.removeSubset(modelID, undefined, 'ifc-viewer-visible');
+    visibleSubsetMesh = null;
+  }
+
+  if (hiddenIds.size === 0) {
+    currentModel.visible = true;
+    showAllBtn.style.display = 'none';
+    return;
+  }
+
+  const allIds = await getAllModelIds(modelID);
+  const visibleIds = Array.from(allIds).filter(id => !hiddenIds.has(id));
+  currentModel.visible = false;
+  visibleSubsetMesh = ifcLoader.ifcManager.createSubset({
+    scene,
+    modelID,
+    ids: visibleIds,
+    removePrevious: true,
+    customID: 'ifc-viewer-visible',
+    // materialを指定しないことで、元の要素ごとの色・材質をそのまま維持する
+  });
+  showAllBtn.style.display = '';
+}
+
+showAllBtn.addEventListener('click', async () => {
+  hiddenIds.clear();
+  plantsHidden = false;
+  plantHiddenIds.clear();
+  hidePlantsToggle.textContent = '🌳 植栽を非表示';
+  hidePlantsToggle.classList.remove('active');
+  await applyHiddenIds();
+  clearSelection();
+});
+
+// 名称接頭辞ベースの分類（detectCategory）が指定分類に一致する要素のexpressIDを集める
+async function getCategoryElementIds(modelID, categoryName) {
+  const manager = ifcLoader.ifcManager;
+  const ids = new Set();
+  for (const t of HIDE_SCAN_TYPES) {
+    let items = [];
+    try { items = await manager.getAllItemsOfType(modelID, t, true); } catch (err) { items = []; }
+    for (const props of items) {
+      const elementName = fieldValue(props.Name) || '';
+      if (detectCategory(elementName) === categoryName) ids.add(props.expressID);
+    }
+  }
+  return ids;
+}
+
+hidePlantsToggle.addEventListener('click', async () => {
+  if (!currentModel) return;
+  if (!plantsHidden) {
+    const ids = await getCategoryElementIds(currentModel.modelID, '植栽');
+    ids.forEach(id => { hiddenIds.add(id); plantHiddenIds.add(id); });
+    plantsHidden = true;
+    hidePlantsToggle.textContent = '🌳 植栽を表示に戻す';
+    hidePlantsToggle.classList.add('active');
+  } else {
+    plantHiddenIds.forEach(id => hiddenIds.delete(id));
+    plantHiddenIds.clear();
+    plantsHidden = false;
+    hidePlantsToggle.textContent = '🌳 植栽を非表示';
+    hidePlantsToggle.classList.remove('active');
+  }
+  await applyHiddenIds();
+  clearSelection();
+});
+
+// ── 距離計測 ─────────────────────────────────────────────
+let measureMode = false;
+let measurePoints = [];
+let measureObjects = []; // 現在表示中のマーカー・線・ラベル（クリアの対象）
+const measureMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0x2266ff, depthTest: false });
+const measureLineMaterial = new THREE.LineBasicMaterial({ color: 0x2266ff, depthTest: false });
+
+// ── 計測結果のクリップボードコピー ─────────────────────
+let measureToastTimer = null;
+function showMeasureToast(text) {
+  const el = document.getElementById('measureToast');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(measureToastTimer);
+  measureToastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// Clipboard APIが使えない環境（非HTTPS配信等）向けにtextarea+execCommandへフォールバックする
+async function copyToClipboardText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (err) { /* フォールバックへ */ }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// displayText: トースト表示用（単位付き）、copyText: クリップボードにコピーする中身（数値のみ、Excel等の見積へ直接貼り付ける用途）
+async function copyMeasureResult(displayText, copyText) {
+  const ok = await copyToClipboardText(copyText);
+  showMeasureToast(ok ? `${displayText} をコピーしました（数値のみ）` : `${displayText}（コピーに失敗しました）`);
+}
+
+measureToggle.addEventListener('click', () => {
+  measureMode = !measureMode;
+  if (measureMode && areaMeasureMode) {
+    areaMeasureMode = false;
+    areaMeasureToggle.textContent = '🟩 面積計測: OFF';
+    areaMeasureToggle.classList.remove('active');
+    clearAreaMeasurement();
+  }
+  measureToggle.textContent = `📏 距離計測: ${measureMode ? 'ON' : 'OFF'}`;
+  measureToggle.classList.toggle('active', measureMode);
+  if (!measureMode) clearMeasurement();
+});
+
+function handleMeasureClick(e) {
+  if (!currentModel) return;
+  const result = computeSnapCandidate(e);
+  if (!result) return;
+
+  if (measurePoints.length >= 2) clearMeasurement(); // 2点そろっていたら新しい計測をやり直す
+  addMeasurePoint(result.point);
+}
+
+function addMeasurePoint(point) {
+  measurePoints.push(point.clone());
+
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), measureMarkerMaterial);
+  marker.position.copy(point);
+  marker.renderOrder = 999;
+  scene.add(marker);
+  measureObjects.push(marker);
+
+  if (measurePoints.length === 2) {
+    const [a, b] = measurePoints;
+    const lineGeom = new THREE.BufferGeometry().setFromPoints([a, b]);
+    const line = new THREE.Line(lineGeom, measureLineMaterial);
+    line.renderOrder = 999;
+    scene.add(line);
+    measureObjects.push(line);
+
+    const dist = a.distanceTo(b);
+    const distText = `${dist.toFixed(3)} m`;
+    const label = makeDistanceLabel(distText);
+    label.position.copy(a).add(b).multiplyScalar(0.5);
+    label.position.y += 0.15;
+    scene.add(label);
+    measureObjects.push(label);
+    copyMeasureResult(distText, dist.toFixed(3));
+  }
+}
+
+function clearMeasurement() {
+  measureObjects.forEach(obj => {
+    scene.remove(obj);
+    obj.geometry?.dispose?.();
+    if (obj.material?.map) obj.material.map.dispose();
+    obj.material?.dispose?.();
+  });
+  measureObjects = [];
+  measurePoints = [];
+}
+
+// ── 面積計測 ─────────────────────────────────────────────
+// クリックで多角形の頂点を追加し、始点付近を再クリックすると多角形を閉じて面積(m²)を表示する
+let areaMeasureMode = false;
+let areaPoints = [];
+let areaClosed = false;
+let areaObjects = []; // 現在表示中のマーカー・線・塗りつぶし・ラベル（クリアの対象）
+const AREA_CLOSE_PIXEL_THRESHOLD = 20; // この画面上の距離(px)以内で始点をクリックすると多角形を閉じる
+const areaMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0x22aa55, depthTest: false });
+const areaLineMaterial = new THREE.LineBasicMaterial({ color: 0x22aa55, depthTest: false });
+const areaFillMaterial = new THREE.MeshBasicMaterial({
+  color: 0x22aa55, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthTest: false,
+});
+
+areaMeasureToggle.addEventListener('click', () => {
+  areaMeasureMode = !areaMeasureMode;
+  if (areaMeasureMode && measureMode) {
+    measureMode = false;
+    measureToggle.textContent = '📏 距離計測: OFF';
+    measureToggle.classList.remove('active');
+    clearMeasurement();
+  }
+  areaMeasureToggle.textContent = `🟩 面積計測: ${areaMeasureMode ? 'ON' : 'OFF'}`;
+  areaMeasureToggle.classList.toggle('active', areaMeasureMode);
+  if (!areaMeasureMode) clearAreaMeasurement();
+});
+
+function handleAreaMeasureClick(e) {
+  if (!currentModel) return;
+  if (areaClosed) clearAreaMeasurement(); // 確定済みなら新しい多角形をやり直す
+
+  const result = computeSnapCandidate(e);
+  if (!result) return;
+
+  if (areaPoints.length >= 3) {
+    const rect = canvas.getBoundingClientRect();
+    const firstScreen = worldToScreen(areaPoints[0], rect);
+    const dx = (e.clientX - rect.left) - firstScreen.x;
+    const dy = (e.clientY - rect.top) - firstScreen.y;
+    if (Math.hypot(dx, dy) <= AREA_CLOSE_PIXEL_THRESHOLD) {
+      closeAreaPolygon();
+      return;
+    }
+  }
+  addAreaPoint(result.point);
+}
+
+function addAreaPoint(point) {
+  const prevLast = areaPoints.length ? areaPoints[areaPoints.length - 1] : null;
+  areaPoints.push(point.clone());
+
+  const marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), areaMarkerMaterial);
+  marker.position.copy(point);
+  marker.renderOrder = 999;
+  scene.add(marker);
+  areaObjects.push(marker);
+
+  if (prevLast) {
+    const lineGeom = new THREE.BufferGeometry().setFromPoints([prevLast, point]);
+    const line = new THREE.Line(lineGeom, areaLineMaterial);
+    line.renderOrder = 999;
+    scene.add(line);
+    areaObjects.push(line);
+  }
+}
+
+function closeAreaPolygon() {
+  if (areaPoints.length < 3) return;
+
+  const first = areaPoints[0], last = areaPoints[areaPoints.length - 1];
+  const closeLineGeom = new THREE.BufferGeometry().setFromPoints([last, first]);
+  const closeLine = new THREE.Line(closeLineGeom, areaLineMaterial);
+  closeLine.renderOrder = 999;
+  scene.add(closeLine);
+  areaObjects.push(closeLine);
+
+  try {
+    const fillGeom = buildAreaFillMesh(areaPoints);
+    if (fillGeom) {
+      const fillMesh = new THREE.Mesh(fillGeom, areaFillMaterial);
+      fillMesh.renderOrder = 998;
+      scene.add(fillMesh);
+      areaObjects.push(fillMesh);
+    }
+  } catch (err) {
+    console.error('面積の塗りつぶし表示に失敗しました', err); // 数値の面積計算とは独立のため失敗しても計測自体は続行する
+  }
+
+  const area = polygonArea3D(areaPoints);
+  const areaText = `${area.toFixed(3)} m²`;
+  const centroid = areaPoints.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / areaPoints.length);
+  const label = makeDistanceLabel(areaText);
+  label.position.copy(centroid);
+  label.position.y += 0.15;
+  scene.add(label);
+  areaObjects.push(label);
+  copyMeasureResult(areaText, area.toFixed(3));
+
+  areaClosed = true;
+}
+
+function clearAreaMeasurement() {
+  areaObjects.forEach(obj => {
+    scene.remove(obj);
+    obj.geometry?.dispose?.();
+    if (obj.material?.map) obj.material.map.dispose();
+    obj.material?.dispose?.();
+  });
+  areaObjects = [];
+  areaPoints = [];
+  areaClosed = false;
+}
+
+// Newellの方法: 平面多角形なら原点の取り方によらず成立する公式で面積を求める
+// （厳密に同一平面上でなくても、頂点吸着による多少のずれ程度は実用上問題にならない）
+function polygonArea3D(points) {
+  if (points.length < 3) return 0;
+  const sum = new THREE.Vector3();
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    sum.add(new THREE.Vector3().crossVectors(a, b));
+  }
+  return sum.length() / 2;
+}
+
+// 多角形を法線に垂直な平面へ投影し、THREE.Shapeで三角形分割して塗りつぶしメッシュを作る
+// （頂点座標は変換せず直接ワールド座標で書き込むため、メッシュ自体はposition(0,0,0)のまま）
+function buildAreaFillMesh(points) {
+  const normal = new THREE.Vector3();
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    normal.x += (a.y - b.y) * (a.z + b.z);
+    normal.y += (a.z - b.z) * (a.x + b.x);
+    normal.z += (a.x - b.x) * (a.y + b.y);
+  }
+  if (normal.lengthSq() < 1e-12) return null;
+  normal.normalize();
+
+  const origin = points[0];
+  let u = null;
+  for (let i = 1; i < points.length; i++) {
+    const cand = new THREE.Vector3().subVectors(points[i], origin);
+    if (cand.lengthSq() > 1e-10) { u = cand.normalize(); break; }
+  }
+  if (!u) return null;
+  u.sub(normal.clone().multiplyScalar(u.dot(normal))).normalize();
+  if (!isFinite(u.x) || !isFinite(u.y) || !isFinite(u.z)) return null;
+  const v = new THREE.Vector3().crossVectors(normal, u).normalize();
+
+  const shapePoints = points.map(p => {
+    const rel = new THREE.Vector3().subVectors(p, origin);
+    return new THREE.Vector2(rel.dot(u), rel.dot(v));
+  });
+
+  const geom = new THREE.ShapeGeometry(new THREE.Shape(shapePoints));
+  const posAttr = geom.attributes.position;
+  for (let i = 0; i < posAttr.count; i++) {
+    const world = origin.clone()
+      .add(u.clone().multiplyScalar(posAttr.getX(i)))
+      .add(v.clone().multiplyScalar(posAttr.getY(i)));
+    posAttr.setXYZ(i, world.x, world.y, world.z);
+  }
+  posAttr.needsUpdate = true;
+  return geom;
+}
+
+// 距離ラベルを常にカメラを向くビルボード（Sprite）として作成する
+function makeDistanceLabel(text) {
+  const canvasEl = document.createElement('canvas');
+  const ctx = canvasEl.getContext('2d');
+  const fontSize = 48;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  const textWidth = ctx.measureText(text).width;
+  canvasEl.width = textWidth + 32;
+  canvasEl.height = fontSize + 24;
+  // canvasのサイズ変更でコンテキストがリセットされるため再設定する
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.fillStyle = 'rgba(20,40,80,0.85)';
+  ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 16, canvasEl.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvasEl);
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+  const sprite = new THREE.Sprite(material);
+  const worldHeight = 0.35;
+  sprite.scale.set(worldHeight * (canvasEl.width / canvasEl.height), worldHeight, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+resize();
+
+// 物件ファイル一覧（index.html）からの遷移用: ?url=... が指定されていれば自動取得して読み込む
+// 物件フォルダ内にIFCと同名のDXFファイルがあれば、IFC読込に続けて自動で重ね表示する
+async function loadSiblingDxfIfExists(ifcUrl) {
+  const qIdx = ifcUrl.indexOf('?');
+  const base = qIdx >= 0 ? ifcUrl.slice(0, qIdx) : ifcUrl;
+  const query = qIdx >= 0 ? ifcUrl.slice(qIdx) : '';
+  if (!/\.ifc$/i.test(base)) return;
+  const dxfUrl = base.replace(/\.ifc$/i, '.dxf') + query;
+  try {
+    const res = await fetch(dxfUrl);
+    if (!res.ok) return; // 同名DXFなし
+    const buffer = await res.arrayBuffer();
+    const name = decodeURIComponent(dxfUrl.split('/').pop().split('?')[0] || 'model.dxf');
+    await loadDxfOverlay({ name, arrayBuffer: async () => buffer });
+    pdfLoadBtn.textContent = '📄 図面設定';
+  } catch (err) {
+    console.warn('[同名DXF自動読込] スキップ:', err);
+  }
+}
+
+(async function loadFromUrlParam() {
+  const fileUrl = new URLSearchParams(location.search).get('url');
+  if (!fileUrl) return;
+  try {
+    const res = await fetch(fileUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const buffer = await res.arrayBuffer();
+    const name = decodeURIComponent(fileUrl.split('/').pop().split('?')[0] || 'model.ifc');
+    await loadFile({ name, arrayBuffer: async () => buffer });
+    await loadSiblingDxfIfExists(fileUrl);
+  } catch (err) {
+    console.error('[loadFromUrlParam]', err);
+    alert('IFCファイルの読み込みに失敗しました: ' + err.message);
+  }
+})();
+</script>
+</body>
+</html>
