@@ -148,6 +148,37 @@
   .pdf-panel .btn { width: 100%; margin-top: 8px; }
   .pdf-edit-btn.active, .btn.active { background: #ff8800 !important; }
 
+  /* ── 電卓（浮動パレット） ────────────────────────── */
+  .calc-panel {
+    position: absolute; right: 12px; bottom: 12px;
+    width: 200px;
+    background: rgba(255,255,255,0.97);
+    border: 1px solid #ddd; border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    padding: 10px;
+    font-size: 12px;
+    display: none;
+    z-index: 60;
+  }
+  .calc-panel.show { display: block; }
+  .calc-title { font-weight: bold; color: #1a3a5c; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .calc-title .close-btn { cursor: pointer; color: #999; background: none; border: none; font-size: 14px; }
+  .calc-display {
+    background: #1a3a5c; color: #fff; border-radius: 4px;
+    padding: 10px 8px; margin-bottom: 8px;
+    font-size: 20px; text-align: right; font-variant-numeric: tabular-nums;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .calc-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .calc-btn {
+    padding: 10px 0; border: 1px solid #ccc; border-radius: 4px; background: #f5f6f8;
+    font-size: 15px; cursor: pointer;
+  }
+  .calc-btn:hover { background: #e8ecf1; }
+  .calc-btn-op { background: #dde8f5; }
+  .calc-btn-eq { background: #2592D3; color: #fff; grid-column: span 2; }
+  .calc-btn-zero { grid-column: span 2; }
+
   /* ── 情報パネル ──────────────────────────────────── */
   .panel {
     width: 340px; flex: 0 0 auto;
@@ -216,6 +247,10 @@
     font-size: 13px; font-weight: bold; color: #555;
     flex: 0 0 auto;
   }
+  /* .btn-secondaryは本来ヘッダーの濃色背景での使用が前提（白文字＋半透明白背景）のため、
+     白背景のこのパネル内ではそのままだと白文字が見えなくなる。ここだけ配色を上書きする */
+  .qty-panel-header .btn-secondary { background: #eef2f7; color: #1a3a5c; }
+  .qty-panel-header .btn-secondary:hover { background: #dde8f5; }
   .qty-panel-body { flex: 1; overflow-y: auto; }
   .qty-empty { color: #999; font-size: 13px; padding: 24px 16px; text-align: center; }
 
@@ -359,11 +394,13 @@
     <button class="btn btn-secondary" id="measureToggle" style="display:none">📏 距離計測: OFF</button>
     <button class="btn btn-secondary" id="lineMeasureToggle" style="display:none">📐 線計測: OFF</button>
     <button class="btn btn-secondary" id="areaMeasureToggle" style="display:none">🟩 面積計測: OFF</button>
+    <button class="btn btn-secondary" id="faceMeasureToggle" style="display:none">⬜ 面選択計測: OFF</button>
     <button class="btn btn-secondary" id="hidePlantsToggle" style="display:none">🌳 植栽を非表示</button>
     <button class="btn btn-secondary" id="showAllBtn" style="display:none">👁 表示を戻す</button>
     <button class="btn btn-secondary" id="pdfLoadBtn" style="display:none">📄 図面を重ねる</button>
     <input type="file" id="pdfFileInput" accept=".pdf,.dxf" style="display:none">
     <button class="btn btn-secondary" id="reloadBtn" style="display:none">📂 別のファイルを開く</button>
+    <button class="btn btn-secondary" id="calcToggle">🧮 電卓</button>
   </div>
 </div>
 
@@ -382,6 +419,7 @@
     <div class="qty-panel-header">
       数量一覧
       <button class="btn btn-primary" id="transferToEstimateBtn" style="display:block; width:100%; margin-top:8px; font-size:12px; padding:6px 10px;">選択した要素を見積へ転記</button>
+      <button class="btn btn-secondary" id="selectSameMaterialBtn" style="display:block; width:100%; margin-top:6px; font-size:12px; padding:6px 10px;">同一材質を選択</button>
     </div>
     <div class="qty-panel-body" id="qtyBody">
       <div class="qty-empty">IFCファイルを読み込むと数量が表示されます</div>
@@ -395,6 +433,34 @@
     <div class="loading-overlay" id="loadingOverlay">読み込み中...</div>
     <div class="hint" id="hint" style="display:none">部材をクリックすると詳細が表示されます（ドラッグで回転、ホイールでズーム、Shift+クリックで複数選択）</div>
     <div class="measure-toast" id="measureToast"></div>
+
+    <div class="calc-panel" id="calcPanel">
+      <div class="calc-title">
+        <span>🧮 電卓</span>
+        <button class="close-btn" id="calcCloseBtn">✕</button>
+      </div>
+      <div class="calc-display" id="calcDisplay">0</div>
+      <div class="calc-buttons">
+        <button type="button" class="calc-btn calc-btn-op" data-calc="C">C</button>
+        <button type="button" class="calc-btn calc-btn-op" data-calc="back">⌫</button>
+        <button type="button" class="calc-btn calc-btn-op" data-calc="/">÷</button>
+        <button type="button" class="calc-btn calc-btn-op" data-calc="*">×</button>
+        <button type="button" class="calc-btn" data-calc="7">7</button>
+        <button type="button" class="calc-btn" data-calc="8">8</button>
+        <button type="button" class="calc-btn" data-calc="9">9</button>
+        <button type="button" class="calc-btn calc-btn-op" data-calc="-">−</button>
+        <button type="button" class="calc-btn" data-calc="4">4</button>
+        <button type="button" class="calc-btn" data-calc="5">5</button>
+        <button type="button" class="calc-btn" data-calc="6">6</button>
+        <button type="button" class="calc-btn calc-btn-op" data-calc="+">＋</button>
+        <button type="button" class="calc-btn" data-calc="1">1</button>
+        <button type="button" class="calc-btn" data-calc="2">2</button>
+        <button type="button" class="calc-btn" data-calc="3">3</button>
+        <button type="button" class="calc-btn calc-btn-eq" data-calc="=" style="grid-row: span 2;">=</button>
+        <button type="button" class="calc-btn calc-btn-zero" data-calc="0">0</button>
+        <button type="button" class="calc-btn" data-calc=".">.</button>
+      </div>
+    </div>
 
     <div class="pdf-panel" id="pdfPanel">
       <div class="pdf-title">
@@ -603,10 +669,12 @@ const hint = document.getElementById('hint');
 const measureToggle = document.getElementById('measureToggle');
 const lineMeasureToggle = document.getElementById('lineMeasureToggle');
 const areaMeasureToggle = document.getElementById('areaMeasureToggle');
+const faceMeasureToggle = document.getElementById('faceMeasureToggle');
 const showAllBtn = document.getElementById('showAllBtn');
 const hidePlantsToggle = document.getElementById('hidePlantsToggle');
 const buildQtyBtn = document.getElementById('buildQtyBtn');
 const transferToEstimateBtn = document.getElementById('transferToEstimateBtn');
+const selectSameMaterialBtn = document.getElementById('selectSameMaterialBtn');
 
 // 非表示機能: 元モデルをまるごと隠すことはできないため、
 // 「非表示にしたいID以外」を集めた複製サブセットに丸ごと差し替えて表示する
@@ -760,6 +828,37 @@ transferToEstimateBtn.addEventListener('click', async () => {
   }
 });
 
+// 「同一材質を選択」: 3Dビューワーで選択中の要素（1件）と同じ分類・同じ材質（一覧表の「材質・名称」列と
+// 同じ値）を持つ要素をすべて選び直す。一覧表（groupKeyToMeta）を流用するため、事前に
+// 「📋 一覧表作成」で一覧表を作っておく必要がある。
+selectSameMaterialBtn.addEventListener('click', async () => {
+  if (selectedIds.size !== 1) {
+    showMeasureToast('先に3Dビューワーで要素を1つ選択してください');
+    return;
+  }
+  if (!groupKeyToMeta.size) {
+    showMeasureToast('先に「📋 一覧表作成」で一覧表を作成してください');
+    return;
+  }
+  const onlyId = selectedIds.values().next().value;
+  const groupKey = idToGroupKeyMap.get(onlyId);
+  const meta = groupKey ? groupKeyToMeta.get(groupKey) : null;
+  if (!meta) {
+    showMeasureToast('選択中の要素の材質情報が見つかりませんでした');
+    return;
+  }
+
+  const newSelection = new Set();
+  for (const otherMeta of groupKeyToMeta.values()) {
+    if (otherMeta.category === meta.category && otherMeta.label === meta.label) {
+      otherMeta.ids.forEach(id => newSelection.add(id));
+    }
+  }
+  selectedIds = newSelection;
+  await refreshSelectionUI();
+  showMeasureToast(`「${meta.label}」の要素を${newSelection.size}件選択しました`);
+});
+
 async function loadFile(file) {
   if (!file.name.toLowerCase().endsWith('.ifc')) {
     alert('.ifc ファイルを選択してください');
@@ -786,10 +885,14 @@ async function loadFile(file) {
     }
     clearMeasurement();
     clearAreaMeasurement();
+    clearFaceMeasurement();
     modelEdgeSegments = null;
     lineMeasureMode = false;
     lineMeasureToggle.textContent = '📐 線計測: OFF';
     lineMeasureToggle.classList.remove('active');
+    faceMeasureMode = false;
+    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.classList.remove('active');
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
     exitPlanView();
@@ -806,6 +909,7 @@ async function loadFile(file) {
     measureToggle.style.display = '';
     lineMeasureToggle.style.display = '';
     areaMeasureToggle.style.display = '';
+    faceMeasureToggle.style.display = '';
     planViewToggle.style.display = '';
     buildQtyBtn.style.display = '';
     hiddenIds.clear();
@@ -927,6 +1031,10 @@ function exitPlanView() {
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let pointerDownPos = null;
+// 計測系（距離・線・面積・面選択）が作成したラベルSpriteの一覧。電卓が開いている間、
+// このラベルをクリックすると数値を電卓に転記する（除去済みのラベルは.parentがnullになるため
+// 都度フィルタして判定し、個別のクリア処理側で配列から手動で外す必要はない）
+let measureLabelSprites = [];
 
 canvas.addEventListener('pointerdown', e => {
   pointerDownPos = { x: e.clientX, y: e.clientY };
@@ -966,12 +1074,19 @@ canvas.addEventListener('pointerup', e => {
   if (wasDraggingPdf || pdfEditMode) return;
   // 軽くドラッグ（カメラ回転操作）した場合はクリックとみなさない
   if (Math.hypot(dx, dy) > 4) return;
+
+  // 電卓が開いている間は、計測ラベル（距離・線・面積・面選択）のクリックを最優先で拾い、
+  // その数値を電卓に転記する（現在の計測モードの通常動作より優先する）
+  if (calcPanel.classList.contains('show') && transferMeasureLabelToCalc(e)) return;
+
   if (measureMode) {
     handleMeasureClick(e);
   } else if (lineMeasureMode) {
     handleLineMeasureClick(e);
   } else if (areaMeasureMode) {
     handleAreaMeasureClick(e);
+  } else if (faceMeasureMode) {
+    handleFaceMeasureClick(e);
   } else {
     handlePick(e);
   }
@@ -1319,6 +1434,10 @@ async function showProperties(modelID, expressId) {
   // 「名称」はDifyのNAMEに使う商品名そのものなのでSIYOU側には含めない。
   const difySpecs = [];
   let difyName = '';
+  // フェンスの「フェンス本体枚数」「スチール柱」等、数値（枚数・本数）を持つプロパティを
+  // 全PropertySetから収集しておく。Dify検索結果の「部材名」（本体／スチール柱等）と名前を
+  // 突き合わせて、その部材の実際の数量として補完するために使う（画面表示はしない）
+  const difyQtyCandidates = [];
 
   let psetsHtml = '';
   for (const pset of psets) {
@@ -1346,6 +1465,10 @@ async function showProperties(modelID, expressId) {
             difySpecs.push(pVal);
           }
         }
+        // 整数・小数の数値そのものが入っているプロパティは、枚数・本数系の候補として控えておく
+        if (pVal !== '' && /^-?\d+(\.\d+)?$/.test(String(pVal).trim())) {
+          difyQtyCandidates.push({ name: normKey(pName), value: parseFloat(pVal) });
+        }
         if (isArchicad && !ARCHICAD_ALLOWED_PROPS.has(normKey(pName))) return null;
         if (isArchicadQty && qtyAllowSet && !qtyAllowSet.has(normKey(pName))) return null;
         if (isArchicadQty) {
@@ -1357,7 +1480,7 @@ async function showProperties(modelID, expressId) {
             + `<td class="qty-pane-unit">${escHtml(unit)}</td>`
             + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${escHtml(displayVal)}" title="数値をコピー">📋</button></td></tr>`;
         }
-        return `<tr><th>${escHtml(pName)}</th><td>${escHtml(pVal)}</td></tr>`;
+        return `<tr><th>${escHtml(pName)}</th><td>${formatPropValueHtml(pVal)}</td></tr>`;
       })
       .filter(Boolean)
       .join('');
@@ -1366,7 +1489,7 @@ async function showProperties(modelID, expressId) {
     }
   }
 
-  _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20) };
+  _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20), quantityCandidates: difyQtyCandidates };
 
   const hideLabel = hiddenIds.has(expressId) ? '👁 非表示を解除' : '🙈 非表示にする';
   // 価格検索（Dify連携）はオブジェクト・ランプ・窓のみ対象
@@ -1455,6 +1578,7 @@ async function openDifySearch() {
 
   try {
     const parsed = await callDifyWorkflow(target.name, target.siyouValues);
+    fillDifyItemQuantities(Array.isArray(parsed.items) ? parsed.items : [], target.quantityCandidates || []);
     _difyLastResult = { target, parsed };
     renderDifyResult(parsed);
     // 数量一覧に該当行があれば「一覧表に転記」を出す
@@ -1466,6 +1590,54 @@ async function openDifySearch() {
     console.error(err);
     difyModalBody.innerHTML = `<div class="dify-status error">検索に失敗しました: ${escHtml(err.message)}</div>`;
   }
+}
+
+// 「¥5,400」のような表記から数値部分だけを取り出す。数値として解釈できなければnull
+// （「記載なし」等のプレースホルダー文字列を弾くために使う）
+function parseYenAmount(v) {
+  if (v == null) return null;
+  const digits = String(v).replace(/[^\d.-]/g, '');
+  if (!digits) return null;
+  const num = parseFloat(digits);
+  return Number.isNaN(num) ? null : num;
+}
+
+// Dify検索結果の各部材について、選択中の要素が実際に持つ枚数・本数（フェンス本体枚数／
+// スチール柱等）を「部材名」と名前で突き合わせて数量に補完する。Difyが既に数量を返している
+// 場合は上書きしない。数量を補完できた場合は単価×数量で小計も計算し直す
+function fillDifyItemQuantities(items, quantityCandidates) {
+  if (!items.length || !quantityCandidates.length) return;
+  for (const it of items) {
+    const partName = String(it.部材名 || '').trim();
+    if (!partName) continue;
+    if (it.数量 !== '' && it.数量 != null) continue; // Dify側が既に数量を返している場合は尊重する
+    const normPart = partName.normalize('NFKC');
+    const match = quantityCandidates.find(c => c.name.includes(normPart) || normPart.includes(c.name));
+    if (!match) continue;
+    it.数量 = match.value;
+    const unitPrice = parseYenAmount(it.単価);
+    if (unitPrice != null) it.小計 = `¥${Math.round(unitPrice * match.value).toLocaleString()}`;
+  }
+}
+
+// 部材1件分の金額（単価×数量。数量が無ければ単価そのまま）を求める。既に小計が数値で
+// 入っていればそちらを優先する
+function computeItemSubtotal(it) {
+  const existingSubtotal = parseYenAmount(it.小計);
+  if (existingSubtotal != null) return existingSubtotal;
+  const unitPrice = parseYenAmount(it.単価);
+  if (unitPrice == null) return null;
+  const qty = parseFloat(it.数量);
+  if (it.数量 !== '' && it.数量 != null && !Number.isNaN(qty)) return unitPrice * qty;
+  return unitPrice;
+}
+
+// 部材ごとの金額を合算する（複数部材がセットで返ってきた場合の合計金額フォールバック用）
+function sumItemAmounts(items) {
+  return items.reduce((sum, it) => {
+    const v = computeItemSubtotal(it);
+    return v != null ? sum + v : sum;
+  }, 0);
 }
 
 function renderDifyResult(parsed) {
@@ -1481,7 +1653,19 @@ function renderDifyResult(parsed) {
     }
     html += '</tbody>';
   }
-  html += `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:bold;">合計金額</td><td class="dify-num" style="font-weight:bold;">${escHtml(String(parsed.合計金額 ?? ''))}</td></tr></tfoot></table>`;
+
+  // 「合計金額」が数値として得られない場合（複数部材がセットで返ってきて金額を確定できない場合等）は、
+  // 各部材の金額（単価×数量。数量が補完できていればそれも反映）を合算した参考値を表示する
+  let totalLabel = '合計金額';
+  let totalText = escHtml(String(parsed.合計金額 ?? ''));
+  if (parseYenAmount(parsed?.合計金額) == null && items.length) {
+    const sum = sumItemAmounts(items);
+    if (sum > 0) {
+      totalLabel = '単価合計（参考）';
+      totalText = `${sum.toLocaleString()}円`;
+    }
+  }
+  html += `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:bold;">${totalLabel}</td><td class="dify-num" style="font-weight:bold;">${totalText}</td></tr></tfoot></table>`;
   difyModalBody.innerHTML = html;
 }
 
@@ -1492,9 +1676,19 @@ difyTransferBtn.addEventListener('click', () => {
   const qtyBodyEl = document.getElementById('qtyBody');
   const cell = groupKey && qtyBodyEl.querySelector(`.qty-price[data-group="${cssEscape(groupKey)}"]`);
   if (!cell) { alert('数量一覧に該当行が見つかりませんでした'); return; }
-  const total = parsed?.合計金額;
-  cell.textContent = (total !== undefined && total !== null && total !== '') ? `${total}円` : '-';
-  cell.title = JSON.stringify(parsed.items || [], null, 1);
+
+  const items = Array.isArray(parsed.items) ? parsed.items : [];
+  const totalAmount = parseYenAmount(parsed?.合計金額);
+  let cellText;
+  if (totalAmount != null) {
+    cellText = `${totalAmount.toLocaleString()}円`;
+  } else {
+    // 合計金額が非数値（「記載なし」等）の場合は、部材ごとの金額（単価×数量）合算をフォールバックとして使う
+    const sum = sumItemAmounts(items);
+    cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${items.length}件)` : '-';
+  }
+  cell.textContent = cellText;
+  cell.title = JSON.stringify(items, null, 1);
   closeDifyModal();
 });
 
@@ -1504,6 +1698,17 @@ function cssEscape(s) {
 
 function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// パラメータの値がURL（http/https）そのものであれば、新しいタブで開けるリンクとして描画する。
+// それ以外は従来通りエスケープしたテキストとして表示する。
+const PROP_URL_PATTERN = /^https?:\/\/\S+$/i;
+function formatPropValueHtml(text) {
+  const trimmed = String(text).trim();
+  if (PROP_URL_PATTERN.test(trimmed)) {
+    return `<a href="${escHtml(trimmed)}" target="_blank" rel="noopener noreferrer">${escHtml(trimmed)}</a>`;
+  }
+  return escHtml(text);
 }
 
 // ── 数量一覧パネル ───────────────────────────────────────
@@ -2524,6 +2729,7 @@ hidePlantsToggle.addEventListener('click', async () => {
 let measureMode = false;
 let measurePoints = [];
 let measureObjects = []; // 現在表示中のマーカー・線・ラベル（クリアの対象）
+let lineMeasureEntries = []; // 線計測でShiftキーにより複数選択した各辺の長さ（合算表示用）
 const measureMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0x2266ff, depthTest: false });
 const measureLineMaterial = new THREE.LineBasicMaterial({ color: 0x2266ff, depthTest: false });
 
@@ -2578,6 +2784,12 @@ measureToggle.addEventListener('click', () => {
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
+  if (measureMode && faceMeasureMode) {
+    faceMeasureMode = false;
+    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.classList.remove('active');
+    clearFaceMeasurement();
+  }
   measureToggle.textContent = `📏 距離計測: ${measureMode ? 'ON' : 'OFF'}`;
   measureToggle.classList.toggle('active', measureMode);
   if (!measureMode) clearMeasurement();
@@ -2616,6 +2828,7 @@ function addMeasurePoint(point) {
     label.position.y += 0.15;
     scene.add(label);
     measureObjects.push(label);
+    registerMeasureLabel(label, dist);
     copyMeasureResult(distText, dist.toFixed(3));
   }
 }
@@ -2629,6 +2842,7 @@ function clearMeasurement() {
   });
   measureObjects = [];
   measurePoints = [];
+  lineMeasureEntries = [];
 }
 
 // ── 線計測（モデルの辺そのものをクリック1回で測る） ─────────────
@@ -2720,7 +2934,7 @@ function handleLineMeasureClick(e) {
   if (!currentModel) return;
   const seg = computeLineSnapCandidate(e);
   if (!seg) return;
-  clearMeasurement();
+  if (!e.shiftKey) clearMeasurement(); // Shift押下中はこれまでの計測を残したまま辺を追加する
 
   const { a, b } = seg;
   [a, b].forEach(point => {
@@ -2744,7 +2958,16 @@ function handleLineMeasureClick(e) {
   label.position.y += 0.15;
   scene.add(label);
   measureObjects.push(label);
-  copyMeasureResult(distText, dist.toFixed(3));
+  registerMeasureLabel(label, dist);
+
+  // Shiftキーで複数の辺を測った場合は、これまでの長さと合算してコピー・トースト表示する
+  lineMeasureEntries.push(dist);
+  const lineTotal = lineMeasureEntries.reduce((sum, d) => sum + d, 0);
+  if (lineMeasureEntries.length > 1) {
+    copyMeasureResult(`${lineTotal.toFixed(3)} m（${lineMeasureEntries.length}本合計）`, lineTotal.toFixed(3));
+  } else {
+    copyMeasureResult(distText, dist.toFixed(3));
+  }
 }
 
 lineMeasureToggle.addEventListener('click', () => {
@@ -2752,6 +2975,7 @@ lineMeasureToggle.addEventListener('click', () => {
   if (lineMeasureMode) {
     if (measureMode) { measureMode = false; measureToggle.textContent = '📏 距離計測: OFF'; measureToggle.classList.remove('active'); clearMeasurement(); }
     if (areaMeasureMode) { areaMeasureMode = false; areaMeasureToggle.textContent = '🟩 面積計測: OFF'; areaMeasureToggle.classList.remove('active'); clearAreaMeasurement(); }
+    if (faceMeasureMode) { faceMeasureMode = false; faceMeasureToggle.textContent = '⬜ 面選択計測: OFF'; faceMeasureToggle.classList.remove('active'); clearFaceMeasurement(); }
     if (!modelEdgeSegments && currentModel) modelEdgeSegments = buildModelEdgeSegments(currentModel);
     canvas.style.cursor = 'crosshair';
   } else {
@@ -2769,6 +2993,7 @@ let areaMeasureMode = false;
 let areaPoints = [];
 let areaClosed = false;
 let areaObjects = []; // 現在表示中のマーカー・線・塗りつぶし・ラベル（クリアの対象）
+let areaMeasureEntries = []; // Shiftキーで複数のポリゴンを確定した場合の各面積（合算表示用）
 const AREA_CLOSE_PIXEL_THRESHOLD = 20; // この画面上の距離(px)以内で始点をクリックすると多角形を閉じる
 const areaMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0x22aa55, depthTest: false });
 const areaLineMaterial = new THREE.LineBasicMaterial({ color: 0x22aa55, depthTest: false });
@@ -2791,6 +3016,12 @@ areaMeasureToggle.addEventListener('click', () => {
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
+  if (areaMeasureMode && faceMeasureMode) {
+    faceMeasureMode = false;
+    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.classList.remove('active');
+    clearFaceMeasurement();
+  }
   areaMeasureToggle.textContent = `🟩 面積計測: ${areaMeasureMode ? 'ON' : 'OFF'}`;
   areaMeasureToggle.classList.toggle('active', areaMeasureMode);
   if (!areaMeasureMode) clearAreaMeasurement();
@@ -2798,7 +3029,15 @@ areaMeasureToggle.addEventListener('click', () => {
 
 function handleAreaMeasureClick(e) {
   if (!currentModel) return;
-  if (areaClosed) clearAreaMeasurement(); // 確定済みなら新しい多角形をやり直す
+  if (areaClosed) {
+    if (e.shiftKey) {
+      // Shift押下中は、確定済みポリゴンの表示・合計はそのまま残し、次のポリゴンの頂点だけをリセットする
+      areaPoints = [];
+      areaClosed = false;
+    } else {
+      clearAreaMeasurement(); // Shiftを押していなければ新しい計測としてやり直す
+    }
+  }
 
   const result = computeSnapCandidate(e);
   if (!result) return;
@@ -2865,7 +3104,16 @@ function closeAreaPolygon() {
   label.position.y += 0.15;
   scene.add(label);
   areaObjects.push(label);
-  copyMeasureResult(areaText, area.toFixed(3));
+  registerMeasureLabel(label, area);
+
+  // Shiftキーで複数のポリゴンを確定した場合は、これまでの面積と合算してコピー・トースト表示する
+  areaMeasureEntries.push(area);
+  const total = areaMeasureEntries.reduce((sum, a) => sum + a, 0);
+  if (areaMeasureEntries.length > 1) {
+    copyMeasureResult(`${total.toFixed(3)} m²（${areaMeasureEntries.length}面合計）`, total.toFixed(3));
+  } else {
+    copyMeasureResult(areaText, area.toFixed(3));
+  }
 
   areaClosed = true;
 }
@@ -2877,6 +3125,7 @@ function clearAreaMeasurement() {
     if (obj.material?.map) obj.material.map.dispose();
     obj.material?.dispose?.();
   });
+  areaMeasureEntries = [];
   areaObjects = [];
   areaPoints = [];
   areaClosed = false;
@@ -2936,6 +3185,192 @@ function buildAreaFillMesh(points) {
   return geom;
 }
 
+// ── 面選択計測（面を1クリックするだけで、その面の面積を測る） ─────────
+// 3Dメッシュは三角形の集まりで、IFCの1つの「面」（壁の外面など）は複数の三角形に
+// 分割されている。クリックした三角形から、法線がほぼ同じで辺を共有する三角形を
+// 再帰的に集めて1つの面とみなし、その合計面積を求める。
+// 頂点はメッシュ生成時に三角形ごとに複製されていることが多く「頂点インデックスの一致」
+// では隣接三角形を見つけられないため、辺の同一判定は「丸めた座標のペア」で行う。
+let faceMeasureMode = false;
+let faceMeasureObjects = []; // 現在表示中のハイライト・ラベル（クリアの対象）
+const FACE_POS_PRECISION = 4;   // 座標を丸める桁数（隣接三角形の頂点一致判定用）
+const FACE_NORMAL_COS_MIN = 0.99; // 法線同士の内積がこれ未満なら別の面とみなす（cos ≈ 8度）
+const faceHighlightMaterial = new THREE.MeshBasicMaterial({
+  color: 0xff8800, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthTest: false,
+});
+const faceAdjacencyCache = new WeakMap(); // geometry -> 隣接三角形情報（モデル読み込み毎に自動で作り直される）
+
+// geometryの三角形ごとの法線・面積・頂点丸めキー・辺の隣接関係を一度だけ計算してキャッシュする
+function buildFaceAdjacency(geometry) {
+  if (faceAdjacencyCache.has(geometry)) return faceAdjacencyCache.get(geometry);
+
+  const posAttr = geometry.attributes.position;
+  const index = geometry.index;
+  const triCount = index ? index.count / 3 : posAttr.count / 3;
+  const getTriIdx = t => index
+    ? [index.getX(t * 3), index.getX(t * 3 + 1), index.getX(t * 3 + 2)]
+    : [t * 3, t * 3 + 1, t * 3 + 2];
+  const vertAt = i => new THREE.Vector3().fromBufferAttribute(posAttr, i);
+  const posKey = p => `${p.x.toFixed(FACE_POS_PRECISION)}_${p.y.toFixed(FACE_POS_PRECISION)}_${p.z.toFixed(FACE_POS_PRECISION)}`;
+
+  const normals = new Array(triCount);
+  const localAreas = new Array(triCount);
+  const vertKeys = new Array(triCount);
+  const edgeMap = new Map(); // 辺キー("座標A|座標B") -> その辺を持つ三角形indexの配列
+
+  for (let t = 0; t < triCount; t++) {
+    const [ia, ib, ic] = getTriIdx(t);
+    const a = vertAt(ia), b = vertAt(ib), c = vertAt(ic);
+    const cross = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+    const doubleArea = cross.length();
+    localAreas[t] = doubleArea / 2;
+    normals[t] = doubleArea > 1e-12 ? cross.divideScalar(doubleArea) : new THREE.Vector3();
+    const ka = posKey(a), kb = posKey(b), kc = posKey(c);
+    vertKeys[t] = [ka, kb, kc];
+    [[ka, kb], [kb, kc], [kc, ka]].forEach(([x, y]) => {
+      const key = x < y ? x + '|' + y : y + '|' + x;
+      if (!edgeMap.has(key)) edgeMap.set(key, []);
+      edgeMap.get(key).push(t);
+    });
+  }
+
+  const data = { getTriIdx, normals, localAreas, vertKeys, edgeMap };
+  faceAdjacencyCache.set(geometry, data);
+  return data;
+}
+
+// クリックした三角形(object, faceIndex)を起点に、連結する同一平面の三角形群をBFSで集めて
+// ワールド座標での合計面積と、ハイライト表示用の三角形一覧を返す
+function collectFaceRegion(object, faceIndex) {
+  const geometry = object.geometry;
+  const data = buildFaceAdjacency(geometry);
+  const seedNormal = data.normals[faceIndex];
+  if (!seedNormal || seedNormal.lengthSq() < 1e-10) return null;
+
+  const visited = new Set([faceIndex]);
+  const queue = [faceIndex];
+  const regionTris = [];
+
+  while (queue.length) {
+    const t = queue.pop();
+    regionTris.push(t);
+    const [ka, kb, kc] = data.vertKeys[t];
+    for (const [x, y] of [[ka, kb], [kb, kc], [kc, ka]]) {
+      const key = x < y ? x + '|' + y : y + '|' + x;
+      for (const nt of (data.edgeMap.get(key) || [])) {
+        if (visited.has(nt)) continue;
+        if (data.normals[nt].dot(seedNormal) < FACE_NORMAL_COS_MIN) continue; // 法線が違えば別の面
+        visited.add(nt);
+        queue.push(nt);
+      }
+    }
+  }
+
+  // ワールド変換後の座標で面積・ハイライト用頂点を再計算する（拡大縮小されたモデルにも対応するため）
+  object.updateMatrixWorld(true);
+  const posAttr = geometry.attributes.position;
+  let worldArea = 0;
+  const highlightPositions = [];
+  for (const t of regionTris) {
+    const [ia, ib, ic] = data.getTriIdx(t);
+    const a = new THREE.Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(object.matrixWorld);
+    const b = new THREE.Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(object.matrixWorld);
+    const c = new THREE.Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(object.matrixWorld);
+    worldArea += new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).length() / 2;
+    highlightPositions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+  }
+
+  return { area: worldArea, highlightPositions };
+}
+
+let faceMeasureEntries = []; // Shiftキーで複数選択した各面の面積（合算表示用）
+let faceMeasureTotalLabel = null; // 合計を表示するラベル（毎回作り直す）
+
+function clearFaceMeasurement() {
+  faceMeasureObjects.forEach(obj => {
+    scene.remove(obj);
+    obj.geometry?.dispose?.();
+    if (obj.material?.map) obj.material.map.dispose();
+    obj.material?.dispose?.();
+  });
+  faceMeasureObjects = [];
+  faceMeasureEntries = [];
+  faceMeasureTotalLabel = null;
+}
+
+// Shiftキーを押しながらクリックすると、直前までの選択をクリアせずに面を追加し、合計面積を更新する
+// （通常クリックは1面だけの単発計測として、これまで通り選び直しになる）
+function handleFaceMeasureClick(e) {
+  if (!currentModel) return;
+  const rect = canvas.getBoundingClientRect();
+  const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+  const intersects = raycaster.intersectObject(visibleSubsetMesh || currentModel, true);
+  if (!intersects.length) return;
+  const hit = intersects[0];
+  if (hit.faceIndex == null) return;
+
+  const region = collectFaceRegion(hit.object, hit.faceIndex);
+  if (!region) return;
+
+  if (!e.shiftKey) clearFaceMeasurement();
+
+  const highlightGeom = new THREE.BufferGeometry();
+  highlightGeom.setAttribute('position', new THREE.Float32BufferAttribute(region.highlightPositions, 3));
+  const highlightMesh = new THREE.Mesh(highlightGeom, faceHighlightMaterial);
+  highlightMesh.renderOrder = 998;
+  scene.add(highlightMesh);
+  faceMeasureObjects.push(highlightMesh);
+  faceMeasureEntries.push(region.area);
+
+  if (faceMeasureTotalLabel) {
+    scene.remove(faceMeasureTotalLabel);
+    faceMeasureTotalLabel.material?.map?.dispose?.();
+    faceMeasureTotalLabel.material?.dispose?.();
+    faceMeasureObjects = faceMeasureObjects.filter(o => o !== faceMeasureTotalLabel);
+  }
+
+  const total = faceMeasureEntries.reduce((sum, a) => sum + a, 0);
+  const countSuffix = faceMeasureEntries.length > 1 ? `（${faceMeasureEntries.length}面合計）` : '';
+  const areaText = `${total.toFixed(3)} m²${countSuffix}`;
+  const label = makeDistanceLabel(areaText);
+  label.position.copy(hit.point);
+  label.position.y += 0.15;
+  scene.add(label);
+  faceMeasureObjects.push(label);
+  faceMeasureTotalLabel = label;
+  registerMeasureLabel(label, total);
+
+  copyMeasureResult(areaText, total.toFixed(3));
+}
+
+faceMeasureToggle.addEventListener('click', () => {
+  faceMeasureMode = !faceMeasureMode;
+  if (faceMeasureMode && measureMode) {
+    measureMode = false;
+    measureToggle.textContent = '📏 距離計測: OFF';
+    measureToggle.classList.remove('active');
+    clearMeasurement();
+  }
+  if (faceMeasureMode && lineMeasureMode) {
+    lineMeasureMode = false;
+    lineMeasureToggle.textContent = '📐 線計測: OFF';
+    lineMeasureToggle.classList.remove('active');
+    canvas.style.cursor = '';
+    if (lineHoverPreview) lineHoverPreview.visible = false;
+  }
+  if (faceMeasureMode && areaMeasureMode) {
+    areaMeasureMode = false;
+    areaMeasureToggle.textContent = '🟩 面積計測: OFF';
+    areaMeasureToggle.classList.remove('active');
+    clearAreaMeasurement();
+  }
+  faceMeasureToggle.textContent = `⬜ 面選択計測: ${faceMeasureMode ? 'ON' : 'OFF'}`;
+  faceMeasureToggle.classList.toggle('active', faceMeasureMode);
+  if (!faceMeasureMode) clearFaceMeasurement();
+});
+
 // 距離ラベルを常にカメラを向くビルボード（Sprite）として作成する
 function makeDistanceLabel(text) {
   const canvasEl = document.createElement('canvas');
@@ -2962,6 +3397,12 @@ function makeDistanceLabel(text) {
   return sprite;
 }
 
+// 計測ラベルに数値を紐づけて、電卓へのクリック転記対象として登録する
+function registerMeasureLabel(label, value) {
+  label.userData.calcValue = value;
+  measureLabelSprites.push(label);
+}
+
 resize();
 
 // 物件ファイル一覧（index.html）からの遷移用: ?url=... が指定されていれば自動取得して読み込む
@@ -2983,6 +3424,165 @@ async function loadSiblingDxfIfExists(ifcUrl) {
     console.warn('[同名DXF自動読込] スキップ:', err);
   }
 }
+
+// ── 電卓（浮動パレット） ─────────────────────────────────
+// IFCモデルの読み込み状態とは無関係に、いつでも開ける独立したユーティリティ。
+// ボタンクリックとテンキー（Numpad）操作の両方に対応する。
+const calcToggle = document.getElementById('calcToggle');
+const calcPanel = document.getElementById('calcPanel');
+const calcDisplay = document.getElementById('calcDisplay');
+const calcCloseBtn = document.getElementById('calcCloseBtn');
+let calcExpr = '';
+let calcJustEvaluated = false;
+
+// 四則演算・括弧・小数点のみを扱う簡易パーサー（evalを使わない安全な実装）
+function evalCalcExpression(expr) {
+  let i = 0;
+  const peek = () => expr[i];
+  function parseNumber() {
+    const start = i;
+    while (i < expr.length && /[0-9.]/.test(expr[i])) i++;
+    if (start === i) throw new Error('invalid number');
+    return parseFloat(expr.slice(start, i));
+  }
+  function parseFactor() {
+    if (peek() === '(') { i++; const v = parseExpr(); if (peek() === ')') i++; return v; }
+    if (peek() === '-') { i++; return -parseFactor(); }
+    if (peek() === '+') { i++; return parseFactor(); }
+    return parseNumber();
+  }
+  function parseTerm() {
+    let v = parseFactor();
+    while (peek() === '*' || peek() === '/') {
+      const op = expr[i]; i++;
+      const rhs = parseFactor();
+      v = op === '*' ? v * rhs : v / rhs;
+    }
+    return v;
+  }
+  function parseExpr() {
+    let v = parseTerm();
+    while (peek() === '+' || peek() === '-') {
+      const op = expr[i]; i++;
+      const rhs = parseTerm();
+      v = op === '+' ? v + rhs : v - rhs;
+    }
+    return v;
+  }
+  const result = parseExpr();
+  if (i !== expr.length) throw new Error('unexpected trailing input');
+  if (!isFinite(result)) throw new Error('invalid result');
+  return result;
+}
+
+function updateCalcDisplay() {
+  const shown = calcExpr.replace(/\*/g, '×').replace(/\//g, '÷');
+  calcDisplay.textContent = shown || '0';
+}
+
+function calcInput(ch) {
+  if (calcJustEvaluated) {
+    // 直前が「=」の結果表示：数字ならやり直し、演算子なら結果に続けて計算する
+    calcJustEvaluated = false;
+    if (/[0-9.]/.test(ch)) calcExpr = '';
+  }
+  calcExpr += ch;
+  updateCalcDisplay();
+}
+
+// 計測値（数値そのもの）を電卓に転記する。小数点第3位までに丸め、既に電卓に何か
+// 入っていても（＝直後かどうかに関わらず）常にその数値へ更新（上書き）する
+function calcInputValue(num) {
+  const text = Number(num).toFixed(3);
+  // 直前に四則演算キー（+ − × ÷）を押した状態であれば、値を丸ごと更新せず、
+  // その演算子に続けて追記することでその場で計算できるようにする
+  if (/[+\-*/]$/.test(calcExpr)) {
+    calcExpr += text;
+  } else {
+    calcExpr = text;
+  }
+  calcJustEvaluated = false;
+  updateCalcDisplay();
+}
+
+// 計測ラベル（Sprite）をクリックしたかどうかを判定し、当たっていれば電卓へ数値を転記する。
+// 電卓が開いている間、pointerupの各計測モード処理より先に呼ばれる
+function transferMeasureLabelToCalc(e) {
+  const rect = canvas.getBoundingClientRect();
+  const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+  const liveLabels = measureLabelSprites.filter(s => s.parent === scene);
+  if (!liveLabels.length) return false;
+  const hits = raycaster.intersectObjects(liveLabels, false);
+  if (!hits.length || hits[0].object.userData.calcValue == null) return false;
+  calcInputValue(hits[0].object.userData.calcValue);
+  showMeasureToast(`電卓を ${Number(hits[0].object.userData.calcValue).toFixed(3)} に更新しました`);
+  return true;
+}
+
+function calcBackspace() {
+  calcExpr = calcExpr.slice(0, -1);
+  calcJustEvaluated = false;
+  updateCalcDisplay();
+}
+
+function calcClear() {
+  calcExpr = '';
+  calcJustEvaluated = false;
+  updateCalcDisplay();
+}
+
+function calcEvaluate() {
+  if (!calcExpr) return;
+  try {
+    const result = evalCalcExpression(calcExpr);
+    calcExpr = String(Math.round(result * 1e10) / 1e10);
+  } catch (err) {
+    calcExpr = 'エラー';
+  }
+  calcJustEvaluated = true;
+  updateCalcDisplay();
+}
+
+calcToggle.addEventListener('click', () => {
+  calcPanel.classList.toggle('show');
+});
+calcCloseBtn.addEventListener('click', () => calcPanel.classList.remove('show'));
+
+calcPanel.querySelector('.calc-buttons').addEventListener('click', (e) => {
+  const btn = e.target.closest('.calc-btn');
+  if (!btn) return;
+  const v = btn.dataset.calc;
+  if (v === 'C') calcClear();
+  else if (v === 'back') calcBackspace();
+  else if (v === '=') calcEvaluate();
+  else calcInput(v);
+});
+
+// テンキー（Numpad）操作: 電卓パレットが開いている間だけキー入力を横取りする
+window.addEventListener('keydown', (e) => {
+  if (!calcPanel.classList.contains('show')) return;
+
+  const numpadDigit = /^Numpad([0-9])$/.exec(e.code);
+  if (numpadDigit) { calcInput(numpadDigit[1]); e.preventDefault(); return; }
+
+  switch (e.code) {
+    case 'NumpadAdd': calcInput('+'); e.preventDefault(); return;
+    case 'NumpadSubtract': calcInput('-'); e.preventDefault(); return;
+    case 'NumpadMultiply': calcInput('*'); e.preventDefault(); return;
+    case 'NumpadDivide': calcInput('/'); e.preventDefault(); return;
+    case 'NumpadDecimal': calcInput('.'); e.preventDefault(); return;
+    case 'NumpadEnter': calcEvaluate(); e.preventDefault(); return;
+  }
+
+  // 通常キーボードの数字・演算子・Enter/Backspace/Escapeも合わせて操作可能にする
+  if (/^[0-9.]$/.test(e.key)) { calcInput(e.key); e.preventDefault(); return; }
+  if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') { calcInput(e.key); e.preventDefault(); return; }
+  if (e.key === 'Enter' || e.key === '=') { calcEvaluate(); e.preventDefault(); return; }
+  if (e.key === 'Backspace') { calcBackspace(); e.preventDefault(); return; }
+  if (e.key === 'Escape') { calcClear(); e.preventDefault(); return; }
+});
 
 (async function loadFromUrlParam() {
   const fileUrl = new URLSearchParams(location.search).get('url');
