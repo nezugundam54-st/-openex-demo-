@@ -401,6 +401,7 @@
     <input type="file" id="pdfFileInput" accept=".pdf,.dxf" style="display:none">
     <button class="btn btn-secondary" id="reloadBtn" style="display:none">📂 別のファイルを開く</button>
     <button class="btn btn-secondary" id="calcToggle">🧮 電卓</button>
+    <button class="btn btn-secondary" id="difySettingsBtn" title="価格検索APIキー設定" style="display:none">⚙️ APIキー</button>
   </div>
 </div>
 
@@ -528,6 +529,20 @@
         <button class="btn btn-secondary" id="difyModalCancelBtn" style="background:#eee; color:#333;">閉じる</button>
         <button class="btn btn-primary" id="difyTransferBtn" style="display:none;">📋 一覧表に転記</button>
       </div>
+
+<!-- APIキー設定モーダル -->
+<div id="difySettingsOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:3000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:10px; padding:28px 32px; width:420px; max-width:90vw; box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <div style="font-weight:bold; font-size:16px; margin-bottom:16px;">⚙️ 価格検索 APIキー設定</div>
+    <div style="font-size:13px; color:#555; margin-bottom:8px;">DifyのRIKCAD材料引き当てワークフローのAPIキーを入力してください。</div>
+    <input id="difyApiKeyInput" type="text" placeholder="app-xxxxxxxxxxxxxxxxxxxx"
+      style="width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px; font-family:monospace; margin-bottom:16px;">
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="difySettingsCancelBtn" class="btn btn-secondary">キャンセル</button>
+      <button id="difySettingsSaveBtn" class="btn btn-primary">保存</button>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 
@@ -572,7 +587,8 @@ const H        = { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, 'Conte
 // ── RIKCAD材料引き当て（Dify ワークフロー）設定 ──────────────────
 // Dify管理画面で「RIKCAD材料引き当て_v2」を公開→APIアクセスから発行したキー
 const DIFY_API_BASE = 'https://api.dify.ai/v1';
-const DIFY_API_KEY  = 'app-cxBfFgqfP5HVP04LXt47mJ6I';
+// APIキーはlocalStorageから読み込む（なければHTMLに書いたデフォルト値を使用）
+let DIFY_API_KEY = localStorage.getItem('dify_api_key') || 'app-kcJvmHQcbPdzSjJ18KmzrjiP';
 let _ifcFileName = '';
 // workerSrcにCDNのURLを直接指定するとクロスオリジンWorker起動に失敗し
 // page.render()が無反応のまま固まることがあるため、Workerスクリプトを取得して
@@ -765,8 +781,17 @@ transferToEstimateBtn.addEventListener('click', async () => {
     return;
   }
 
-  // チェック済みグループをRIKCAD互換JSONに変換
-  const CATEGORY_TYPE = { '壁': 4, 'スラブ': 5, 'メッシュ': 6, '屋根': 7, 'オブジェクト': 1, 'ランプ': 3, '窓': 8, '柱': 1 };
+  // チェック済みグループをRIKCAD互換JSONに変換。
+  // 一覧表に出ている取得可能な数量・単位はすべて`parameters`に1項目1行で出力する（代表数量=suuryoは従来通り1つに絞る）
+  const CATEGORY_TYPE = { '壁': 4, 'スラブ': 5, 'メッシュ': 6, '屋根': 7, 'オブジェクト': 1, 'ランプ': 3, '植栽': 1, '窓': 8, '柱': 1 };
+  // suuryo（代表数量）に採用する項目の優先順位。従来の挙動を踏襲（壁:高さ→壁中心長さ、面積系カテゴリ:面積系優先）
+  const PRIMARY_PARAM = {
+    '壁': ['高さ', '壁中心長さ'],
+    'スラブ': ['面積'],
+    'メッシュ': ['上部表面積(正味)', '表面積'],
+    '屋根': ['表面積'],
+    '柱': ['躯体高さ/直径', '最大高さ'],
+  };
   const items = [];
   const seen = new Set();
   for (const chk of checked) {
@@ -775,20 +800,32 @@ transferToEstimateBtn.addEventListener('click', async () => {
     seen.add(key);
     const meta = groupKeyToMeta.get(key);
     if (!meta) continue;
-    const type = CATEGORY_TYPE[meta.category] ?? 1;
+    const category = meta.category;
+    const type = CATEGORY_TYPE[category] ?? 1;
     const p = meta.params || {};
-    let suuryo = 0, paramParts = [];
-    if (type === 4) {
-      const h = p['高さ'], a = p['表面積'], l = p['壁中心長さ'];
-      if (h != null) { paramParts.push(`塀高さ:${(h / 1000).toFixed(3)}m`); suuryo = parseFloat((h / 1000).toFixed(3)); }
-      if (a != null) { paramParts.push(`基準線面積:${a.toFixed(3)}㎡`); }
-      if (l != null) { paramParts.push(`基準線長さ:${(l / 1000).toFixed(3)}m`); if (!suuryo) suuryo = parseFloat((l / 1000).toFixed(3)); }
-    } else if ([5, 6, 7].includes(type)) {
-      const a = p['面積'] ?? p['表面積'] ?? p['上部表面積(正味)'];
-      if (a != null) { paramParts.push(`3D上面積:${a.toFixed(3)}㎡`); suuryo = parseFloat(a.toFixed(3)); }
-    } else {
-      suuryo = Math.round(p['数量'] ?? 1);
+    const fixedQty = FIXED_QTY_CATEGORIES.has(category);
+    const paramNames = CATEGORY_PARAMS[category] || [];
+
+    const paramParts = [];
+    const values = {}; // paramName -> 変換後の数値（parameters文字列と同じ値）
+    for (const paramName of paramNames) {
+      const raw = (fixedQty && paramName === '数量') ? 1 : p[paramName];
+      if (raw == null) continue;
+      let unit = UNIT_MAP[paramName] || '';
+      let value = raw;
+      if (unit === 'mm') { value = value / 1000; unit = 'm'; }       // mm→mに変換（従来の高さ・壁中心長さと同じ扱い）
+      else if (unit === 'm²') { unit = '㎡'; }                        // 表記を従来の全角㎡に統一
+      const text = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(3);
+      paramParts.push(`${paramName}:${text}${unit}`);
+      values[paramName] = parseFloat(text);
     }
+
+    // 代表数量(suuryo)はカテゴリごとの優先順位に沿って最初に見つかった値を採用（無ければ0）
+    let suuryo = 0;
+    for (const paramName of (PRIMARY_PARAM[category] || paramNames)) {
+      if (values[paramName] != null) { suuryo = values[paramName]; break; }
+    }
+
     items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: 0, parameters: paramParts.join('\n') });
   }
   if (!items.length) { alert('変換できる行がありませんでした'); return; }
@@ -1331,6 +1368,7 @@ async function showMultiSelectionSummary() {
     <div class="prop-name">${ids.length}件選択中</div>
     <div class="prop-type">Shift+クリックで選択を追加・解除できます</div>
     <button class="btn btn-primary hide-toggle-btn" style="width:100%; margin:8px 0;">${hideLabel}</button>
+    <button class="btn btn-primary dify-multi-search-btn" style="width:100%; margin-bottom:12px; background:#1a6f4c;">💰 価格検索（${ids.length}件）</button>
     <table class="qty-table" style="margin-top:8px;">
       <tbody>${rowsHtml}</tbody>
       ${totalsHtml ? `<tfoot>${totalsHtml}</tfoot>` : ''}
@@ -1507,6 +1545,10 @@ async function showProperties(modelID, expressId) {
 document.getElementById('panelBody').addEventListener('click', async e => {
   if (e.target.closest('.dify-search-btn')) {
     openDifySearch();
+    return;
+  }
+  if (e.target.closest('.dify-multi-search-btn')) {
+    openMultiDifySearchFromSelection();
     return;
   }
   const copyBtn = e.target.closest('.qty-copy-btn');
@@ -3582,6 +3624,145 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' || e.key === '=') { calcEvaluate(); e.preventDefault(); return; }
   if (e.key === 'Backspace') { calcBackspace(); e.preventDefault(); return; }
   if (e.key === 'Escape') { calcClear(); e.preventDefault(); return; }
+});
+
+
+// ── 複数商品 Dify 価格検索 ────────────────────────────────────
+// AC_Pset_* から名称・仕様値を取得して { difyName, specs } を返す
+async function getItemDifySpecs(modelID, expressId) {
+  let psets = [];
+  try { psets = await ifcLoader.ifcManager.getPropertySets(modelID, expressId, true); } catch (e) {}
+  let difyName = '';
+  const specs = [];
+  for (const pset of psets) {
+    const psetName = fieldValue(pset.Name) || '';
+    if (!psetName.startsWith('AC_Pset_') || psetName === 'AC_Pset_RenovationAndPhasing') continue;
+    for (const p of (pset.HasProperties || [])) {
+      const pName = fieldValue(p.Name) || '';
+      const pVal = fieldValue(p.NominalValue ?? p.Value ?? p.EnumerationValues?.[0] ?? '');
+      if (!pVal) continue;
+      if (!difyName && pName.trim().normalize('NFKC') === '名称') {
+        difyName = pVal;
+      } else {
+        specs.push(pVal);
+      }
+    }
+  }
+  return { difyName, specs };
+}
+
+// v2ワークフローを商品ごとに並列呼び出し（DIFY_API_KEY 1本で完結）
+async function callMultiDifyWorkflow(productsText) {
+  const lines = productsText.split('\n').filter(l => l.trim());
+  const results = await Promise.all(lines.map(async line => {
+    const parts = line.split(',');
+    const name = parts[0].trim();
+    const siyouValues = parts.slice(1).map(s => s.trim()).filter(Boolean);
+    const parsed = await callDifyWorkflow(name, siyouValues);
+    return JSON.stringify(parsed);
+  }));
+  return results.map((r, i) => `=== 商品 ${i + 1} ===\n${r}`).join('\n\n');
+}
+
+// "=== 商品 N ===" 区切りのテキストを JSON 配列にパース
+function parseMultiDifyResult(text) {
+  const blocks = text.split(/===\s*商品\s*\d+\s*===/);
+  return blocks.map(b => b.trim()).filter(Boolean).map(block => {
+    try { return { ok: true, data: JSON.parse(block) }; }
+    catch (e) { return { ok: false, raw: block }; }
+  });
+}
+
+// 複数検索結果をモーダルに表示
+function renderMultiDifyResult(results, labels) {
+  difyModalBody.innerHTML = results.map((r, i) => {
+    const label = labels[i] || `商品 ${i + 1}`;
+    if (!r.ok) {
+      return `<div style="margin-bottom:16px;"><b>${escHtml(label)}</b><br><pre style="font-size:11px;white-space:pre-wrap;">${escHtml(r.raw)}</pre></div>`;
+    }
+    const d = r.data;
+    const itemsHtml = Array.isArray(d.items) && d.items.length
+      ? '<table class="dify-table"><thead><tr><th>部材名</th><th>仕様</th><th>単価</th><th>数量</th><th>小計</th></tr></thead><tbody>'
+        + d.items.map(it => `<tr><td>${escHtml(String(it.部材名||''))}</td><td>${escHtml(String(it.仕様||''))}</td><td>${escHtml(String(it.単価||''))}</td><td>${escHtml(String(it.数量||''))}</td><td>${escHtml(String(it.小計||''))}</td></tr>`).join('')
+        + '</tbody></table>'
+      : '<p style="color:#999;">部材データなし</p>';
+    return `<div style="margin-bottom:20px; border-top:1px solid #ddd; padding-top:12px;">
+      <div style="font-weight:bold; margin-bottom:6px;">${escHtml(label)}</div>
+      ${itemsHtml}
+      ${d.合計金額 ? `<div style="text-align:right; font-weight:bold; margin-top:6px;">合計: ${escHtml(String(d.合計金額))}</div>` : ''}
+      ${d.備考 ? `<div style="font-size:12px; color:#666; margin-top:4px;">${escHtml(String(d.備考))}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// メイン：Shift選択中の商品をすべて Dify に送って結果表示
+async function openMultiDifySearchFromSelection() {
+  const DIFY_TARGET_CATS = new Set(['オブジェクト', 'ランプ', '窓']);
+  const ids = Array.from(selectedIds);
+  if (!ids.length) { alert('商品が選択されていません'); return; }
+
+  // 各要素の仕様を収集
+  const seen = new Map(); // label -> {difyName, specs}
+  const labels = [];
+  for (const id of ids) {
+    const { difyName, specs } = await getItemDifySpecs(currentModel.modelID, id);
+    if (!difyName) continue;
+    const key = difyName + '||' + specs.join(',');
+    if (seen.has(key)) continue;
+    seen.set(key, { difyName, specs });
+    labels.push(difyName);
+  }
+
+  if (!seen.size) {
+    alert('価格検索対象の商品が見つかりませんでした。\n（AC_Pset の「名称」が必要です）');
+    return;
+  }
+
+  const productsText = [...seen.values()].map(({ difyName, specs }) =>
+    [difyName, ...specs].join(',')
+  ).join('\n');
+
+  difyTransferBtn.style.display = 'none';
+  _difyLastResult = null;
+  difyModalBody.innerHTML = `<div class="dify-status">${labels.length}件を検索中...</div>`;
+  difyModalOverlay.classList.add('show');
+
+  try {
+    const resultText = await callMultiDifyWorkflow(productsText);
+    const parsed = parseMultiDifyResult(resultText);
+    renderMultiDifyResult(parsed, labels);
+  } catch (err) {
+    console.error(err);
+    difyModalBody.innerHTML = `<div class="dify-status error">検索に失敗しました: ${escHtml(err.message)}</div>`;
+  }
+}
+
+
+// ── APIキー設定UI ──────────────────────────────────────
+const difySettingsOverlay = document.getElementById('difySettingsOverlay');
+const difyApiKeyInput = document.getElementById('difyApiKeyInput');
+
+document.getElementById('difySettingsBtn').addEventListener('click', () => {
+  difyApiKeyInput.value = DIFY_API_KEY;
+  difySettingsOverlay.style.display = 'flex';
+  setTimeout(() => difyApiKeyInput.focus(), 50);
+});
+document.getElementById('difySettingsCancelBtn').addEventListener('click', () => {
+  difySettingsOverlay.style.display = 'none';
+});
+document.getElementById('difySettingsSaveBtn').addEventListener('click', () => {
+  const val = difyApiKeyInput.value.trim();
+  if (!val.startsWith('app-')) {
+    alert('APIキーは app- で始まる形式で入力してください');
+    return;
+  }
+  DIFY_API_KEY = val;
+  localStorage.setItem('dify_api_key', val);
+  difySettingsOverlay.style.display = 'none';
+  alert('APIキーを保存しました');
+});
+difySettingsOverlay.addEventListener('click', e => {
+  if (e.target === difySettingsOverlay) difySettingsOverlay.style.display = 'none';
 });
 
 (async function loadFromUrlParam() {
