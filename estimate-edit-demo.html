@@ -159,6 +159,8 @@ body{
 
 /* CADから引用: マスタのフォルダ階層＋フル内訳列プレビュー（export-src.dc.html準拠） */
 #cadOverlay .cad-modal{width:1450px;max-width:97vw;}
+/* 「CADから引用」直後の引用元選択画面（IFC/ビューア）はボタン2つだけなので小さく表示する */
+#cadOverlay .cad-modal.cad-modal-compact{width:360px;}
 .cad-import-tbl thead th{position:sticky;top:0;z-index:3;}
 .cad-import-tbl thead tr:first-child th{top:0;}
 .cad-import-tbl thead tr:last-child th{top:24px;}
@@ -174,6 +176,31 @@ body{
 .stk-list{position:sticky;left:641px;z-index:2;border-right:2px solid #8f8f8f !important;}
 /* モーダルフッターのボタンは.pbtn.primaryのmargin-left:autoを打ち消し、隣接配置にする */
 .cad-footer .pbtn{margin-left:0;}
+
+/* ─── カタログ検索（2026-07-17見積機能改修.pptx P.19/P.20準拠） ─── */
+#catalogOverlay .cad-modal{width:900px;max-width:96vw;}
+#catalogOverlay .cad-modal.catalog-modal-wide{width:1300px;max-width:97vw;}
+.cat-toprow{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid #e4e7ed;}
+.cat-field label{display:block;font-size:11px;color:#606266;margin-bottom:4px;}
+.cat-field input, .cat-field select{height:28px;padding:0 8px;border:1px solid #dcdfe6;border-radius:4px;font-size:12px;font-family:inherit;}
+.cat-range{display:flex;align-items:center;gap:6px;}
+.cat-range input{width:90px;}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);column-gap:20px;row-gap:10px;margin-bottom:16px;}
+.cat-grid .cat-field select{width:100%;}
+.cat-grid .cat-field select:disabled{background:#f5f7fa;color:#c0c4cc;}
+.cat-toggle{display:flex;align-items:center;gap:16px;justify-content:flex-end;margin-bottom:12px;font-size:12px;color:#303133;}
+.cat-toggle label{display:flex;align-items:center;gap:5px;cursor:pointer;}
+.cat-rate-bar{display:flex;gap:20px;align-items:flex-end;margin-bottom:10px;}
+.cat-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.cat-tbl th{background:#f5f7fa;border-bottom:2px solid #ddd;padding:6px 8px;text-align:left;white-space:nowrap;color:#555;font-weight:bold;position:sticky;top:0;}
+.cat-tbl td{border-bottom:1px solid #eee;padding:5px 8px;vertical-align:middle;white-space:nowrap;}
+.cat-tbl tr:hover td{background:#fafbff;}
+.cat-tbl .cat-qty-input{width:56px;padding:2px 4px;border:1px solid #dcdfe6;border-radius:3px;font-size:12px;text-align:right;}
+.cat-tbl .cat-unit-select{padding:2px 4px;border:1px solid #dcdfe6;border-radius:3px;font-size:12px;}
+.cat-tbl-wrap{max-height:440px;overflow:auto;border:1px solid #eee;border-radius:4px;}
+.cat-pagebar{display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 0 2px;font-size:12px;color:#606266;}
+.cat-pagebar button{border:1px solid #dcdfe6;background:#fff;border-radius:4px;width:26px;height:26px;cursor:pointer;}
+.cat-pagebar button:disabled{opacity:.4;cursor:default;}
 
 /* 工事選択サブモーダル（工事選択.dc.html準拠） */
 .koji-lead{font-size:13px;color:#333;margin-bottom:12px;}
@@ -355,7 +382,7 @@ body{
   <button class="pbtn" onclick="notImplemented('履歴から引用')">履歴から引用</button>
   <button class="pbtn" onclick="openCadImport()">CADから引用</button>
   <button class="pbtn" onclick="notImplemented('AI書類読込')">AI書類読込</button>
-  <button class="pbtn" onclick="notImplemented('カタログ検索')">カタログ検索</button>
+  <button class="pbtn" onclick="openCatalogSearch()">カタログ検索</button>
   <button class="pbtn" onclick="notImplemented('見積書式')">見積書式</button>
   <button class="pbtn" onclick="notImplemented('帳票出力')">帳票出力</button>
   <button class="pbtn" onclick="notImplemented('発注管理反映')">発注管理反映</button>
@@ -384,6 +411,17 @@ body{
     </div>
     <div class="cad-body" id="kojiBody"></div>
     <div class="cad-footer" id="kojiFooter"></div>
+  </div>
+</div>
+<!-- カタログ検索 モーダル -->
+<div class="cad-overlay" id="catalogOverlay">
+  <div class="cad-modal" id="catalogModal">
+    <div class="cad-header">
+      <span class="cad-title" id="catalogTitle">カタログ検索</span>
+      <button class="cad-close" onclick="closeCatalogOverlay()">✕</button>
+    </div>
+    <div class="cad-body" id="catalogBody"></div>
+    <div class="cad-footer" id="catalogFooter"></div>
   </div>
 </div>
 
@@ -1058,23 +1096,23 @@ function cadQtyUnit(item) {
   return { qty: item.suuryo ?? 0, unit: '個' };
 }
 
+/* parametersの各行「ラベル:数値単位」を汎用的にパースして、取得可能な数量・単位をすべて行として返す
+   （「ﾒｰｶｰ:xxx」のような数値で始まらない行はcadSpec側の情報なのでここでは無視する） */
 function cadQtyRows(item) {
-  const t = item.type, p = item.parameters || '';
-  if (t === 4) {
-    const rows = [];
-    const mh = p.match(/塀高さ:([\d.]+)m/);
-    const ma = p.match(/基準線面積:([\d.]+)㎡/);
-    const ml = p.match(/基準線長さ:([\d.]+)m/);
-    if (mh) rows.push({ qty: parseFloat(mh[1]), unit: 'm', label: '塀高さ' });
-    if (ma) rows.push({ qty: parseFloat(ma[1]), unit: '㎡', label: '基準線面積' });
-    if (ml) rows.push({ qty: parseFloat(ml[1]), unit: 'm', label: '基準線長さ' });
-    return rows.length ? rows : [{ qty: item.suuryo ?? 0, unit: 'm', label: '' }];
-  }
-  if ([5,6,7].includes(t)) {
-    const ma = p.match(/3D上面積:([\d.]+)㎡/);
-    return [{ qty: ma ? parseFloat(ma[1]) : (item.suuryo ?? 0), unit: '㎡', label: '' }];
-  }
-  return [{ qty: item.suuryo ?? 0, unit: '個', label: '' }];
+  const p = item.parameters || '';
+  const rows = [];
+  p.split(/\r?\n/).forEach(line => {
+    const line2 = line.trim();
+    if (!line2) return;
+    const idx = line2.search(/[：:]/);
+    if (idx < 0) return;
+    const label = line2.slice(0, idx).trim();
+    const rest = line2.slice(idx + 1).trim();
+    const m = rest.match(/^([\d.]+)(.*)$/);
+    if (!m) return;
+    rows.push({ qty: parseFloat(m[1]), unit: m[2].trim(), label });
+  });
+  return rows.length ? rows : [{ qty: item.suuryo ?? 0, unit: '個', label: '' }];
 }
 
 function findAllMasterMatches(name) {
@@ -1174,6 +1212,7 @@ async function openCadImport() {
 
   const body = document.getElementById('cadBody');
   const footer = document.getElementById('cadFooter');
+  document.querySelector('#cadOverlay .cad-modal').classList.add('cad-modal-compact');
   document.getElementById('cadTitle').textContent = 'CADから引用';
   body.innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
   footer.innerHTML = '';
@@ -1195,11 +1234,12 @@ async function openCadImport() {
 /* 「CADから引用」クリック直後に表示する引用元選択画面。
    「IFCから引用」は物件フォルダのIFCファイルのみ、「ビューアから引用」はJSONファイルのみを対象にする */
 function renderCadSourceChoice() {
+  document.querySelector('#cadOverlay .cad-modal').classList.add('cad-modal-compact');
   document.getElementById('cadTitle').textContent = 'CADから引用';
   document.getElementById('cadBody').innerHTML = `
-    <div style="padding:48px 24px;text-align:center;">
-      <div style="margin-bottom:20px;color:#606266;font-size:13px;">引用元を選択してください</div>
-      <div style="display:flex;gap:12px;justify-content:center;">
+    <div style="padding:32px 20px;text-align:center;">
+      <div style="margin-bottom:16px;color:#606266;font-size:13px;">引用元を選択してください</div>
+      <div style="display:flex;gap:10px;justify-content:center;">
         <button class="pbtn" onclick="chooseCadSource('ifc')">IFCから引用</button>
         <button class="pbtn" onclick="chooseCadSource('json')">ビューアから引用</button>
       </div>
@@ -1213,6 +1253,7 @@ async function chooseCadSource(source) {
   const footer = document.getElementById('cadFooter');
   const isIfcSource = source === 'ifc';
   const sourceLabel = isIfcSource ? 'IFCから引用' : 'ビューアから引用';
+  document.querySelector('#cadOverlay .cad-modal').classList.remove('cad-modal-compact');
   document.getElementById('cadTitle').textContent = sourceLabel;
   body.innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
   footer.innerHTML = '';
@@ -1546,6 +1587,306 @@ function applyCadImport() {
   });
   rebaseInit(tree); render();
   closeCadOverlay();
+  toast(`${newNodes.length}行を追加しました`);
+}
+
+/* ===== カタログ検索（企画部 2026-07-17見積機能改修.pptx P.19/P.20準拠） ===== */
+let _catalogAllItems = null;   // catalog_items 全件キャッシュ
+let _catalogSearchSel = {};    // 検索フォームの現在の選択状態（maker/category/name/spec1-9/color1/color2）
+let _catalogResults = [];      // 直近の検索結果
+let _catalogPage = 1;
+const CATALOG_PAGE_SIZE = 50;
+const CATALOG_FAV_KEY = 'catalogFavoriteIds';
+const CATALOG_SPEC_FIELDS = ['spec1','spec2','spec3','spec4','spec5','spec6','spec7','spec8','spec9'];
+
+function getCatalogFavorites() {
+  try { return new Set(JSON.parse(localStorage.getItem(CATALOG_FAV_KEY) || '[]')); }
+  catch(e) { return new Set(); }
+}
+function addCatalogFavorites(ids) {
+  const fav = getCatalogFavorites();
+  ids.forEach(id => fav.add(id));
+  localStorage.setItem(CATALOG_FAV_KEY, JSON.stringify([...fav]));
+}
+
+async function loadCatalogItemsIfNeeded() {
+  if (_catalogAllItems) return;
+  const PAGE = 1000;
+  let data = [], offset = 0;
+  while (true) {
+    const r = await fetch(`${SB}/catalog_items?order=category.asc,name.asc&limit=${PAGE}&offset=${offset}`, { headers: H });
+    if (!r.ok) throw new Error(`catalog_items取得失敗 (HTTP ${r.status})`);
+    const page = await r.json();
+    data = data.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+  _catalogAllItems = data;
+}
+
+async function openCatalogSearch() {
+  document.querySelector('#catalogOverlay .cad-modal').classList.remove('catalog-modal-wide');
+  document.getElementById('catalogTitle').textContent = 'カタログ検索';
+  document.getElementById('catalogBody').innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
+  document.getElementById('catalogFooter').innerHTML = '';
+  document.getElementById('catalogOverlay').classList.add('open');
+  try {
+    await loadCatalogItemsIfNeeded();
+  } catch(e) {
+    document.getElementById('catalogBody').innerHTML = `<div style="padding:24px;color:#e02020;">${escHtml(e.message)}</div>`;
+    document.getElementById('catalogFooter').innerHTML = '<button class="pbtn" onclick="closeCatalogOverlay()">閉じる</button>';
+    return;
+  }
+  _catalogSearchSel = { mode: 'master' }; // mode: 'master'=商品マスタ / 'favorite'=よく使う
+  renderCatalogSearchScreen();
+}
+
+function closeCatalogOverlay() { document.getElementById('catalogOverlay').classList.remove('open'); }
+
+/* 現在の選択状態から、指定フィールド以外の条件だけで絞り込んだ候補一覧を返す
+   （自分自身のフィールドで絞ると選択肢が1つに収束してしまうため、そのフィールドだけ除外する） */
+function catalogCandidates(excludeField) {
+  const fav = _catalogSearchSel.mode === 'favorite' ? getCatalogFavorites() : null;
+  return _catalogAllItems.filter(it => {
+    if (fav && !fav.has(it.id)) return false;
+    if (excludeField !== 'maker' && _catalogSearchSel.maker && it.maker !== _catalogSearchSel.maker) return false;
+    if (excludeField !== 'category' && _catalogSearchSel.category && it.category !== _catalogSearchSel.category) return false;
+    if (excludeField !== 'name' && _catalogSearchSel.name && it.name !== _catalogSearchSel.name) return false;
+    for (const f of CATALOG_SPEC_FIELDS) {
+      if (excludeField !== f && _catalogSearchSel[f] && it[f] !== _catalogSearchSel[f]) return false;
+    }
+    if (excludeField !== 'color1' && _catalogSearchSel.color1 && it.color1 !== _catalogSearchSel.color1) return false;
+    if (excludeField !== 'color2' && _catalogSearchSel.color2 && it.color2 !== _catalogSearchSel.color2) return false;
+    return true;
+  });
+}
+
+function catalogOptionsHtml(field, label) {
+  const items = catalogCandidates(field);
+  const values = [...new Set(items.map(it => it[field]).filter(Boolean))].sort();
+  const current = _catalogSearchSel[field] || '';
+  const disabled = values.length === 0 ? 'disabled' : '';
+  let opts = `<option value="">${escHtml(label)}</option>`;
+  opts += values.map(v => `<option value="${escHtml(v)}" ${v === current ? 'selected' : ''}>${escHtml(v)}</option>`).join('');
+  return `<select ${disabled} onchange="onCatalogFieldChange('${field}', this.value)">${opts}</select>`;
+}
+
+function onCatalogFieldChange(field, value) {
+  _catalogSearchSel[field] = value || '';
+  renderCatalogSearchScreen();
+}
+
+function onCatalogModeChange(mode) {
+  _catalogSearchSel.mode = mode;
+  renderCatalogSearchScreen();
+}
+
+function renderCatalogSearchScreen() {
+  const s = _catalogSearchSel;
+  const html = `
+    <div class="cat-toprow">
+      <div class="cat-field" style="flex:1.4;">
+        <label>商品名検索</label>
+        <input type="text" id="catNameSearch" style="width:100%;" placeholder="商品名で検索" value="${escHtml(s.nameSearch || '')}">
+      </div>
+      <div class="cat-field" style="flex:1.4;">
+        <label>仕様検索</label>
+        <input type="text" id="catSpecSearch" style="width:100%;" placeholder="仕様1〜9・カラーで検索" value="${escHtml(s.specSearch || '')}">
+      </div>
+      <div class="cat-field">
+        <label>価格帯</label>
+        <div class="cat-range">
+          <input type="number" id="catPriceMin" placeholder="下限" value="${escHtml(s.priceMin ?? '')}">〜
+          <input type="number" id="catPriceMax" placeholder="上限" value="${escHtml(s.priceMax ?? '')}">
+        </div>
+      </div>
+      <button class="pbtn" onclick="runCatalogSearch()">検索</button>
+    </div>
+
+    <div class="cat-grid">
+      <div class="cat-field"><label>メーカー</label>${catalogOptionsHtml('maker', 'すべて')}</div>
+      <div class="cat-field"><label>商品カテゴリ</label>${catalogOptionsHtml('category', 'すべて')}</div>
+      <div class="cat-field"><label>商品名</label>${catalogOptionsHtml('name', 'すべて')}</div>
+
+      <div class="cat-field"><label>仕様1</label>${catalogOptionsHtml('spec1', '指定なし')}</div>
+      <div class="cat-field"><label>仕様2</label>${catalogOptionsHtml('spec2', '指定なし')}</div>
+      <div class="cat-field"><label>仕様3</label>${catalogOptionsHtml('spec3', '指定なし')}</div>
+
+      <div class="cat-field"><label>仕様4</label>${catalogOptionsHtml('spec4', '指定なし')}</div>
+      <div class="cat-field"><label>仕様5</label>${catalogOptionsHtml('spec5', '指定なし')}</div>
+      <div class="cat-field"><label>仕様6</label>${catalogOptionsHtml('spec6', '指定なし')}</div>
+
+      <div class="cat-field"><label>仕様7</label>${catalogOptionsHtml('spec7', '指定なし')}</div>
+      <div class="cat-field"><label>仕様8</label>${catalogOptionsHtml('spec8', '指定なし')}</div>
+      <div class="cat-field"><label>仕様9</label>${catalogOptionsHtml('spec9', '指定なし')}</div>
+
+      <div class="cat-field"><label>カラー1</label>${catalogOptionsHtml('color1', '指定なし')}</div>
+      <div class="cat-field"><label>カラー2</label>${catalogOptionsHtml('color2', '指定なし')}</div>
+    </div>
+
+    <div class="cat-toggle">
+      <label><input type="radio" name="catMode" value="favorite" ${s.mode === 'favorite' ? 'checked' : ''} onchange="onCatalogModeChange('favorite')"> よく使う</label>
+      <label><input type="radio" name="catMode" value="master" ${s.mode !== 'favorite' ? 'checked' : ''} onchange="onCatalogModeChange('master')"> 商品マスタ</label>
+    </div>`;
+  document.getElementById('catalogBody').innerHTML = html;
+  document.getElementById('catalogFooter').innerHTML =
+    '<button class="pbtn" onclick="closeCatalogOverlay()">閉じる</button>'
+    + '<button class="pbtn primary" onclick="runCatalogSearch()">検索</button>';
+}
+
+function runCatalogSearch() {
+  const s = _catalogSearchSel;
+  s.nameSearch = document.getElementById('catNameSearch').value.trim();
+  s.specSearch = document.getElementById('catSpecSearch').value.trim();
+  s.priceMin = document.getElementById('catPriceMin').value;
+  s.priceMax = document.getElementById('catPriceMax').value;
+
+  let items = catalogCandidates(null); // メーカー/商品カテゴリ/商品名/仕様1-9/カラー1-2の選択条件（よく使う含む）
+
+  if (s.nameSearch) {
+    const words = s.nameSearch.toLowerCase().split(/\s+/).filter(Boolean);
+    items = items.filter(it => {
+      const text = [it.maker, it.category, it.name].filter(Boolean).join(' ').toLowerCase();
+      return words.every(w => text.includes(w));
+    });
+  }
+  if (s.specSearch) {
+    const words = s.specSearch.toLowerCase().split(/\s+/).filter(Boolean);
+    items = items.filter(it => {
+      const text = [...CATALOG_SPEC_FIELDS.map(f => it[f]), it.color1, it.color2].filter(Boolean).join(' ').toLowerCase();
+      return words.every(w => text.includes(w));
+    });
+  }
+  const min = s.priceMin !== '' ? Number(s.priceMin) : null;
+  const max = s.priceMax !== '' ? Number(s.priceMax) : null;
+  if (min != null) items = items.filter(it => it.list_price != null && Number(it.list_price) >= min);
+  if (max != null) items = items.filter(it => it.list_price != null && Number(it.list_price) <= max);
+
+  _catalogResults = items;
+  _catalogPage = 1;
+  document.querySelector('#catalogOverlay .cad-modal').classList.add('catalog-modal-wide');
+  document.getElementById('catalogTitle').textContent = '検索商品画面';
+  renderCatalogResultsScreen();
+}
+
+function _catalogRowState(id) {
+  if (!_catalogRowStateMap.has(id)) _catalogRowStateMap.set(id, { qty: '1', unit: '' });
+  return _catalogRowStateMap.get(id);
+}
+let _catalogRowStateMap = new Map();
+
+function renderCatalogResultsScreen() {
+  const total = _catalogResults.length;
+  const pageCount = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE));
+  _catalogPage = Math.min(Math.max(1, _catalogPage), pageCount);
+  const start = (_catalogPage - 1) * CATALOG_PAGE_SIZE;
+  const pageItems = _catalogResults.slice(start, start + CATALOG_PAGE_SIZE);
+
+  const rowsHtml = pageItems.length ? pageItems.map(it => {
+    const st = _catalogRowState(it.id);
+    if (!st.unit) st.unit = it.unit || '式';
+    return `<tr>
+      <td class="center"><input type="checkbox" class="cat-chk" data-id="${it.id}"></td>
+      <td>${escHtml(it.maker || '')}</td>
+      <td>${escHtml(it.category || '')}</td>
+      <td>${escHtml(it.name || '')}</td>
+      <td class="right"><input class="cat-qty-input" value="${escHtml(st.qty)}" onchange="_catalogRowState(${it.id}).qty=this.value"></td>
+      <td><select class="cat-unit-select" onchange="_catalogRowState(${it.id}).unit=this.value">
+        ${['式','個','本','枚','m','m²','㎡','set'].map(u => `<option value="${u}" ${u === st.unit ? 'selected' : ''}>${u}</option>`).join('')}
+      </select></td>
+      <td>${escHtml(it.spec1 || '')}</td>
+      <td>${escHtml(it.spec2 || '')}</td>
+      <td>${escHtml(it.spec3 || '')}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="9" style="text-align:center;color:#999;padding:32px;">該当する商品がありません</td></tr>';
+
+  const html = `
+    <div class="cat-rate-bar">
+      <div class="cat-field"><label>掛率</label><input type="number" id="catRate" placeholder="未入力=100%" style="width:100px;"> %</div>
+      <div class="cat-field"><label>原価率</label><input type="number" id="catCostRate" style="width:100px;"> %</div>
+    </div>
+    <div class="cat-tbl-wrap">
+      <table class="cat-tbl">
+        <thead><tr>
+          <th style="width:36px;">選択</th><th>メーカー</th><th>商品カテゴリ</th><th>商品名</th>
+          <th>数量</th><th>単位</th><th>仕様1</th><th>仕様2</th><th>仕様3</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <div class="cat-pagebar">
+      <button onclick="catalogChangePage(-1)" ${_catalogPage <= 1 ? 'disabled' : ''}>‹</button>
+      <span>${_catalogPage}</span>
+      <button onclick="catalogChangePage(1)" ${_catalogPage >= pageCount ? 'disabled' : ''}>›</button>
+      <span>${total}件中 ${total ? start + 1 : 0}〜${Math.min(start + CATALOG_PAGE_SIZE, total)}件</span>
+    </div>`;
+  document.getElementById('catalogBody').innerHTML = html;
+  document.getElementById('catalogFooter').innerHTML =
+    '<button class="pbtn" onclick="renderCatalogSearchScreen();document.querySelector(\'#catalogOverlay .cad-modal\').classList.remove(\'catalog-modal-wide\');document.getElementById(\'catalogTitle\').textContent=\'カタログ検索\';">検索条件に戻る</button>'
+    + '<button class="pbtn" onclick="registerCatalogFavorites()">「よく使う」に登録</button>'
+    + '<button class="pbtn primary" onclick="applyCatalogImport()">引用</button>'
+    + '<button class="pbtn" onclick="closeCatalogOverlay()">閉じる</button>';
+}
+
+function catalogChangePage(delta) {
+  _catalogPage += delta;
+  renderCatalogResultsScreen();
+}
+
+function _catalogCheckedIds() {
+  return [...document.querySelectorAll('.cat-chk:checked')].map(chk => Number(chk.dataset.id));
+}
+
+function registerCatalogFavorites() {
+  const ids = _catalogCheckedIds();
+  if (!ids.length) { toast('行を選択してください'); return; }
+  addCatalogFavorites(ids);
+  toast(`${ids.length}件を「よく使う」に登録しました`);
+}
+
+function applyCatalogImport() {
+  const ids = _catalogCheckedIds();
+  if (!ids.length) { toast('行を選択してください'); return; }
+
+  const rate = document.getElementById('catRate').value;
+  const costRate = document.getElementById('catCostRate').value;
+  const effectiveRate = rate !== '' ? rate : '100';
+
+  const newNodes = [];
+  ids.forEach(id => {
+    const it = _catalogAllItems.find(x => x.id === id);
+    if (!it) return;
+    const st = _catalogRowState(id);
+    const specText = CATALOG_SPEC_FIELDS.map(f => it[f]).filter(Boolean).join('/');
+    const n = newLeaf(it.name || '');
+    n.spec = specText;
+    n.qty = st.qty || '1';
+    n.unitCode = st.unit || it.unit || '式';
+    n.listPrice = it.list_price != null ? String(it.list_price) : '';
+    n.rate = effectiveRate;
+    if (costRate !== '') n.costRate = costRate;
+    n.note = `カタログ検索: ${it.maker || ''} ${it.category || ''}`.trim();
+    recalcRow(n, 'rate');
+    newNodes.push(n);
+  });
+  if (!newNodes.length) { toast('挿入できる行がありません'); return; }
+
+  let target = null;
+  if (anchorId != null) {
+    const found = findNode(tree, anchorId);
+    if (found) target = found.node.isMain ? found.node : (found.parent || null);
+  }
+  if (!target) target = tree.find(n => n.isMain) || null;
+
+  if (target) {
+    newNodes.forEach(n => target.children.push(n));
+    target.expanded = true;
+  } else {
+    newNodes.forEach(n => tree.push(n));
+  }
+  recalcAll(tree);
+  rebaseInit(tree); render();
+  closeCatalogOverlay();
   toast(`${newNodes.length}行を追加しました`);
 }
 
