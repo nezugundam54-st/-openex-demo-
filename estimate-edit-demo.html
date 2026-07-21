@@ -1189,9 +1189,37 @@ async function openCadImport() {
     if (itemsR.ok) (await itemsR.json()).forEach(m => { _cadMasterItemMap[m.id] = m.name; });
   } catch(e) { _cadAllMasterRows = []; _cadMasterItemMap = {}; }
 
+  renderCadSourceChoice();
+}
+
+/* 「CADから引用」クリック直後に表示する引用元選択画面。
+   「IFCから引用」は物件フォルダのIFCファイルのみ、「ビューアから引用」はJSONファイルのみを対象にする */
+function renderCadSourceChoice() {
+  document.getElementById('cadTitle').textContent = 'CADから引用';
+  document.getElementById('cadBody').innerHTML = `
+    <div style="padding:48px 24px;text-align:center;">
+      <div style="margin-bottom:20px;color:#606266;font-size:13px;">引用元を選択してください</div>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button class="pbtn" onclick="chooseCadSource('ifc')">IFCから引用</button>
+        <button class="pbtn" onclick="chooseCadSource('json')">ビューアから引用</button>
+      </div>
+    </div>`;
+  document.getElementById('cadFooter').innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">キャンセル</button>';
+}
+
+async function chooseCadSource(source) {
+  const propertyId = _cadPropertyId;
+  const body = document.getElementById('cadBody');
+  const footer = document.getElementById('cadFooter');
+  const isIfcSource = source === 'ifc';
+  const sourceLabel = isIfcSource ? 'IFCから引用' : 'ビューアから引用';
+  document.getElementById('cadTitle').textContent = sourceLabel;
+  body.innerHTML = '<div style="padding:28px;text-align:center;color:#999;">読み込み中...</div>';
+  footer.innerHTML = '';
+
   try {
     const r = await fetch(
-      `${SB}/property_files?property_id=eq.${propertyId}&or=(name.ilike.*.json,name.ilike.*.ifc)&order=created_at.desc&limit=100`,
+      `${SB}/property_files?property_id=eq.${propertyId}&name=ilike.*.${isIfcSource ? 'ifc' : 'json'}&order=created_at.desc&limit=100`,
       { headers: H }
     );
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1203,8 +1231,8 @@ async function openCadImport() {
   }
 
   if (_cadFiles.length === 0) {
-    body.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:13px;">CADから引用データがありません</div>';
-    footer.innerHTML = '<button class="pbtn" onclick="closeCadOverlay()">閉じる</button>';
+    body.innerHTML = `<div style="padding:40px;text-align:center;color:#999;font-size:13px;">物件フォルダに${isIfcSource ? 'IFC' : 'JSON'}ファイルが見つかりませんでした</div>`;
+    footer.innerHTML = '<button class="pbtn" onclick="renderCadSourceChoice()">戻る</button><button class="pbtn" onclick="closeCadOverlay()">キャンセル</button>';
     return;
   }
 
@@ -1216,8 +1244,7 @@ async function openCadImport() {
 }
 
 function renderFileSelect() {
-  document.getElementById('cadTitle').textContent = 'CADから引用 — ファイル選択';
-  let html = '<div style="margin-bottom:10px;font-size:12px;color:#606266;">複数のCADデータ(JSON/IFC)が見つかりました。引用するファイルを選択してください。</div>';
+  let html = '<div style="margin-bottom:10px;font-size:12px;color:#606266;">複数のファイルが見つかりました。引用するファイルを選択してください。</div>';
   _cadFiles.forEach((f, i) => {
     const date = f.created_at ? f.created_at.slice(0,16).replace('T',' ') : '';
     const size = f.size ? `${(f.size/1024).toFixed(1)} KB` : '';
