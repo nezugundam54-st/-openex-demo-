@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>見積管理・マスタ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #ffffff;
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "メイリオ", Meiryo, "Yu Gothic UI", Arial, sans-serif;
+    color: #303133;
+    padding: 68px 24px 20px;
+  }
+
+  /* ===== ナビバー ===== */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+  }
+  .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 11px; font-size: 12px; color: #555;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    background: none; border-top: none; border-left: none; border-right: none;
+    font-family: inherit;
+  }
+  .nav-item:hover { color: #1a6fc4; }
+  .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+  .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+  .nav-item.hacchukanri svg { color: #e53935; }
+  .nav-right {
+    display: flex; align-items: center;
+    margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+  }
+
+  /* ===== ヘッダー（パンくず・タイトル） ===== */
+  .breadcrumb { font-size: 13px; margin-bottom: 10px; }
+  .breadcrumb .crumb-link { color: #1d73cc; cursor: pointer; }
+  .breadcrumb .crumb-sep { color: #c0c4cc; margin: 0 6px; }
+  .breadcrumb .crumb-current { color: #303133; font-weight: bold; }
+  h1.page-title { font-size: 20px; font-weight: bold; margin-bottom: 24px; }
+
+  /* ===== 機能ボタン ===== */
+  .function-area { display: flex; flex-direction: row; align-items: center; margin-bottom: 20px; }
+  .construction-functionClick {
+    min-width: 120px;
+    height: 35px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    background-color: #1d73cc;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 10px;
+    cursor: pointer;
+  }
+
+  /* ===== テーブル ===== */
+  table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #B9B9B9;
+    border-radius: 5px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  th, td {
+    border-bottom: 1px solid #B9B9B9;
+    border-right: 1px solid #B9B9B9;
+    height: 30px;
+    padding: 0 10px;
+  }
+  th:last-child, td:last-child { border-right: none; }
+  thead th {
+    background-color: #E6E6E6;
+    color: #000000;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+  }
+  tbody td { text-align: center; background: #ffffff; }
+  tbody td.al { text-align: left; }
+  tbody tr:hover td { background-color: #f5f7fa; }
+
+  .w-no    { width: 50px; min-width: 50px; }
+  .w-type  { width: auto; }
+  .w-day   { width: 12%; min-width: 100px; }
+  .w-user  { width: 12%; min-width: 90px; }
+  .w-remark{ width: 30%; }
+  .w-more  { width: 50px; min-width: 50px; }
+
+  .type-link { color: #1d73cc; cursor: pointer; }
+  .type-link:hover { text-decoration: underline; }
+
+  /* 「…」メニュー */
+  .more-btn {
+    width: 22px; height: 22px;
+    border: none;
+    background: transparent;
+    color: #606266;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    letter-spacing: -1px;
+  }
+  .more-menu {
+    position: absolute;
+    z-index: 50;
+    background: #ffffff;
+    border: 1px solid #cfd3d8;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    padding: 4px 0;
+    font-size: 12px;
+    min-width: 120px;
+  }
+  .more-menu-item {
+    padding: 6px 16px;
+    white-space: nowrap;
+    cursor: pointer;
+    color: #303133;
+    text-align: left;
+  }
+  .more-menu-item:hover { background: #f5f7fa; }
+</style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item active" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+  <div class="breadcrumb">
+    <span class="crumb-link">設定</span><span class="crumb-sep">&gt;</span><span class="crumb-current">見積管理・マスタ</span>
+  </div>
+  <h1 class="page-title">見積管理・マスタ</h1>
+
+  <div class="function-area">
+    <button class="construction-functionClick" id="btnNew">新規登録</button>
+    <button class="construction-functionClick" id="btnImport">インポート</button>
+  </div>
+
+  <table id="listTable">
+    <thead>
+      <tr>
+        <th class="w-no">No.</th>
+        <th class="w-type">工事種別</th>
+        <th class="w-day">更新日</th>
+        <th class="w-user">更新者</th>
+        <th class="w-remark">備考</th>
+        <th class="w-more"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+<script>
+  // ===== ナビゲーション =====
+  function navClick(key) {
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+
+  const rows = [
+    { name:"1.仮設工事",           day:"2026-06-10", user:"森裕治",   remark:"" },
+    { name:"2.土工事",             day:"2026-06-11", user:"大阪太郎", remark:"" },
+    { name:"3.解体工事",           day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"4.境界ブロック工事",   day:"2026-06-10", user:"森裕治",   remark:"" },
+    { name:"5.土間工事",           day:"2026-06-10", user:"森裕治",   remark:"" },
+    { name:"6.門柱工事",           day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"7.庭園・植栽工事",     day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"8.照明・電気設備工事", day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"9.補修・調整工事",     day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"10.別途工事・その他", day:"2026-06-04", user:"森裕治",   remark:"" },
+    { name:"仮設工事",             day:"2026-06-30", user:"森裕治",   remark:"" },
+    { name:"材料例",               day:"2026-07-01", user:"坂東理",   remark:"" },
+    { name:"仮設工事",             day:"2026-07-08", user:"大阪太郎", remark:"" },
+    { name:"土工事",               day:"2026-07-08", user:"大阪太郎", remark:"" },
+    { name:"自動灌水セットS",     day:"2026-07-21", user:"森裕治",   remark:"品番：GKK104E-03　備考：乾電池付" },
+  ];
+
+  const tbody = document.getElementById("tbody");
+  rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.dataset.index = i;
+    tr.innerHTML =
+      '<td>' + (i + 1) + '</td>' +
+      '<td class="al"><span class="type-link" data-edit="' + i + '">' + r.name + '</span></td>' +
+      '<td>' + r.day + '</td>' +
+      '<td>' + r.user + '</td>' +
+      '<td class="al">' + r.remark + '</td>' +
+      '<td><button class="more-btn" data-more="' + i + '">…</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  // 工事種別クリック／「…」→編集：見積マスタ編集画面へ遷移
+  function goEdit() {
+    window.location.href = "estimate-master-edit.html";
+  }
+  tbody.addEventListener("click", e => {
+    const editLink = e.target.closest("[data-edit]");
+    if (editLink) { goEdit(); return; }
+    const moreBtn = e.target.closest("[data-more]");
+    if (moreBtn) {
+      e.stopPropagation();
+      openMoreMenu(moreBtn);
+      return;
+    }
+  });
+
+  let currentMenu = null;
+  function closeMoreMenu() {
+    if (currentMenu) { currentMenu.remove(); currentMenu = null; }
+  }
+  function openMoreMenu(btn) {
+    closeMoreMenu();
+    const items = [
+      { label: "編集", action: goEdit },
+      { label: "コピー", action: () => {} },
+      { label: "ダウンロード", action: () => {} },
+      { label: "削除", action: () => {} },
+    ];
+    const menu = document.createElement("div");
+    menu.className = "more-menu";
+    items.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "more-menu-item";
+      div.textContent = item.label;
+      div.addEventListener("click", ev => {
+        ev.stopPropagation();
+        closeMoreMenu();
+        item.action();
+      });
+      menu.appendChild(div);
+    });
+    document.body.appendChild(menu);
+    const r = btn.getBoundingClientRect();
+    menu.style.left = (window.scrollX + r.right - 120) + "px";
+    menu.style.top = (window.scrollY + r.bottom + 2) + "px";
+    currentMenu = menu;
+  }
+  document.addEventListener("click", () => closeMoreMenu());
+</script>
+</body>
+</html>

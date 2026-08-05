@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>見積管理</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #ffffff;
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "メイリオ", Meiryo, "Yu Gothic UI", Arial, sans-serif;
+    color: #303133;
+    padding: 68px 24px 90px 24px;
+  }
+
+  /* ===== ナビバー（estimate-list.html と同一） ===== */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+  }
+  .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 11px; font-size: 12px; color: #555;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .nav-item:hover { color: #1a6fc4; }
+  .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+  .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+  .nav-item.hacchukanri svg { color: #e53935; }
+  .nav-right {
+    display: flex; align-items: center;
+    margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0;
+  }
+
+  /* ===== ヘッダー（パンくず・タイトル） ===== */
+  .breadcrumb { font-size: 13px; margin-bottom: 10px; }
+  .breadcrumb .crumb-link { color: #0d8577; font-weight: bold; cursor: pointer; }
+  .breadcrumb .crumb-sep { color: #c0c4cc; margin: 0 6px; }
+  .breadcrumb .crumb-current { color: #303133; font-weight: bold; }
+  .title-row { display: flex; align-items: center; margin-bottom: 22px; }
+  h1.page-title { font-size: 22px; font-weight: bold; margin-right: 16px; }
+  .info-btn {
+    height: 30px;
+    padding: 0 14px;
+    margin-right: 10px;
+    border: 1px solid #c0c4cc;
+    border-radius: 15px;
+    background-color: #ffffff;
+    color: #303133;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .info-btn .info-icon {
+    display: inline-block;
+    width: 14px; height: 14px;
+    line-height: 13px;
+    border: 1px solid #909399;
+    border-radius: 50%;
+    text-align: center;
+    font-size: 10px;
+    margin-right: 4px;
+    color: #909399;
+  }
+
+  h2.section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+  .section-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+  /* ===== テーブル共通 ===== */
+  table {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid #B9B9B9;
+    border-radius: 5px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  th, td {
+    border-bottom: 1px solid #B9B9B9;
+    border-right: 1px solid #B9B9B9;
+    height: 40px;
+    padding: 0 8px;
+  }
+  th:last-child, td:last-child { border-right: none; }
+  tr:last-child td { border-bottom: none; }
+
+  /* 見積情報・見積一覧：ダークグレーヘッダー */
+  .dark-table thead th {
+    background-color: #606266;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: bold;
+    text-align: center;
+  }
+  .dark-table tbody td { text-align: center; background: #ffffff; }
+  .dark-table tbody td.al { text-align: left; }
+
+  .estimate-info-wrap { margin-bottom: 26px; }
+  .estimate-list-wrap { margin-bottom: 20px; }
+
+  /* 見積一覧：選択行・縞模様 */
+  #ledgerTbody tr.selected-row td { background-color: #b3e7fa !important; font-weight: bold; }
+  #ledgerTbody tr.stripe-row td { background-color: #EEEEEE; }
+  #ledgerTbody tr:hover td:not(.selected-row td) { cursor: pointer; }
+
+  /* select風表示（値のみ＋シェブロン） */
+  .fake-select {
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px;
+    color: #303133;
+  }
+  .fake-select::after {
+    content: "";
+    width: 6px; height: 6px;
+    border-right: 1px solid #c0c4cc;
+    border-bottom: 1px solid #c0c4cc;
+    transform: rotate(45deg);
+    margin-top: -3px;
+  }
+  .no-border-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    text-align: center;
+    font-size: 13px;
+    background: transparent;
+  }
+
+  .construction-functionClick {
+    width: auto;
+    min-width: 120px;
+    height: 35px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 7px;
+    background-color: #1d73cc;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .construction-functionClick2 {
+    width: auto;
+    min-width: 120px;
+    height: 35px;
+    padding: 0 16px;
+    border: 1px solid #1d73cc;
+    border-radius: 7px;
+    background-color: #ffffff;
+    color: #1d73cc;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* ===== 実行予算 ===== */
+  .budget-wrap { width: 45%; }
+  .budget-label {
+    width: 100%;
+    height: 40px;
+    padding: 3px;
+    border: 1px solid #b9b9b9;
+    border-radius: 5px 5px 0 0;
+    border-bottom: none;
+    background-color: #606266;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .budget-table { border-radius: 0 0 5px 5px; }
+  .budget-table thead th {
+    background-color: #f1faff;
+    color: #1d73cc;
+    font-weight: normal;
+    font-size: 13px;
+    text-align: right;
+    padding-right: 10px;
+  }
+  .budget-table tbody td { text-align: right; padding-right: 10px; font-weight: bold; background: #ffffff; }
+
+  /* 「…」メニュー */
+  .more-btn {
+    width: 22px; height: 22px;
+    border: none;
+    background: transparent;
+    color: #606266;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    letter-spacing: -1px;
+  }
+  .more-menu {
+    position: absolute;
+    z-index: 50;
+    background: #ffffff;
+    border: 1px solid #cfd3d8;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    padding: 4px 0;
+    font-size: 12px;
+    min-width: 100px;
+  }
+  .more-menu-item {
+    padding: 6px 16px;
+    white-space: nowrap;
+    cursor: pointer;
+    color: #303133;
+    text-align: left;
+  }
+  .more-menu-item:hover { background: #f5f7fa; }
+
+  /* ===== 下部操作バー ===== */
+  .control-strip {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #e4e7ed;
+    padding: 14px 24px;
+    display: flex;
+    justify-content: center;
+  }
+  .control-strip button { margin: 0 6px; }
+
+  /* ===== テンプレート選択モーダル（「新規登録」から表示） ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.35);
+    z-index: 900;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: #ffffff;
+    border-radius: 10px;
+    width: 420px;
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,.25);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e4e7ed;
+  }
+  .modal-header-title { font-size: 15px; font-weight: bold; color: #303133; }
+  .modal-close-btn {
+    width: 26px; height: 26px;
+    border: none; background: transparent;
+    font-size: 18px; color: #909399;
+    cursor: pointer; line-height: 1;
+    border-radius: 50%;
+  }
+  .modal-close-btn:hover { background: #f5f7fa; color: #303133; }
+  .modal-body { padding: 16px 20px; overflow-y: auto; }
+  .modal-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #e4e7ed;
+  }
+  .modal-footer button { margin: 0; min-width: 0; }
+  .tmpl-field-label { font-size: 12px; color: #606266; margin-bottom: 5px; }
+  .tmpl-name-input {
+    width: 100%; height: 32px;
+    border: 1px solid #dcdfe6; border-radius: 4px;
+    padding: 0 10px; font-size: 13px; color: #303133;
+    margin-bottom: 16px;
+  }
+  /* テンプレート選択: replus実機（constructionInfo/index.vue dialog_TemplateSelection）の
+     el-select（単一プルダウン）に合わせて実装。カード型リストは廃止（2026-07-28 再実装）。 */
+  .tmpl-select {
+    width: 100%; height: 34px;
+    border: 1px solid #dcdfe6; border-radius: 4px;
+    padding: 0 10px; font-size: 13px; color: #303133;
+    background: #fff;
+  }
+  .tmpl-select:disabled { background: #e6e6e6; color: #909399; cursor: not-allowed; }
+  .tmpl-empty-msg { text-align: center; color: #bbb; font-size: 12px; padding: 12px 0 4px; }
+</style>
+</head>
+<body>
+
+<!-- ===== ナビバー ===== -->
+<nav class="navbar">
+  <div class="nav-main">
+    <button class="nav-item" data-nav="bukken" onclick="navClick('bukken')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      物件
+    </button>
+    <button class="nav-item" data-nav="kokyaku" onclick="navClick('kokyaku')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      顧客
+    </button>
+    <button class="nav-item" data-nav="file" onclick="navClick('file')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ファイル検索
+    </button>
+    <button class="nav-item" data-nav="shared" onclick="navClick('shared')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      共有物件
+    </button>
+    <button class="nav-item" data-nav="estimate" onclick="navClick('estimate')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      見積管理
+    </button>
+    <button class="nav-item hacchukanri" data-nav="hacchu" onclick="navClick('hacchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      発注管理
+    </button>
+    <button class="nav-item" data-nav="juchu" onclick="navClick('juchu')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      受注管理
+    </button>
+    <button class="nav-item" data-nav="shodan" onclick="navClick('shodan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      商談管理
+    </button>
+    <button class="nav-item" data-nav="schedule" onclick="navClick('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      スケジュール
+    </button>
+    <button class="nav-item" data-nav="chat" onclick="navClick('chat')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      チャット
+    </button>
+    <button class="nav-item" data-nav="maker" onclick="navClick('maker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+      メーカー見積
+    </button>
+    <button class="nav-item" data-nav="settings" onclick="navClick('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-item" data-nav="manual" onclick="navClick('manual')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      マニュアル
+    </button>
+  </div>
+</nav>
+
+  <div class="breadcrumb">
+    <span class="crumb-link">見積管理</span><span class="crumb-sep">&gt;</span><span class="crumb-current" id="crumbCurrent">サンプル 新築工事</span>
+  </div>
+  <div class="title-row">
+    <h1 class="page-title">見積管理</h1>
+    <button class="info-btn"><span class="info-icon">i</span>物件情報</button>
+    <button class="info-btn"><span class="info-icon">i</span>顧客情報</button>
+  </div>
+
+  <div class="estimate-info-wrap">
+    <h2 class="section-title">見積情報</h2>
+    <table class="dark-table">
+      <thead>
+        <tr>
+          <th>物件状況</th>
+          <th>作成日</th>
+          <th>見積金額</th>
+          <th>原価</th>
+          <th>粗利額</th>
+          <th>粗利率</th>
+          <th>工事区分</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="miStatusCell">契約済み</td>
+          <td>2026-06-04</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td>-%</td>
+          <td><div class="fake-select">元請け工事</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="estimate-list-wrap">
+    <div class="section-header-row">
+      <h2 class="section-title" style="margin-bottom:0;">見積一覧</h2>
+      <button class="construction-functionClick" id="btnNewEstimate">新規登録</button>
+    </div>
+    <table class="dark-table">
+      <thead>
+        <tr>
+          <th>台帳No.</th>
+          <th>見積No.</th>
+          <th>見積状況</th>
+          <th>プラン名</th>
+          <th>作成日</th>
+          <th>更新日</th>
+          <th>備考</th>
+          <th>見積金額</th>
+          <th>原価</th>
+          <th>粗利額</th>
+          <th>粗利率</th>
+          <th style="width:40px;"></th>
+        </tr>
+      </thead>
+      <tbody id="ledgerTbody"></tbody>
+    </table>
+  </div>
+
+  <div style="display:flex;flex-direction:row;">
+    <div class="budget-wrap">
+      <div class="budget-label">実行予算</div>
+      <table class="budget-table">
+        <thead>
+          <tr>
+            <th>請負金額</th>
+            <th>予算原価</th>
+            <th>予算粗利額</th>
+            <th>予算粗利率</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>¥5,426,330</td>
+            <td>¥3,904,912</td>
+            <td>¥1,521,418</td>
+            <td>28.0%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="control-strip">
+    <button class="construction-functionClick2" id="btnBack">戻る</button>
+    <button class="construction-functionClick" id="btnFormOutput">帳票出力</button>
+  </div>
+
+  <!-- ===== テンプレート選択モーダル（「新規登録」ボタンから表示） ===== -->
+  <div class="modal-overlay" id="tmplOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-header-title" id="tmplDialogTitle">テンプレート選択</span>
+        <button class="modal-close-btn" onclick="closeTmplDialog()">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- replus実機（dialog_TemplateSelection.ledgerData）に合わせ、プラン名・備考の2項目を編集可能にする -->
+        <div class="tmpl-field-label">プラン名</div>
+        <input class="tmpl-name-input" id="tmplPlanName" type="text" placeholder="プラン名を入力してください（未入力可）">
+        <div class="tmpl-field-label">備考</div>
+        <input class="tmpl-name-input" id="tmplRemark" type="text" placeholder="備考（未入力可）">
+        <div class="tmpl-field-label" style="margin-top:2px;">テンプレート選択 *</div>
+        <select class="tmpl-select" id="tmplSelect"></select>
+        <div class="tmpl-empty-msg" id="tmplLoadingMsg">読み込み中...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="construction-functionClick2" onclick="closeTmplDialog()">キャンセル</button>
+        <!-- replus実機ではテンプレートが1件も無い場合このボタン自体が非表示になる（options.length > 0 の時のみ表示）。
+             JS側(openTmplDialog)でも同じ条件でstyle.displayを切り替える。 -->
+        <button class="construction-functionClick" id="btnTmplConfirm" onclick="executeTmplCreate()">登録・編集</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ========== Supabase 設定（estimate-list.html と同一） ==========
+  const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const API = `${SUPABASE_URL}/rest/v1`;
+  const HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+  };
+
+  // ========== ユーティリティ ==========
+  function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function $(id) { return document.getElementById(id); }
+  function fmtYen(n) { return (n != null && n !== '') ? ('¥' + Number(n).toLocaleString('ja-JP')) : '—'; }
+  function fmtDate(iso) { return iso ? String(iso).slice(0, 10) : '—'; }
+  // 見積状況コード → 表示ラベル（estimate-list.html の status-select と同じ対応）
+  function statusLabel(status) {
+    switch (status) {
+      case 'iraichu':      return '依頼中';
+      case 'sashimodoshi': return '差戻し';
+      case 'shonin':       return '承認済';
+      case 'juchu':        return '受注';
+      case 'sakusei':
+      case '見積中':
+      case 'mitsumori':
+      default:             return status ? status : '作成中';
+    }
+  }
+
+  // index.htmlへ戻る用URL（呼び出し元から渡される）
+  let backUrl = 'index.html';
+  let currentProperty = null;
+  let currentCustomer = null;
+
+  // ========== 初期ロード ==========
+  async function init() {
+    const params = new URLSearchParams(location.search);
+    const propertyId = params.get('property_id');
+    backUrl = params.get('back') || 'index.html';
+
+    if (!propertyId) {
+      $('crumbCurrent').textContent = '物件が指定されていません';
+      return;
+    }
+
+    try {
+      const r = await fetch(`${API}/properties?id=eq.${propertyId}`, { headers: HEADERS });
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      if (!data[0]) throw new Error();
+      currentProperty = data[0];
+      renderPropertyInfo();
+    } catch {
+      $('crumbCurrent').textContent = 'データ取得エラー';
+      return;
+    }
+
+    loadEstimatesFromDB(propertyId);
+  }
+
+  function renderPropertyInfo() {
+    const prop = currentProperty;
+    $('crumbCurrent').textContent = prop.name || '—';
+    $('miStatusCell').textContent = prop.status || '商談前';
+
+    if (prop.customer_id) {
+      fetch(`${API}/customers?id=eq.${prop.customer_id}`, { headers: HEADERS })
+        .then(r => r.json())
+        .then(d => {
+          if (!d[0]) return;
+          currentCustomer = d[0];
+          const custName = d[0].name || '';
+          $('crumbCurrent').textContent = (custName ? custName + ' ' : '') + (prop.name || '');
+        })
+        .catch(() => {});
+    }
+  }
+
+  // ========== 見積一覧をSupabaseから取得 ==========
+  async function loadEstimatesFromDB(propertyId) {
+    try {
+      const r = await fetch(
+        `${API}/estimates?property_id=eq.${propertyId}&order=created_at.asc`,
+        { headers: HEADERS }
+      );
+      if (!r.ok) throw new Error();
+      const estimates = await r.json();
+      renderLedgerRows(estimates || []);
+    } catch (e) {
+      console.warn('見積一覧取得失敗:', e);
+      renderLedgerRows([]);
+    }
+  }
+
+  function renderLedgerRows(estimates) {
+    const tbody = $('ledgerTbody');
+    tbody.innerHTML = '';
+
+    if (!estimates.length) {
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#bbb;">見積データがありません。「新規登録」から作成してください。</td></tr>';
+      return;
+    }
+
+    estimates.forEach((est, i) => {
+      const totalAmount = est.total_amount;
+      const costAmount = est.cost_amount;
+      const hasProfit = totalAmount != null && costAmount != null && totalAmount > 0;
+      const profit = hasProfit ? (totalAmount - costAmount) : null;
+      const profitRateStr = hasProfit ? (((totalAmount - costAmount) / totalAmount) * 100).toFixed(1) + '%' : '-%';
+
+      const tr = document.createElement('tr');
+      tr.dataset.index = i;
+      tr.dataset.estimateId = est.id;
+      // 台帳No.に対応するSupabase列が存在しないため、暫定で連番を振る
+      tr.dataset.koujiku = est.koujiku || 'motouri';
+      if (i % 2 !== 0) tr.classList.add('stripe-row');
+      tr.innerHTML =
+        '<td>' + (i + 1) + '</td>' +
+        '<td><input class="no-border-input" value="' + escHtml(est.estimate_no || '') + '"></td>' +
+        '<td><div class="fake-select">' + escHtml(statusLabel(est.status)) + '</div></td>' +
+        '<td><input class="no-border-input" value="' + escHtml(est.plan_name || '') + '"></td>' +
+        '<td>' + fmtDate(est.created_at) + '</td>' +
+        '<td>' + fmtDate(est.updated_at) + '</td>' +
+        '<td><input class="no-border-input" value="' + escHtml(est.remark || '') + '"></td>' +
+        '<td>' + fmtYen(totalAmount) + '</td>' +
+        '<td>' + fmtYen(costAmount) + '</td>' +
+        '<td>' + fmtYen(profit) + '</td>' +
+        '<td>' + profitRateStr + '</td>' +
+        '<td><button class="more-btn" data-more="' + i + '">…</button></td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function goEstimateEdit(tr) {
+    const estimateId = tr ? tr.dataset.estimateId : '';
+    const propertyId = currentProperty ? currentProperty.id : '';
+    const backForManagement = 'estimate-management.html?' + new URLSearchParams({
+      property_id: propertyId,
+      back: backUrl,
+    }).toString();
+    const params = new URLSearchParams({
+      estimate_id: estimateId || '',
+      property_id: propertyId,
+      back: backForManagement,
+    });
+    window.location.href = `estimate-edit-demo.html?${params.toString()}`;
+  }
+  // ========== 「…」メニュー「削除」==========
+  // 見積ヘッダー(estimates)ごと削除する。estimate_rowsは外部キーのため先に削除しないと
+  // estimatesのDELETEが失敗する（estimate-edit-demo.htmlの行削除と同じ50件チャンク方式）。
+  async function deleteEstimate(tr) {
+    const estimateId = tr ? tr.dataset.estimateId : '';
+    if (!estimateId) return;
+    const estimateNo = tr.querySelector('.no-border-input') ? tr.querySelector('.no-border-input').value : '';
+    if (!confirm('見積' + (estimateNo ? '「' + estimateNo + '」' : '') + 'を削除しますか？（明細も含めて削除されます）')) return;
+
+    try {
+      const rowsRes = await fetch(`${API}/estimate_rows?estimate_id=eq.${estimateId}&select=id`, { headers: HEADERS });
+      if (!rowsRes.ok) throw new Error();
+      const rowIds = (await rowsRes.json()).map(r => r.id);
+      for (let i = 0; i < rowIds.length; i += 50) {
+        const chunk = rowIds.slice(i, i + 50);
+        const inStr = chunk.map(id => `"${id}"`).join(',');
+        const delRowsRes = await fetch(`${API}/estimate_rows?id=in.(${inStr})`, { method: 'DELETE', headers: HEADERS });
+        if (!delRowsRes.ok) throw new Error();
+      }
+      const delEstRes = await fetch(`${API}/estimates?id=eq.${estimateId}`, { method: 'DELETE', headers: HEADERS });
+      if (!delEstRes.ok) throw new Error();
+    } catch (e) {
+      alert('削除に失敗しました: ' + (e.message || ''));
+      return;
+    }
+    if (currentProperty) loadEstimatesFromDB(currentProperty.id);
+  }
+
+  $('ledgerTbody').addEventListener("click", e => {
+    const moreBtn = e.target.closest("[data-more]");
+    if (moreBtn) { e.stopPropagation(); openMoreMenu(moreBtn); return; }
+    if (e.target.tagName === "INPUT") return;
+    const row = e.target.closest("tr");
+    if (row) goEstimateEdit(row);
+  });
+
+  let currentMenu = null;
+  function closeMoreMenu() {
+    if (currentMenu) { currentMenu.remove(); currentMenu = null; }
+  }
+  function openMoreMenu(btn) {
+    closeMoreMenu();
+    const tr = btn.closest('tr');
+    const items = [
+      { label: "編集", action: () => goEstimateEdit(tr) },
+      { label: "複製", action: () => {} },
+      { label: "削除", action: () => deleteEstimate(tr) },
+    ];
+    const menu = document.createElement("div");
+    menu.className = "more-menu";
+    items.forEach(item => {
+      const div = document.createElement("div");
+      div.className = "more-menu-item";
+      div.textContent = item.label;
+      div.addEventListener("click", ev => {
+        ev.stopPropagation();
+        closeMoreMenu();
+        item.action();
+      });
+      menu.appendChild(div);
+    });
+    document.body.appendChild(menu);
+    const r = btn.getBoundingClientRect();
+    menu.style.left = (window.scrollX + r.right - 100) + "px";
+    menu.style.top = (window.scrollY + r.bottom + 2) + "px";
+    currentMenu = menu;
+  }
+  document.addEventListener("click", () => closeMoreMenu());
+
+  // ========== 「新規登録」→ テンプレート選択モーダル ==========
+  // 2026-07-28 再実装: オーナーから「実機と挙動が異なる」との指摘を受け、estimate-list.html流用の
+  // カード型リストUIを廃止し、replus実機
+  // （engineering/docs/estimate/replus/exReplus-Web/.../views/customer/constructionInfo/index.vue の
+  //   ledgerNewEstimateDialog()/dialog_TemplateSelection）を精読して作り直した。実機で確認した挙動:
+  //   - テンプレート一覧はel-selectの単一プルダウン（getTemplateList API→construction.options）。
+  //     「テンプレートなしで作成」という選択肢は実機に存在しない。
+  //   - プルダウンは取得直後に先頭の要素を既定選択する（response.data[0].accountNo）。
+  //   - 確定ボタン「登録・編集」は construction.options.length > 0 のときのみ表示される
+  //     （テンプレートが1件も無ければボタンごと非表示＝テンプレート必須）。
+  //   - ダイアログタイトルは "名前："+顧客名。
+  //   - フォームは「プラン名」に加えて「備考」も編集可能（dialog_TemplateSelection.ledgerData）。
+  // fils_demoにはpoType（工事区分1/2）の概念が無いため、getTemplateList(poType)によるフィルタは
+  // 実装せずestimate_templatesを全件取得している（既知の簡略化、詳細は設計書参照）。
+  function openTmplDialog() {
+    if (!currentProperty) { alert('物件情報を取得できませんでした'); return; }
+    $('tmplPlanName').value = '';
+    $('tmplRemark').value = '';
+    $('tmplDialogTitle').textContent = '名前：' + (currentCustomer && currentCustomer.name ? currentCustomer.name : '');
+
+    const select = $('tmplSelect');
+    select.innerHTML = '';
+    select.disabled = true;
+    const confirmBtn = $('btnTmplConfirm');
+    confirmBtn.style.display = 'none';
+
+    const loadMsg = $('tmplLoadingMsg');
+    loadMsg.textContent = '読み込み中...';
+    loadMsg.style.display = '';
+
+    $('tmplOverlay').classList.add('active');
+
+    fetch(`${API}/estimate_templates?order=updated_at.desc`, { headers: HEADERS })
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(templates => {
+        if (!templates.length) {
+          loadMsg.textContent = 'テンプレートが登録されていません（先にテンプレート管理でテンプレートを作成してください）';
+          loadMsg.style.display = '';
+          select.disabled = true;
+          confirmBtn.style.display = 'none';
+          return;
+        }
+        loadMsg.style.display = 'none';
+        templates.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = String(t.id);
+          opt.textContent = t.name || '（無題）';
+          select.appendChild(opt);
+        });
+        select.disabled = false;
+        select.value = String(templates[0].id); // replus実機: 取得結果の先頭を既定選択
+        confirmBtn.style.display = '';
+      })
+      .catch(() => {
+        loadMsg.textContent = '読み込みに失敗しました';
+        loadMsg.style.display = '';
+        select.disabled = true;
+        confirmBtn.style.display = 'none';
+      });
+  }
+  function closeTmplDialog() { $('tmplOverlay').classList.remove('active'); }
+  // オーバーレイの背景クリックで閉じる（estimate-list.html の同種モーダルと同じ挙動）
+  $('tmplOverlay').addEventListener('click', e => {
+    if (e.target.id === 'tmplOverlay') closeTmplDialog();
+  });
+
+  // テンプレート明細（estimate_template_rows）を新規見積のestimate_rowsへコピーする。
+  // 両テーブルの列は名称・意味とも一致している（template_id/estimate_idの主キー列以外は同一列名・同一意味。
+  // 実装時にtemplate-edit.htmlのcollectRows()とestimate-edit-demo.htmlのCADから引用挿入部分[2404行付近]を
+  // 突き合わせて確認済み）。folder_id/parent_idはテンプレート内で閉じた一意な値（生成元はtemplate-edit.htmlの
+  // newLocalId()）で、かつestimate_rows側は行の親子関係を「親行のid(主キー)」ではなく「親行のfolder_id」で
+  // 参照する設計（estimate-edit-demo.html loadRealData()のchildrenMap構築ロジックで確認済み）。
+  // 新規見積のestimate_rowsは空の状態から作るため他の見積との衝突を考慮する必要がなく、そのままコピーしてよい。
+  async function copyTemplateRowsToEstimate(templateId, estimateId) {
+    const r = await fetch(`${API}/estimate_template_rows?template_id=eq.${templateId}&order=sort_order.asc`, { headers: HEADERS });
+    if (!r.ok) throw new Error('テンプレート明細の取得に失敗しました');
+    const tmplRows = await r.json();
+    if (!tmplRows.length) return;
+    const newRows = tmplRows.map(row => ({
+      estimate_id: estimateId,
+      row_type: row.row_type,
+      folder_id: row.folder_id,
+      parent_id: row.parent_id,
+      level: row.level,
+      sort_order: row.sort_order,
+      name: row.name,
+      spec: row.spec,
+      qty: row.qty,
+      unit: row.unit,
+      list_price: row.list_price,
+      rate: row.rate,
+      cost: row.cost,
+      craftsman_unit_price: row.craftsman_unit_price,
+      bone_unit_price: row.bone_unit_price,
+      unit_price: row.unit_price,
+      memo: row.memo,
+      note: row.note,
+      order_wholesale_name: row.order_wholesale_name,
+      order_craftsman_name: row.order_craftsman_name,
+    }));
+    const res = await fetch(`${API}/estimate_rows`, {
+      method: 'POST',
+      headers: { ...HEADERS, Prefer: 'return=minimal' },
+      body: JSON.stringify(newRows),
+    });
+    if (!res.ok) throw new Error('見積明細のコピーに失敗しました');
+  }
+
+  // replus実機は「登録・編集」(ledgerOfPreparation)時点ではSupabase相当の書き込みを一切行わず、
+  // 選択情報(accountNo=テンプレートID等)をURLパラメータとして編集画面に渡すだけで、実際の台帳作成・
+  // テンプレート明細の展開はサーバー側API（/system/account/detail、type=1）が編集画面表示時に
+  // 遅延実行する設計だった（AccountController#detail, accountService.selectDetailOfAccountList）。
+  // fils_demoにはそれに相当するアプリケーションサーバーが無く、estimate-edit-demo.htmlは
+  // 「estimate_idが実在すればSupabaseの実データをそのまま描画する」という単純な作りのため、
+  // 同じ遅延パターンは再現できない。本実装では実機の「テンプレートIDを確定と同時に払い出す」
+  // （mounted()内でgetMaxAccountNo()が即座に台帳Noを採番する）挙動に合わせ、estimatesヘッダーと
+  // estimate_rowsへのテンプレート明細コピーをこの確定処理内で即時に行う（既存実装を踏襲、変更なし）。
+  async function executeTmplCreate() {
+    if (!currentProperty) { alert('物件情報を取得できませんでした'); return; }
+    const select = $('tmplSelect');
+    const selectedTmplId = select.value;
+    // replus実機ではテンプレート選択が必須（テンプレート0件時はボタン自体が非表示のためここに来ない）
+    if (!selectedTmplId) { alert('テンプレートを選択してください'); return; }
+    const btn = $('btnTmplConfirm');
+    btn.disabled = true;
+    const planName = $('tmplPlanName').value.trim() || '新規見積';
+    const remark = $('tmplRemark').value.trim();
+    try {
+      const now = new Date().toISOString();
+      const estData = {
+        property_id: currentProperty.id,
+        plan_name: planName,
+        remark: remark || null,
+        status: '作成中',
+        created_at: now,
+        updated_at: now,
+      };
+      const hRes = await fetch(`${API}/estimates`, {
+        method: 'POST',
+        headers: { ...HEADERS, Prefer: 'return=representation' },
+        body: JSON.stringify(estData),
+      });
+      if (!hRes.ok) throw new Error('見積ヘッダーの作成に失敗しました');
+      const created = await hRes.json();
+      const newEstimateId = created[0] && created[0].id;
+      if (!newEstimateId) throw new Error('見積IDを取得できませんでした');
+
+      await copyTemplateRowsToEstimate(selectedTmplId, newEstimateId);
+
+      closeTmplDialog();
+      const propertyId = currentProperty.id;
+      const backForManagement = 'estimate-management.html?' + new URLSearchParams({
+        property_id: propertyId,
+        back: backUrl,
+      }).toString();
+      const params = new URLSearchParams({
+        estimate_id: newEstimateId,
+        property_id: propertyId,
+        back: backForManagement,
+      });
+      window.location.href = `estimate-edit-demo.html?${params.toString()}`;
+    } catch (e) {
+      alert('見積の作成に失敗しました: ' + (e.message || ''));
+      btn.disabled = false;
+    }
+  }
+
+  $('btnNewEstimate').addEventListener('click', openTmplDialog);
+
+  // ========== 戻る（estimate-list.html の goBack() と同じ挙動） ==========
+  function goBack() {
+    if (backUrl === 'index.html' || backUrl.startsWith('index.html')) {
+      sessionStorage.setItem('openex_nav_target', 'estimate');
+    }
+    window.location.href = backUrl;
+  }
+  document.getElementById("btnBack").addEventListener("click", goBack);
+
+  // ===== 共通ナビゲーション（estimate-list.html と同一） =====
+  const NAV_URLS = {
+    bukken: 'index.html',
+    kokyaku: 'index.html',
+    file: 'index.html',
+    shared: 'index.html',
+    estimate: 'index.html',
+    hacchu: 'index.html',
+    juchu: 'index.html',
+    shodan: 'index.html',
+    schedule: 'index.html',
+    maker: 'index.html',
+    settings: 'index.html',
+    manual: 'index.html',
+  };
+  function navClick(key) {
+    sessionStorage.setItem('openex_nav_target', key);
+    window.location.href = 'index.html';
+  }
+  function setActiveNav(key) {
+    document.querySelectorAll('.nav-item[data-nav]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === key);
+    });
+  }
+
+  setActiveNav('estimate');
+  init();
+</script>
+</body>
+</html>

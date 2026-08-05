@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>RIKCADビューワー</title>
+<title>RIKCADビューア</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -47,9 +47,27 @@
     flex: 0 0 auto;
     border-bottom: 1px solid #e0e3e7;
   }
-  .header h1 { font-size: 16px; font-weight: bold; }
-  .header .sub { font-size: 12px; opacity: 0.7; margin-top: 2px; }
-  .header-actions { display: flex; gap: 8px; align-items: center; }
+  /* 元は `.header h1`（<h1>タグ用のセレクタ）だったが、実際のマークアップは
+     <div class="h1"> のため一致せず未適用（デッドコード）だった。`.header .h1` に修正して
+     実際に太字・16pxが効くようにする（2026-07-27） */
+  .header .h1 { font-size: 16px; font-weight: bold; }
+  .header-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; row-gap: 8px; }
+  /* ヘッダーのトグルボタンはbase .btn(white-space指定なし)のままだと、多数並んだ際に
+     flexアイテムとして幅が縮められテキストが2行折り返しになっていた。nowrap化し、
+     折り返しが必要な場合はテキストではなくボタン単位でheader-actions側が2段目に流れる
+     （flex-wrap）ようにして、ボタン内テキストは常に1行を維持する（2026-07-27）。
+     2026-07-27その2: 左上の解説文（.sub）除去に伴いボタンが1行に並ぶか再検証したところ、
+     1920px幅では収まったが1440px幅ではボタン数13個の合計幅が不足し折り返していたため、
+     gap 8px→4px・padding 8px 14px→6px 6px・font-size 13px→11pxに詰めて1440pxでも
+     1行に収まるよう調整した。
+     2026-07-27その3: 「小さすぎる」との指摘でpadding 6px 6px→12px 12px・font-size 11px→22px
+     （約2倍）に拡大したが、13ボタンが1440px/1920pxとも2段以上に折り返るようになった。
+     2026-07-27その4: 「2倍は大きすぎた、1行表示に戻したい」との指摘を受け、006.jpgのサイズ感を
+     参考にしつつPlaywrightで1440px/1920px両方で13ボタン1行に収まる上限をサイズ違いで実測。
+     font-size 13px（padding 7px 8px等）は1440pxで2段目に折り返ることを確認したため、
+     1行に収まる最大値としてpadding 7px 7px・font-size 12pxに調整した
+     （1行表示を最優先し、006.jpgのサイズ感の完全再現より小さい値を採用） */
+  .header-actions .btn { white-space: nowrap; padding: 7px 7px; font-size: 12px; }
 
   .btn {
     padding: 8px 16px;
@@ -163,6 +181,10 @@
   .calc-panel.show { display: block; }
   .calc-title { font-weight: bold; color: #1a3a5c; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .calc-title .close-btn { cursor: pointer; color: #999; background: none; border: none; font-size: 14px; }
+  /* 2026-08-04追加（坂東さん指示「電卓自体にもコピーボタンを配置」対応） */
+  .calc-title-actions { display: flex; align-items: center; gap: 8px; }
+  .calc-title-actions .calc-copy-btn { cursor: pointer; color: #999; background: none; border: none; font-size: 13px; opacity: 0.75; }
+  .calc-title-actions .calc-copy-btn:hover { opacity: 1; color: #1a3a5c; }
   .calc-display {
     background: #1a3a5c; color: #fff; border-radius: 4px;
     padding: 10px 8px; margin-bottom: 8px;
@@ -220,6 +242,9 @@
 
   table.prop-table td.qty-pane-unit { width: 28px; color: #999; white-space: nowrap; }
   table.prop-table td.qty-pane-copy { width: 24px; text-align: center; }
+  /* 2026-08-03追加（タスクA詳細化）: 「数量情報」欄から一覧表へ直接転記するボタン用の列
+     （qty-pane-copyとは別セル。転記可能な項目にのみ出現するため他行は列自体が無い） */
+  table.prop-table td.qty-pane-transcribe { white-space: nowrap; text-align: left; }
   .qty-copy-btn {
     border: none; background: none; cursor: pointer; font-size: 12px;
     padding: 0; line-height: 1; opacity: 0.6;
@@ -264,15 +289,80 @@
     padding: 5px 8px; border-bottom: 1px solid #f0f0f0;
     vertical-align: middle; word-break: break-all;
   }
-  table.qty-table td.qty-cat { font-weight: bold; color: #1a3a5c; background: #f7f9fc; }
+  table.qty-table td.qty-cat { font-weight: bold; color: #1a3a5c; background: #f7f9fc; } /* showMultiSelectionSummaryの分類列でのみ使用 */
   table.qty-table td.qty-group { color: #333; background: #fbfbfd; }
+  /* 2026-08-03追加（タスクA詳細化その2、Dify価格検索の書き込み復旧）: 参考価格列を廃止したため、
+     Dify検索結果は材質・名称セルへの小さなバッジとして表示する */
+  table.qty-table .qty-price-badge {
+    display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px;
+    background: #eaf7ef; color: #1a6f4c; border-radius: 8px; white-space: nowrap; cursor: help;
+  }
   table.qty-table td.qty-param { color: #555; }
   table.qty-table td.qty-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.qty-table td.qty-unit { color: #888; white-space: nowrap; }
+  /* 2026-08-04追加（2026-08-03版pptxスライド5「数値コピー」ボタン対応）:
+     showMultiSelectionSummaryのコピー列。table.prop-table td.qty-pane-copyと同じ見た目に揃える */
+  table.qty-table td.qty-pane-copy { width: 24px; text-align: center; white-space: nowrap; }
   table.qty-table tr.qty-row { cursor: pointer; }
   table.qty-table tr.qty-row:hover td { background: #eef4ff; }
   table.qty-table tr.qty-row.active td { background: #cfe0ff; }
-  table.qty-table td.qty-price { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: #1a6f4c; }
+  /* 2026-08-03削除（タスクA詳細化、pptxスライド3指示）: 一覧表(#qtyBody)の列を材質・名称/項目/
+     数量/単位＋転記チェックのみに簡素化したのに伴い、qty-merge（合算チェック列）・qty-price
+     （参考価格列）・qty-maker（メーカー名列）・qty-hikidashi（引出線名称列）・qty-merge-result
+     （合算結果行の背景色）は表示から使わなくなったためCSS定義ごと削除した（合算は部材情報パネル側の
+     tfoot自動集計に一本化）。qty-cat（分類列）は showMultiSelectionSummary の表で引き続き使うため
+     残している。
+     【注意・既知の副作用】Dify価格検索結果を一覧表セルへ書き込む機能（difyTransferBtn、
+     `.qty-price[data-group=...]`をquerySelectorする実装）は、対象セル自体が無くなったため
+     今後「数量一覧に該当行が見つかりませんでした」のアラートが常に出る状態になる。今回のタスク指示
+     （pptxスライド3の列削減、合算のパネル一本化）には含まれない別機能のため、意図的な仕様変更では
+     なく列削減の副作用として発生している。復活させる/別の場所に付け替える等の対応が必要か、
+     坂東さんに確認したい（詳細はsecretary/notes/2026-08-03-decisions.md参照）。 */
+  /* 2026-08-03追加（pptxスライド5・6指示）: 部材情報パネル（右ペイン）の数量セルを
+     クリックで一覧表へ転記できるトグルボタンにした（合算チェック列・合算ボタンの代替） */
+  table.qty-table .qty-value-toggle {
+    width: 100%; text-align: right; border: 1px solid transparent; background: none;
+    font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; padding: 2px 4px; border-radius: 3px;
+  }
+  table.qty-table .qty-value-toggle:hover { background: #eef4ff; border-color: #cfe0ff; }
+  table.qty-table .qty-value-toggle.active { background: #e3f6ea; color: #1a6f4c; cursor: default; }
+  table.qty-table tr.panel-value-done td { opacity: 0.75; }
+  /* 2026-08-05追加: 部材情報パネル「設定」欄の「+仕様」ボタン（追加済み状態の見た目、
+     qty-value-toggle.activeと同じトンマナに揃える） */
+  .siyou-add-btn.active { background: #e3f6ea; color: #1a6f4c; border-color: #bfe6cf; cursor: default; }
+  /* 2026-08-03追加（タスクA詳細化）: 「数量情報」欄（table.prop-table.panel-merge-table）にも
+     転記済みの視覚フィードバックを効かせる（従来はtable.qty-table限定だったため出なかった） */
+  table.panel-merge-table tr.panel-value-done td { opacity: 0.75; }
+  /* 2026-08-03追加（タスクA詳細化、坂東さん指示①）: 一覧表の分類区切り（列を廃止した代わりの
+     非interactiveな区切り行）。チェックボックス操作・クリック選択の対象外にするためpointer-eventsは
+     付けない（wireQtyRowInteractionsを呼んでいないので元々クリックしても無反応）。 */
+  table.qty-table tr.qty-cat-divider td {
+    font-weight: bold; color: #1a3a5c; background: #eef2f8; padding: 4px 8px; cursor: default;
+  }
+  table.qty-table tr.qty-manual-row td { background: #f3fbf5; }
+  table.qty-table tr.qty-manual-row input.qty-manual-input {
+    width: 100%; border: 1px solid #cfd8e3; border-radius: 3px; padding: 2px 4px; font-size: 12px; box-sizing: border-box;
+  }
+  table.qty-table tr.qty-manual-row input.qty-manual-value { text-align: right; }
+  /* 2026-08-04追加（坂東さん指示「合算した行だと一目でわかるように」対応）: 一覧表に追加された
+     合算転記の行を、個別転記の行と紛れないよう視覚的に差別化する。左に太めのアクセント縦線＋
+     淡い背景色、材質・名称セルは太字＋わずかにインデント、さらに「合算」バッジを付ける。 */
+  table.qty-table tr.qty-row-aggregate td {
+    background: #fff7e8;
+    border-left: 3px solid #d98c1f;
+  }
+  table.qty-table tr.qty-row-aggregate td.qty-group {
+    font-weight: bold;
+    padding-left: 10px;
+  }
+  table.qty-table tr.qty-row-aggregate:hover td { background: #ffefd0; }
+  table.qty-table tr.qty-row-aggregate.active td { background: #ffe3ad; }
+  .qty-aggregate-badge {
+    display: inline-block; font-size: 10px; font-weight: bold; color: #8a5a00;
+    background: #ffe3ad; border-radius: 3px; padding: 1px 5px; margin-right: 6px;
+    vertical-align: middle; white-space: nowrap;
+  }
+  .qty-panel-header .btn { margin-top: 6px; }
 
   /* ── 価格検索（Dify連携）─────────────────────────── */
   .dify-modal-overlay {
@@ -385,16 +475,19 @@
 
 <div class="header">
   <div>
-    <div class="h1">RIKCADビューワー</div>
-    <div class="sub">IFCファイルを表示し、部材をクリックすると情報を確認できます</div>
+    <!-- 2026-08-03追加（pptxスライド2「ファイル名の表示」指示）: 開いているIFCファイル名を
+         タイトルと同じ行に表示する（行を増やさない）。loadFile()内で.textContentを設定する -->
+    <div class="h1">RIKCADビューア<span id="ifcFileNameLabel" style="font-weight:normal; font-size:12px; color:#888; margin-left:10px;"></span></div>
   </div>
   <div class="header-actions">
     <button class="btn btn-secondary" id="buildQtyBtn" style="display:none">📋 一覧表作成</button>
-    <button class="btn btn-secondary" id="planViewToggle" style="display:none">📐 平面図モード: OFF</button>
-    <button class="btn btn-secondary" id="measureToggle" style="display:none">📏 距離計測: OFF</button>
-    <button class="btn btn-secondary" id="lineMeasureToggle" style="display:none">📐 線計測: OFF</button>
-    <button class="btn btn-secondary" id="areaMeasureToggle" style="display:none">🟩 面積計測: OFF</button>
-    <button class="btn btn-secondary" id="faceMeasureToggle" style="display:none">⬜ 面選択計測: OFF</button>
+    <button class="btn btn-secondary" id="planViewToggle" style="display:none">📐 平面図モード</button>
+    <button class="btn btn-secondary" id="parallelViewToggle" style="display:none">📦 平行投影</button>
+    <button class="btn btn-secondary" id="measureToggle" style="display:none">📏 距離計測</button>
+    <button class="btn btn-secondary" id="lineMeasureToggle" style="display:none">📐 線計測</button>
+    <button class="btn btn-secondary" id="areaMeasureToggle" style="display:none">🟩 面積計測</button>
+    <button class="btn btn-secondary" id="faceMeasureToggle" style="display:none">⬜ 面選択計測</button>
+    <button class="btn btn-secondary" id="annotationToggle" style="display:none">📝 注記を表示</button>
     <button class="btn btn-secondary" id="hidePlantsToggle" style="display:none">🌳 植栽を非表示</button>
     <button class="btn btn-secondary" id="showAllBtn" style="display:none">👁 表示を戻す</button>
     <button class="btn btn-secondary" id="pdfLoadBtn" style="display:none">📄 図面を重ねる</button>
@@ -419,8 +512,13 @@
   <div class="qty-panel" id="qtyPanel">
     <div class="qty-panel-header">
       数量一覧
+      <div style="font-size:11px; color:#888; font-weight:normal; margin-top:2px;">各行は代表数量1件のみ表示（簡素化）。他の数量は3Dで部材を選択→部材情報パネルの「数量情報」から一覧表に追加できます</div>
       <button class="btn btn-primary" id="transferToEstimateBtn" style="display:block; width:100%; margin-top:8px; font-size:12px; padding:6px 10px;">選択した要素を見積へ転記</button>
       <button class="btn btn-secondary" id="selectSameMaterialBtn" style="display:block; width:100%; margin-top:6px; font-size:12px; padding:6px 10px;">同一材質を選択</button>
+      <!-- 2026-08-04（2026-08-03版pptxスライド7「手動追加行の削除」指示）: 「✏️ 手動追加行」ボタンは
+           削除した。電卓の「一覧表に転記」（calcTransferBtn、電卓パレット側）は指示通り残している。
+           このボタンは2026-08-03中に一度撤去→再実装を経ており、今回が2回目の撤去（詳細はJS側
+           コメント・engineering/docs/ifc-viewer-2026-08-03-spec-panel-improvements.md参照）。 -->
     </div>
     <div class="qty-panel-body" id="qtyBody">
       <div class="qty-empty">IFCファイルを読み込むと数量が表示されます</div>
@@ -438,7 +536,12 @@
     <div class="calc-panel" id="calcPanel">
       <div class="calc-title">
         <span>🧮 電卓</span>
-        <button class="close-btn" id="calcCloseBtn">✕</button>
+        <span class="calc-title-actions">
+          <!-- 2026-08-04追加（坂東さん指示「電卓自体にもコピーボタンを配置」対応）:
+               現在の表示値(calcDisplay)をクリップボードにコピーする -->
+          <button type="button" class="calc-copy-btn" id="calcCopyBtn" title="表示値をコピー">📋</button>
+          <button class="close-btn" id="calcCloseBtn">✕</button>
+        </span>
       </div>
       <div class="calc-display" id="calcDisplay">0</div>
       <div class="calc-buttons">
@@ -461,6 +564,9 @@
         <button type="button" class="calc-btn calc-btn-zero" data-calc="0">0</button>
         <button type="button" class="calc-btn" data-calc=".">.</button>
       </div>
+      <!-- 2026-08-03追加（pptxスライド10「電卓仕様の変更」指示）: 電卓の現在の表示値を
+           一覧表の最下行に手入力可能な行として追加する -->
+      <button type="button" class="btn btn-primary" id="calcTransferBtn" style="width:100%; margin-top:8px; font-size:12px; padding:8px 10px;">📋 一覧表に転記</button>
     </div>
 
     <div class="pdf-panel" id="pdfPanel">
@@ -480,7 +586,7 @@
         表示する（外すと削除せず一時的に隠せます）
       </label>
 
-      <button class="btn btn-primary pdf-edit-btn" id="pdfEditToggle">🖐 位置調整モード: OFF</button>
+      <button class="btn btn-primary pdf-edit-btn" id="pdfEditToggle">🖐 位置調整モード</button>
       <div style="font-size:11px; color:#888; margin-top:4px;">ONの間、ドラッグで図面を移動できます</div>
 
       <label>高さ (Y): <span id="pdfHeightVal">0.02</span> m</label>
@@ -567,6 +673,7 @@
 }
 </script>
 
+
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -575,7 +682,16 @@ import {
   IFCWALL, IFCWALLSTANDARDCASE, IFCSLAB, IFCREINFORCINGMESH, IFCROOF,
   IFCCOLUMN, IFCFURNISHINGELEMENT, IFCBUILDINGELEMENTPROXY, IFCRAMP, IFCWINDOW,
   IFCDOOR, IFCPLATE, IFCMEMBER, IFCCOVERING, IFCSTAIR, IFCSTAIRFLIGHT,
-  IFCRAILING, IFCBEAM, IFCFOOTING,
+  IFCRAILING, IFCBEAM, IFCFOOTING, IFCSITE,
+  // 「📝 2D注記」機能（IfcAnnotationのネイティブ描画、2026-07-31追加）専用
+  IFCANNOTATION, IFCPROJECT, IFCPOLYLINE, IFCCOMPOSITECURVE, IFCTRIMMEDCURVE,
+  IFCCIRCLE, IFCGEOMETRICCURVESET, IFCGEOMETRICSET, IFCANNOTATIONFILLAREA,
+  IFCTEXTLITERALWITHEXTENT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION,
+  IFCCOMPOSITECURVESEGMENT, IFCAXIS2PLACEMENT3D, IFCAXIS2PLACEMENT2D, IFCLOCALPLACEMENT,
+  // 2026-08-03追加（2Dアノテーション表示機能_仕様書.md対応）: IFC4形式(IfcIndexedPolyCurve)の
+  // 折れ線・円弧、塗りの実際の色解決、無地Extent無しテキストラベル用
+  IFCINDEXEDPOLYCURVE, IFCTEXTLITERAL, IFCANNOTATIONFILLAREAOCCURRENCE,
+  IFCPRESENTATIONSTYLEASSIGNMENT, IFCFILLAREASTYLE, IFCCOLOURRGB, IFCDRAUGHTINGPREDEFINEDCOLOUR,
 } from 'web-ifc';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -686,16 +802,28 @@ const measureToggle = document.getElementById('measureToggle');
 const lineMeasureToggle = document.getElementById('lineMeasureToggle');
 const areaMeasureToggle = document.getElementById('areaMeasureToggle');
 const faceMeasureToggle = document.getElementById('faceMeasureToggle');
+const annotationToggle = document.getElementById('annotationToggle');
 const showAllBtn = document.getElementById('showAllBtn');
 const hidePlantsToggle = document.getElementById('hidePlantsToggle');
 const buildQtyBtn = document.getElementById('buildQtyBtn');
 const transferToEstimateBtn = document.getElementById('transferToEstimateBtn');
 const selectSameMaterialBtn = document.getElementById('selectSameMaterialBtn');
+// 2026-08-03（タスクA詳細化、pptxスライド3指示）: 「🧮 合算」ボタンは一覧表(左ペイン)から
+// 撤去した（mergeQtyBtnのDOM要素・ハンドラごと削除）。合算は部材情報パネル側（複数選択時の
+// tfoot自動集計）でのみ行い、その結果を一覧表へ転記する運用に統一する
+// （詳細はsecretary/notes/2026-08-03-decisions.md参照）。
+// 「✏️ 手動追加行」ボタン（旧addManualRowBtn）は2026-08-03中に一度撤去→再実装した経緯があるが、
+// 2026-08-04（2026-08-03版pptxスライド7「手動追加行の削除（※現在の電卓転記は残す）」指示）で
+// 改めて削除した（DOM要素・クリックハンドラごと削除。電卓のcalcTransferBtnは無変更で残存）。
+// 3回目の方針転換が起きないよう、削除の経緯はengineering/docs側にも記録している。
 
 // 非表示機能: 元モデルをまるごと隠すことはできないため、
 // 「非表示にしたいID以外」を集めた複製サブセットに丸ごと差し替えて表示する
 let hiddenIds = new Set();
 let allModelIdsCache = null; // モデル内の全expressID（初回のみ収集しキャッシュ）
+// IFCSITE（敷地・地盤面）のexpressID。部材情報や面積等を持たないため、クリック選択時は
+// この奥にある実体（床等）を拾えるよう読み飛ばす対象として使う（ファイル読込のたびに再収集）
+let siteElementIds = new Set();
 let _currentDifyTarget = null; // 部材情報パネルで選択中の要素のDify価格検索用パラメータ
 // 「植栽を非表示」トグル専用: このトグルで追加したIDだけを覚えておき、OFFに戻す際に
 // hiddenIdsから正確に取り除く（個別要素の一時非表示と混ざっても影響しないようにするため）
@@ -768,31 +896,105 @@ buildQtyBtn.addEventListener('click', async () => {
   });
 })();
 
+// ── タスクB（2026-08-03、拾い出し状態の永続化＋差分更新） ─────────────────────
+// 設計方針は前任セッションの「質問3」検討（engineering/docs/ifc-viewer.md参照）のB案
+// （Supabase・GlobalIdキー）を踏襲。GlobalId（IFCのGUID）はRIKCAD側で要素ごとに一度割り当てられると
+// 再エクスポートでも維持される想定のため、expressID（再エクスポートでずれる可能性がある）ではなく
+// これを永続化キーの主要素にする。
+//
+// 新規テーブル ifc_quantity_state が必要（既存のproperty_files等では表現できないため新設。
+// 「まず既存の仕組みで対応できないか」との指示に沿って調査した結果は
+// secretary/notes/2026-08-03-decisions.md参照）。要Supabase SQL Editorでの実行:
+//   create table if not exists ifc_quantity_state (
+//     id uuid primary key default gen_random_uuid(),
+//     property_id text not null,
+//     ifc_file_name text not null,
+//     diff_key text not null,
+//     global_id text,
+//     category text,
+//     param_name text,
+//     label text,
+//     value numeric,
+//     unit text,
+//     hikidashi text,
+//     checked boolean not null default true,
+//     updated_at timestamptz not null default now(),
+//     unique (property_id, ifc_file_name, diff_key)
+//   );
+//   alter table ifc_quantity_state disable row level security;
+
+// URLの?url=（Supabase Storageの署名付きURL等）からproperty_idを抽出する共通処理
+// （従来transferToEstimateBtn内にインラインで書かれていたものを、タスクBの状態復元処理とも
+// 共有できるよう関数として切り出した）。
+function getPropertyIdFromUrl() {
+  const urlParam = new URLSearchParams(location.search).get('url') || '';
+  const pidMatch = urlParam.match(/property-files\/([^/]+)\//);
+  return pidMatch ? pidMatch[1] : null;
+}
+
+// 一覧表の1数量行を一意に識別する差分キーを計算する（タスクB差分更新・状態永続化の両方で使う）。
+// GlobalIdが取得できる行（デフォルト行・パネルからの積み上げ行）はGlobalId+分類+項目名で一意に
+// 識別する（RIKCAD再エクスポートでも維持される想定）。GlobalIdを持たない行（手動追加行・合算結果行）
+// は材質名称+分類+項目名でフォールバックする（同名を手動で2回追加すると同一キーになり上書きされる
+// 制約があるが、要素に紐付かない自由入力行のため実用上大きな問題にはならないと判断）。
+function computeQtyDiffKey(d) {
+  const gid = (d.globalId || '').trim();
+  if (gid) return `gid:${gid}||${d.category || ''}||${d.paramName || ''}`;
+  return `label:${d.category || ''}||${d.label || ''}||${d.paramName || ''}`;
+}
+
+// 2026-08-05追加（坂東さん指示）: JSON出力のparametersに書き込まない数量系パラメータ名。
+// suuryoフィールドで既に構造化されているため、テキストとして二重に書くと冗長との判断。
+// 2026-08-05一旦「フェンス本体枚数」「枚数」もここに追加したが、同日中に坂東さんから
+// 「やはり書き込んでほしい（estimate-edit-demo.html側で単位『枚』として転記したいため）」との
+// 差し戻し指示があり、「数量」のみに戻した。除外するのは常に固定値1しか持たない「数量」だけで、
+// 「フェンス本体枚数」「枚数」は実際に意味のある値を持つため書き込む対象から外さない。
+const QTY_TEXT_EXCLUDED_PARAMS = new Set(['数量']);
+
+// 2026-08-05追加（坂東さん指示「+仕様」対応）: 一覧表の行（meta.ids、通常1件・合算行は複数件）が
+// 紐づく各要素についてelementSiyouMapに蓄積された仕様文字列を配列で返す。
+// 2026-08-05再修正（坂東さん指示）: 当初は独立した"SIYOU"フィールドに書き込んでいたが、
+// 既存の"parameters"フィールド（paramParts、改行区切り）にそのまま合流させる方式に変更した。
+// そのため単一の結合済み文字列ではなく、paramPartsへ`...`展開で足し込めるよう配列で返す形にした。
+// 合算行（複数要素）は全要素分を重複排除して結合する。
+function siyouEntriesForIds(ids) {
+  if (!ids || !ids.length) return [];
+  const seen = new Set();
+  const out = [];
+  for (const id of ids) {
+    const list = elementSiyouMap.get(id);
+    if (!list) continue;
+    for (const entry of list) {
+      if (seen.has(entry)) continue;
+      seen.add(entry);
+      out.push(entry);
+    }
+  }
+  return out;
+}
+
 transferToEstimateBtn.addEventListener('click', async () => {
   const checked = document.querySelectorAll('#qtyBody input.qty-select:checked');
   if (!checked.length) { alert('行を選択してください'); return; }
 
   // property_id を StorageURL から取得
-  const urlParam = new URLSearchParams(location.search).get('url') || '';
-  const pidMatch = urlParam.match(/property-files\/([^/]+)\//);
-  const propertyId = pidMatch ? pidMatch[1] : null;
+  const propertyId = getPropertyIdFromUrl();
   if (!propertyId) {
     alert('物件IDを特定できません。\n物件ファイル一覧からIFCファイルを開いてください。');
     return;
   }
 
-  // チェック済みグループをRIKCAD互換JSONに変換。
-  // 一覧表に出ている取得可能な数量・単位はすべて`parameters`に1項目1行で出力する（代表数量=suuryoは従来通り1つに絞る）
+  // チェック済み行をRIKCAD互換JSONに変換。2026-08-03（タスクA対応）以降、一覧表の行は
+  // 「1行=1数量パラメータ」単位に統一されている（デフォルト行=代表数量1つ、部材情報パネルからの
+  // 積み上げ行=クリックした数量1つ）ため、1チェック行=1JSON項目になる。同一材質で複数の数量が
+  // 転記対象になっている場合も、行が最初から分かれているため自然に別項目としてJSON出力される
+  // （坂東さん指示④対応。特別な分割ロジックは不要）。
   const CATEGORY_TYPE = { '壁': 4, 'スラブ': 5, 'メッシュ': 6, '屋根': 7, 'オブジェクト': 1, 'ランプ': 3, '植栽': 1, '窓': 8, '柱': 1 };
-  // suuryo（代表数量）に採用する項目の優先順位。従来の挙動を踏襲（壁:高さ→壁中心長さ、面積系カテゴリ:面積系優先）
-  const PRIMARY_PARAM = {
-    '壁': ['高さ', '壁中心長さ'],
-    'スラブ': ['面積'],
-    'メッシュ': ['上部表面積(正味)', '表面積'],
-    '屋根': ['表面積'],
-    '柱': ['躯体高さ/直径', '最大高さ'],
-  };
+  // suuryo（代表数量）に採用する項目の優先順位。renderQuantityTable()のデフォルト行選定と同じ
+  // 優先順位（DEFAULT_PARAM_PRIORITY、CATEGORY_PARAMS定義の直後）を共用する。
+  const PRIMARY_PARAM = DEFAULT_PARAM_PRIORITY;
   const items = [];
+  const stateRows = []; // タスクB: 拾い出し状態の永続化用（diff_key単位）
   const seen = new Set();
   for (const chk of checked) {
     const key = chk.dataset.group;
@@ -800,14 +1002,57 @@ transferToEstimateBtn.addEventListener('click', async () => {
     seen.add(key);
     const meta = groupKeyToMeta.get(key);
     if (!meta) continue;
+
+    // 手動追加行（CATEGORY_PARAMSに乗らない自由入力の名称・数値・単位）は、既存の分類ベースの
+    // 変換ロジックを通さず、そのまま1項目=1明細として変換する（2026-07-28実装）
+    if (meta.manual) {
+      const paramName = Object.keys(meta.params || {})[0] || '値';
+      const rawValue = meta.params ? meta.params[paramName] : 0;
+      const unit = meta.manualUnit || '';
+      const text = Number(rawValue || 0).toFixed(3);
+      const paramParts = [];
+      if (meta.maker) paramParts.push(`ﾒｰｶｰ:${meta.maker}`);
+      paramParts.push(`${paramName}:${text}${unit}`);
+      // 2026-08-05追加: 「+仕様」で追加した内容もparametersに合流させる（手動追加行はmeta.idsが
+      // 常に空のため実質的には何も追加されないが、他の経路と扱いを揃えるため呼んでおく）
+      paramParts.push(...siyouEntriesForIds(meta.ids));
+      const diffKey = computeQtyDiffKey({ globalId: meta.globalId, category: meta.category, paramName, label: meta.label });
+      // kakaku: Dify価格検索（difyTransferBtn）で取得済みならその金額を反映する（未取得なら従来通り0）
+      // 2026-08-05再修正（坂東さん指示）: parameters内の区切りを改行からカンマ区切りに統一した
+      // （「メーカー:◯◯」の直後の改行も含め、paramParts全要素をカンマ区切りの1行にまとめる）。
+      items.push({ file: _ifcFileName, name: meta.label, type: 1, suuryo: parseFloat(text), kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '' });
+      stateRows.push({ diffKey, globalId: meta.globalId || '', category: meta.category, paramName, label: meta.label, value: parseFloat(text), unit, hikidashi: meta.hikidashi || '' });
+      continue;
+    }
+
     const category = meta.category;
     const type = CATEGORY_TYPE[category] ?? 1;
     const p = meta.params || {};
-    const fixedQty = FIXED_QTY_CATEGORIES.has(category);
-    const paramNames = CATEGORY_PARAMS[category] || [];
+    // 2026-08-04追加: 「数量」を1固定にする特例は、1要素＝数量1個という前提（デフォルト行・
+    // 個別転記行）にのみ適用する。合算転記の行（meta.idsが複数件）は、2026-08-04の合算転記
+    // 挿入位置修正で実カテゴリ（例:'オブジェクト'）を持つようになったため、この特例に無条件で
+    // 引っかかると複数要素分の「数量」合計値（p['数量']、正しい値）が1に上書きされてしまう
+    // バグになる（実装中に発見。合算行は以前category:'合算'という実在しない値だったため
+    // FIXED_QTY_CATEGORIES.has()が常にfalseになり、このバグは表面化していなかった）。
+    const fixedQty = FIXED_QTY_CATEGORIES.has(category) && (meta.ids || []).length <= 1;
+    // 2026-08-04（2026-08-03版pptxスライド3「取得可能な数量情報すべてに『+一覧表』ボタンを追加」
+    // 対応）: 部材情報パネルの➕ボタンをCATEGORY_PARAMS制限なしに拡張したため、一覧表の行は
+    // CATEGORY_PARAMSに含まれない数量（例:壁の「内面壁長さ」「外面壁長さ」「幅」等）も持ちうる。
+    // 従来はCATEGORY_PARAMS[category]固定リストを回してp[paramName]を拾っていたため、リスト外の
+    // paramNameは値を持っていてもJSON出力から漏れていた（一覧表には表示されるのにJSONに出ない
+    // という不整合になるバグ）。一覧表の各行のmeta.paramsは常に1項目のみ（上のコメント参照）なので、
+    // CATEGORY_PARAMS経由ではなく行が実際に持つキー（Object.keys(p)）をそのまま使う。
+    const paramNames = Object.keys(p);
 
     const paramParts = [];
     const values = {}; // paramName -> 変換後の数値（parameters文字列と同じ値）
+    const valueUnits = {}; // paramName -> 変換後の単位（mm→m等の変換後。タスクBのstate永続化で
+    // UNIT_MAP[paramName]（変換前の単位）をそのまま使うと値と単位が食い違うバグになるため分けて保持する）
+    // メーカー名: 新規フィールドは作らず、既存の「parameters内に半角『ﾒｰｶｰ:値』行を1つ持たせる」規約に合わせる。
+    // この規約は csv_to_json_watcher.py の build_parameters() で既に使われており、受け手側
+    // estimate-edit-demo.html の cadSpec() が同じ半角ﾒｰｶｰ表記を正規表現で読んで「仕様」列に表示する
+    // 実装を既に持っている（2026-07-28調査で判明）。値が無い要素では行自体を追加しない（＝空表示）。
+    if (meta.maker) paramParts.push(`ﾒｰｶｰ:${meta.maker}`);
     for (const paramName of paramNames) {
       const raw = (fixedQty && paramName === '数量') ? 1 : p[paramName];
       if (raw == null) continue;
@@ -816,33 +1061,112 @@ transferToEstimateBtn.addEventListener('click', async () => {
       if (unit === 'mm') { value = value / 1000; unit = 'm'; }       // mm→mに変換（従来の高さ・壁中心長さと同じ扱い）
       else if (unit === 'm²') { unit = '㎡'; }                        // 表記を従来の全角㎡に統一
       const text = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(3);
-      paramParts.push(`${paramName}:${text}${unit}`);
+      // 2026-08-05追加（坂東さん指示）: parametersに「数量:◯」は書き込まない（suuryoフィールドで
+      // 別途構造化されているため冗長、との判断）。suuryo算出・タスクB状態永続化（values/valueUnits）は
+      // 従来通り数量分も保持する必要があるため、valuesへの格納自体はこのif文の外で行う（下記参照）。
+      // 2026-08-05再修正（坂東さん指摘）: オブジェクトの代表数量が「フェンス本体枚数」「枚数」に
+      // なるケース（3.の変更）でも、同じ理由（suuryoに既に構造化されている）でparametersへの
+      // 書き込みを抑制する必要があった。QTY_TEXT_EXCLUDED_PARAMSに追加して同じ扱いにする。
+      if (!QTY_TEXT_EXCLUDED_PARAMS.has(paramName)) paramParts.push(`${paramName}:${text}${unit}`);
       values[paramName] = parseFloat(text);
+      valueUnits[paramName] = unit;
     }
+    // 2026-08-05追加（坂東さん指示）: 「+仕様」で追加した内容もparametersに合流させる
+    // （当初は独立フィールドSIYOUに書き込んでいたが、既存のparametersに統合する方式に変更）
+    paramParts.push(...siyouEntriesForIds(meta.ids));
 
     // 代表数量(suuryo)はカテゴリごとの優先順位に沿って最初に見つかった値を採用（無ければ0）
     let suuryo = 0;
+    let suuryoFound = false;
     for (const paramName of (PRIMARY_PARAM[category] || paramNames)) {
-      if (values[paramName] != null) { suuryo = values[paramName]; break; }
+      if (values[paramName] != null) { suuryo = values[paramName]; suuryoFound = true; break; }
+    }
+    // 2026-07-28発見・修正: 合算結果行はCATEGORY_PARAMSのうち合算対象にした1項目しか値を持たない
+    // （例: 壁を「表面積」だけで合算した場合、PRIMARY_PARAM['壁']=['高さ','壁中心長さ']のどちらも
+    // 一致せずsuuryoが常に0のまま見積へ転記されてしまう）。PRIMARY_PARAM優先項目が1つも
+    // 見つからなかった場合は、その行が実際に持っている値の中から代表値を採用するフォールバックを追加した
+    // （詳細: engineering/debug-log/2026-07-28-ifc-viewer-goukei.md）
+    if (!suuryoFound) {
+      const fallbackParam = Object.keys(values)[0];
+      if (fallbackParam != null) suuryo = values[fallbackParam];
     }
 
-    items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: 0, parameters: paramParts.join('\n') });
+    // 2026-08-03（タスクA対応）以降、一覧表の各行のmeta.paramsは常に1項目のみ（代表数量1つ、または
+    // パネルから積み上げた1数量）。タスクBの差分キーはこの「行が実際に表している1つの項目」を
+    // 使う必要があるため、valuesから唯一のキーを取り出す（複数持つケースは現行の行生成ロジック上
+    // 発生しないが、念のためObject.keys(values)[0]で1件目を採用する防御的実装にしている）。
+    const solePar = Object.keys(values)[0];
+    const diffKey = solePar ? computeQtyDiffKey({ globalId: meta.globalId, category, paramName: solePar, label: meta.label }) : null;
+
+    // 引出線名称: 受け手側(estimate-edit-demo.html)が読む leaf.hikidashi に対応する新規フィールド。
+    // マスタ引当名/RIKCAD材料名フォールバックとは別枠で「採用」トグル切替に使われるため、
+    // parametersに混ぜず独立フィールドとして持たせる（受け手側の既存hikidashi命名に合わせる）
+    // key/global_idはタスクB（差分更新）用の追加フィールド（既存の受け手側パースは未知キーを無視するため
+    // 後方互換、2026-07-28のhikidashi追加時と同じ考え方）。
+    // kakaku: Dify価格検索（difyTransferBtn）で取得済みならその金額を反映する（未取得なら従来通り0）
+    // 2026-08-05再修正（坂東さん指示）: parameters内の区切りを改行からカンマ区切りに統一した
+    // （「メーカー:◯◯」の直後の改行も含め、paramParts全要素をカンマ区切りの1行にまとめる）。
+    items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '' });
+    if (diffKey) {
+      stateRows.push({ diffKey, globalId: meta.globalId || '', category, paramName: solePar, label: meta.label, value: values[solePar], unit: valueUnits[solePar] || '', hikidashi: meta.hikidashi || '' });
+    }
   }
   if (!items.length) { alert('変換できる行がありませんでした'); return; }
 
   transferToEstimateBtn.disabled = true;
   transferToEstimateBtn.textContent = '保存中...';
   try {
-    const ts = Date.now();
-    const safeName = _ifcFileName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/\.ifc$/i, '');
-    const fileName = `${ts}_${safeName}.json`;
-    const storagePath = `${propertyId}/${fileName}`;
-    const jsonStr = JSON.stringify(items, null, 2);
+    // IFC元ファイル名と同じ名前でJSONを書き出す（要望: タイムスタンプ付与・日本語文字化けの解消）
+    // Windowsファイルシステムで使用不可な文字（\ / : * ? " < > |）のみ除去し、日本語等のマルチバイト文字は保持する
+    // → これは property_files.name（表示名・「CADから引用」のname=ilike検索対象）にのみ使う。
+    const safeName = _ifcFileName.replace(/\.ifc$/i, '').replace(/[\\/:*?"<>|]/g, '_');
+    const fileName = `${safeName}.json`;
+    // Supabase Storageのオブジェクトキー（storage_path）は非ASCII文字を含むと400 InvalidKeyになる
+    // （実測確認済み。日本語ファイル名をそのままキーにできない。詳細:
+    // engineering/debug-log/2026-07-29-ifc-viewer-json-filename.md 追記2）ため、表示名とは別に
+    // ASCII安全なキーを生成する。同じIFCファイル名からは常に同じキーが生成されるようにし、
+    // 同名IFCの再転記時にx-upsert:trueで正しく上書きされるようにする（日本語部分が全て失われて
+    // 衝突する場合に備え、元ファイル名のハッシュ値を付与して一意性を確保する）。
+    const asciiPart = _ifcFileName.replace(/\.ifc$/i, '').replace(/[^A-Za-z0-9._-]/g, '');
+    let nameHash = 0;
+    for (let i = 0; i < _ifcFileName.length; i++) nameHash = (nameHash * 31 + _ifcFileName.charCodeAt(i)) >>> 0;
+    const storageKey = `${asciiPart || 'ifc'}_${nameHash.toString(36)}.json`;
+    const storagePath = `${propertyId}/${storageKey}`;
 
-    // Storage にアップロード
+    // 2026-08-03（タスクB対応）: 従来は毎回`items`で丸ごと上書きしていたが、既存の保存済みJSONを
+    // 取得しdiff_key(=key列)単位でマージする（既存分は保持、新規は追加、変更分は更新。坂東さん指示）。
+    // 取得に失敗する（初回保存でオブジェクトが存在しない等）場合は空配列から開始する。
+    let existingItems = [];
+    try {
+      const getRes = await fetch(`${SB_URL}/storage/v1/object/property-files/${storagePath}`, {
+        headers: { Authorization: `Bearer ${ANON_KEY}` },
+      });
+      if (getRes.ok) {
+        const parsed = await getRes.json();
+        if (Array.isArray(parsed)) existingItems = parsed;
+      }
+    } catch (err) {
+      console.warn('[タスクB差分更新] 既存JSONの取得に失敗、新規扱いとして続行します', err);
+    }
+    // key（diff_key）を持つ既存項目はMapに載せて上書き対象にする。keyを持たない項目
+    // （タスクB対応前に保存された旧形式のJSON）は、対応関係が判定できないためそのまま温存し、
+    // 末尾に無条件で残す（＝「既存分は保持」を安全側に倒した実装）。
+    const mergedMap = new Map();
+    const legacyItemsWithoutKey = [];
+    for (const it of existingItems) {
+      if (it && it.key) mergedMap.set(it.key, it);
+      else legacyItemsWithoutKey.push(it);
+    }
+    for (const it of items) {
+      if (it.key) mergedMap.set(it.key, it); // 新規は追加、既存と同じkeyなら値を更新
+    }
+    const mergedItems = [...legacyItemsWithoutKey, ...Array.from(mergedMap.values())];
+    const jsonStr = JSON.stringify(mergedItems, null, 2);
+
+    // Storage にアップロード（同名IFCの再転記で上書きできるようupsertを許可。タイムスタンプ廃止に伴う対応）
     const upRes = await fetch(`${SB_URL}/storage/v1/object/property-files/${storagePath}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json', 'x-upsert': 'false' },
+      headers: { Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json', 'x-upsert': 'true' },
       body: jsonStr,
     });
     if (!upRes.ok) throw new Error(`Storage upload failed: ${upRes.status}`);
@@ -854,6 +1178,30 @@ transferToEstimateBtn.addEventListener('click', async () => {
       body: JSON.stringify({ property_id: propertyId, name: fileName, storage_path: storagePath, size: new Blob([jsonStr]).size, mime_type: 'application/json', tags: ['ifc-export'] }),
     });
     if (!dbRes.ok) throw new Error(`DB insert failed: ${dbRes.status}`);
+
+    // 2026-08-03（タスクB対応）: JSON保存と同時に、今回転記した行の拾い出し状態を
+    // ifc_quantity_state に永続化する（同じIFCを再度開いた際、buildQuantityTable()完了後の
+    // restoreQtyState()がこれを読んでチェック状態・積み上げ行を復元する）。
+    // diff_key単位のupsert（Prefer: resolution=merge-duplicates）で、同じ行を何度転記しても
+    // 重複登録されないようにする。失敗してもJSON保存自体は完了しているため、ここはエラーを
+    // 投げず警告ログに留める（見積転記の成功をこの副次処理の失敗で無効化しないため）。
+    if (stateRows.length) {
+      try {
+        const stateRes = await fetch(`${SB}/ifc_quantity_state?on_conflict=property_id,ifc_file_name,diff_key`, {
+          method: 'POST',
+          headers: { ...H, Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify(stateRows.map(s => ({
+            property_id: propertyId, ifc_file_name: _ifcFileName, diff_key: s.diffKey,
+            global_id: s.globalId || null, category: s.category || null, param_name: s.paramName || null,
+            label: s.label || null, value: s.value, unit: s.unit || null, hikidashi: s.hikidashi || null,
+            checked: true, updated_at: new Date().toISOString(),
+          }))),
+        });
+        if (!stateRes.ok) console.warn('[タスクB] 拾い出し状態の永続化に失敗しました（見積転記自体は成功）', stateRes.status, await stateRes.text());
+      } catch (stateErr) {
+        console.warn('[タスクB] 拾い出し状態の永続化に失敗しました（見積転記自体は成功）', stateErr);
+      }
+    }
 
     alert(`${items.length}件をJSONとして保存しました。\nファイル名: ${fileName}\n\n「CADから引用」から引用できます。`);
   } catch (err) {
@@ -896,12 +1244,963 @@ selectSameMaterialBtn.addEventListener('click', async () => {
   showMeasureToast(`「${meta.label}」の要素を${newSelection.size}件選択しました`);
 });
 
+// 2026-08-03（タスクA詳細化、pptxスライド3指示）: 「🧮 合算」ボタン（一覧表側）は撤去した。
+// 合算は部材情報パネル（複数選択時のtfoot自動集計、showMultiSelectionSummary）側でのみ行い、
+// その結果を一覧表へ転記する運用に統一する（転記条件＝同一名称かつ同一単位。この判定は新設の
+// `validateDescriptorForTranscribe()`（showMultiSelectionSummary近く）で行う。単位はtotals集計の
+// キーに元々含まれ構造上保証されるため、名称の一致のみを検証する。詳細はshowMultiSelectionSummary/
+// collectPanelMergeDescriptors参照）。
+// mergeRowSeq（旧mergeQtyBtn専用の採番カウンタ）は呼び出し元が無くなったため未使用。
+
+// 2026-08-04（2026-08-03版pptxスライド7「手動追加行の削除（※現在の電卓転記は残す）」指示）:
+// 「✏️ 手動追加行」ボタン（旧addManualRowBtn）のクリックハンドラは削除した。
+// 電卓側の「📋 一覧表に転記」（calcTransferBtn、下記別セクション）は同じ手動行の仕組みを使うため
+// 撤去せず残している。manualRowSeq変数・qty-manual-row/qty-manual-input関連CSS・
+// groupKeyToMeta側のmanual:true分岐（transferToEstimateBtn内）はcalcTransferBtnが引き続き
+// 使うため無変更。
+
+// ── 📝 2D注記（IfcAnnotation）のネイティブ描画 ─────────────────────
+// web-ifcのIFCLoader（ifcLoader.parse→内部でLoadAllGeometry相当）は、3Dソリッド
+// （Body/Brep/SweptSolid等）を持つ要素はFlatMeshとして自動描画するが、IfcAnnotation
+// （寸法線・引出線・注記等の2D図面要素）が持つ「Annotation2D」表現（IfcGeometricCurveSet /
+// IfcAnnotationFillArea / IfcTextLiteralWithExtentのみで構成され、3Dソリッドを持たない）は
+// 対象外でFlatMeshを生成しない（＝ifcLoader.parse()だけでは一切表示されない）。
+// このため、web-ifcのraw API（ifcManager.ifcAPI.GetLine等）でIfcAnnotationの
+// Representationを手動で辿り、Three.jsのLine/Spriteとしてネイティブ描画する
+// （DXF/SVGへの変換や別ファイル参照は行わない。IFC自体のジオメトリのみを読む）。
+// 詳細調査・設計の経緯は engineering/docs/ifc-viewer.md「2D注記（IfcAnnotation）表示対応」参照。
+// 【2026-08-03その4・重要な修正】当初は`transparent`を指定していなかったため、THREE.jsの
+// 描画キュー分けにより「不透明(opaque)キュー」に分類されていた。`depthTest:false`は「自分自身が
+// 描画する際に既存の深度バッファ値を無視して必ず描く」設定に過ぎず、"自分より後に描かれる"
+// 3Dモデル本体（通常の`depthTest:true`のFlatMesh）が深度テストに勝てば普通に上書きされてしまう
+// （＝深度バッファには線側が書き込んだ深度値が残るため、平面図モードのようにモデル本体の方が
+// カメラに近い位置関係だと本体に負けて隠れる）。テキストSprite・塗りMeshは元から`transparent:true`
+// を指定しており、THREE.jsの仕様で「不透明オブジェクトを全部描き終えた後に別キューとして描画」
+// されるため常に手前に出ていた（＝坂東さんの実機確認で「テキストは見えるが線だけ見えない」の
+// 直接の原因）。テキスト・塗りと同じ透過キューに乗せるため`transparent:true`を追加した
+// （不透明色で使うため`opacity`は明示的に1のまま。既存のDXF重ね図面用ライン
+// （`new THREE.LineBasicMaterial({..., transparent:true, opacity, depthTest:false})`、4000行台）
+// と同じ考え方）。
+// 2026-08-03（線の色統一）: 従来は塗り・線の強調用に0xff2288（マゼンタ系）を使っていたが、
+// 坂東さん指示によりテキストと同じRGB(85,85,85)=#555555に変更した（ANNOTATION_TEXT_COLORと同値）。
+// 塗り(IfcAnnotationFillArea)は対象外（実データの色を反映する既存仕様のまま変更しない、
+// buildFillColorMap()/getAnnotationFillMaterial()側は無変更）。
+const IFC_ANNOTATION_LINE_MATERIAL = new THREE.LineBasicMaterial({
+  color: 0x555555, transparent: true, opacity: 1, depthTest: false,
+});
+// IfcAnnotationFillArea（塗りつぶし領域。断面ハッチング等）の塗り本体（2026-07-31追加）。
+// 【方針】FillStyle（斜線ハッチング等のパターン指定）は読み取らず、常に単色半透明塗りで代用する
+// （坂東さん承認済み。パターン忠実再現は複雑化するため対象外）。
+// 2026-08-03: 単色の中身自体はIfcAnnotationFillAreaOccurrence経由で実際の色を解決するよう変更
+// （buildFillColorMap()/getAnnotationFillMaterial()参照）。固定マテリアルは廃止。
+// IFC(Z-up)→Three.js/web-ifc-three(Y-up)の軸変換行列（X軸まわり-90度回転:(x,y,z)→(x,z,-y)）。
+// 【実データ検証で判明（2026-07-31）】ifcManager.ifcAPI.GetLine()で読む配置(Placement)の
+// 生座標はIFCのZ-up系のまま（X=X,Y=Y,Z=高さ）だが、ifcLoader.parse()が生成する3D本体の
+// FlatMeshワールド座標はY-up系（three-jsの慣習）に変換済みで出力される。福井様.ifcの
+// 実要素(IFCBUILDINGELEMENTPROXY)で「本関数と同じ配置チェーン解決ロジックで計算した
+// ワールド原点」と「同じ要素の実際のFlatMesh頂点座標(flatTransformation適用後)」を
+// Node+web-ifcで直接比較し、この回転を掛けることで両者が一致することを確認済み
+// （未適用だとY/Zが入れ替わり符号も反転した状態で数十m単位にズレる）。
+const IFC_TO_THREE_AXIS_MATRIX = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+let annotationGroup = null;
+let annotationsVisible = false; // 2026-08-03: 既定は非表示（平面図モード時のみ表示選択可能）
+let _annotationUnsupportedTypes = new Set(); // 未対応の曲線種別をログ重複しないよう記録（読込のたびにクリア）
+
+function clearIfcAnnotations() {
+  if (annotationGroup) {
+    scene.remove(annotationGroup);
+    annotationGroup.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material && obj.material.map) obj.material.map.dispose();
+    });
+    annotationGroup = null;
+  }
+  // 塗りの色ごとにキャッシュしたMeshBasicMaterial（2026-08-03追加）も再読込のたびに破棄する
+  if (typeof _annotationFillMaterialCache !== 'undefined') {
+    _annotationFillMaterialCache.forEach(mat => mat.dispose());
+    _annotationFillMaterialCache.clear();
+  }
+  annotationToggle.style.display = 'none';
+  // 2026-08-03（pptxスライド9指示）: 注記は「平面図モード」の時だけ表示選択できる仕様のため、
+  // ボタンの既定ラベルも「非表示中→表示に切り替える」側にしておく
+  annotationToggle.textContent = '📝 注記を表示';
+  annotationToggle.classList.remove('active');
+  annotationsVisible = false;
+}
+
+// Emscripten側のVector<number>（GetLineIDsWithType等の戻り値）をJS配列に変換する
+// （web-ifc-three内部のWebIfcPropertyManager.getAllItemsOfTypeと同じ変換パターン）
+function ifcVectorToArray(vec) {
+  const arr = [];
+  if (!vec) return arr;
+  for (let i = 0; i < vec.size(); i++) arr.push(vec.get(i));
+  return arr;
+}
+
+function getLineIdsOfType(api, modelID, type) {
+  return ifcVectorToArray(api.GetLineIDsWithType(modelID, type));
+}
+
+// 【重要な技術的つまずき（2026-07-31追記）】当初は`api.GetLine(id, true)`（web-ifc標準の
+// flatten:true）でIfcAnnotationのRepresentation/ObjectPlacementを丸ごと再帰解決していたが、
+// 実データ(福井様.ifc)をNode+web-ifcで検証したところ、一部のIfcAnnotation（実測85件中44件の
+// 塗りつぶし=IfcAnnotationFillAreaを含む注記）でflatten:trueが「Maximum call stack size
+// exceeded」（スタックオーバーフロー）を起こし、該当注記が線・塗り・文字すべて丸ごと
+// 読み込めなくなっていたことが判明した（try/catchで握りつぶされ気づきにくい形で発生）。
+// 原因はflatten:trueが対象の全プロパティ（スタイル定義IfcStyledItem等、ジオメトリ解決に
+// 不要なものを含む）を無条件に再帰展開するため、それらの中にある循環に近いグラフ構造を
+// 踏んでしまうためと見られる。対策として、型ごとに「ジオメトリ解決に必要なプロパティだけ」を
+// 展開するホワイトリスト方式の独自リゾルバに置き換えた（不要な分岐に踏み込まないため、
+// この問題を根本的に回避できる。念のため再帰パス上の重複検出(stack)による循環ガードも併用）。
+const ANNOTATION_EXPAND_PROPS = new Map([
+  [IFCPRODUCTDEFINITIONSHAPE, ['Representations']],
+  [IFCSHAPEREPRESENTATION, ['Items']],
+  [IFCGEOMETRICCURVESET, ['Elements']],
+  [IFCGEOMETRICSET, ['Elements']],
+  [IFCANNOTATIONFILLAREA, ['OuterBoundary', 'InnerBoundaries']],
+  [IFCPOLYLINE, ['Points']],
+  [IFCCOMPOSITECURVE, ['Segments']],
+  [IFCCOMPOSITECURVESEGMENT, ['ParentCurve']],
+  [IFCTRIMMEDCURVE, ['BasisCurve', 'Trim1', 'Trim2']],
+  [IFCCIRCLE, ['Position']],
+  [IFCAXIS2PLACEMENT3D, ['Location', 'Axis', 'RefDirection']],
+  [IFCAXIS2PLACEMENT2D, ['Location', 'RefDirection']],
+  [IFCLOCALPLACEMENT, ['PlacementRelTo', 'RelativePlacement']],
+  [IFCTEXTLITERALWITHEXTENT, ['Placement', 'Extent']],
+  // 2026-08-03追加: Extentを持たないIfcTextLiteral（無地）も仕様書対応でサポート
+  [IFCTEXTLITERAL, ['Placement']],
+]);
+
+// flatten:trueの代替。指定expressIDのラインを取得し、ANNOTATION_EXPAND_PROPSで定義された
+// 型ごとのプロパティだけを再帰的に解決する（ホワイトリスト対象外の型・プロパティは
+// 未解決のハンドルのまま＝末端として扱う）。stackは現在の再帰パス上のexpressIDの集合で、
+// 万一の循環参照を検出したら打ち切る（真の循環でなければ同じノードを別経路から複数回
+// 解決すること自体は問題ない。呼び出しごとにstack.delete()で復帰させている）。
+function resolveAnnotationGeometryNode(api, modelID, id, stack) {
+  if (id == null) return null;
+  stack = stack || new Set();
+  if (stack.has(id)) return null;
+  let line;
+  try { line = api.GetLine(modelID, id, false); } catch (err) { return null; }
+  if (!line) return null;
+  const expandProps = ANNOTATION_EXPAND_PROPS.get(line.type);
+  if (!expandProps) return line;
+
+  stack.add(id);
+  for (const prop of expandProps) {
+    const val = line[prop];
+    if (val && typeof val === 'object' && val.type === 5 && val.value != null) {
+      line[prop] = resolveAnnotationGeometryNode(api, modelID, val.value, stack);
+    } else if (Array.isArray(val)) {
+      line[prop] = val.map(h => (h && h.type === 5 && h.value != null)
+        ? resolveAnnotationGeometryNode(api, modelID, h.value, stack)
+        : h);
+    }
+  }
+  stack.delete(id);
+  return line;
+}
+
+// IfcCartesianPoint（2D/3Dどちらも可）から{x,y,z}を読む（Zが無ければ0）
+function pointFromCartesian(cp) {
+  const coords = cp && cp.Coordinates;
+  if (!Array.isArray(coords)) return { x: 0, y: 0, z: 0 };
+  const v = (i) => (coords[i] && coords[i].value != null ? coords[i].value : 0);
+  return { x: v(0), y: v(1), z: v(2) };
+}
+
+// IfcDirectionから{x,y,z}を読む（存在しなければnull）
+function dirFromIfcDirection(dirObj) {
+  const ratios = dirObj && dirObj.DirectionRatios;
+  if (!Array.isArray(ratios) || !ratios.length) return null;
+  const v = (i) => (ratios[i] && ratios[i].value != null ? ratios[i].value : 0);
+  return { x: v(0), y: v(1), z: v(2) };
+}
+
+// IfcAxis2Placement2D/3Dをローカル変換行列に変換する（Location.Coordinatesの要素数で2D/3Dを判定）
+function axis2PlacementToMatrix(placement) {
+  const m = new THREE.Matrix4();
+  if (!placement || !placement.Location) return m;
+  const origin = pointFromCartesian(placement.Location);
+  const coordCount = Array.isArray(placement.Location.Coordinates) ? placement.Location.Coordinates.length : 3;
+  if (coordCount >= 3) {
+    const zRaw = dirFromIfcDirection(placement.Axis);
+    const zAxis = new THREE.Vector3(zRaw ? zRaw.x : 0, zRaw ? zRaw.y : 0, zRaw ? zRaw.z : 1);
+    if (zAxis.lengthSq() < 1e-12) zAxis.set(0, 0, 1);
+    zAxis.normalize();
+    const xRefRaw = dirFromIfcDirection(placement.RefDirection);
+    let xAxis = null;
+    if (xRefRaw) {
+      const xRef = new THREE.Vector3(xRefRaw.x, xRefRaw.y, xRefRaw.z);
+      xRef.sub(zAxis.clone().multiplyScalar(xRef.dot(zAxis)));
+      if (xRef.lengthSq() > 1e-12) xAxis = xRef.normalize();
+    }
+    if (!xAxis) {
+      xAxis = Math.abs(zAxis.z) < 0.999
+        ? new THREE.Vector3(0, 0, 1).cross(zAxis).normalize()
+        : new THREE.Vector3(1, 0, 0);
+    }
+    const yAxis = zAxis.clone().cross(xAxis).normalize();
+    m.makeBasis(xAxis, yAxis, zAxis);
+    m.setPosition(origin.x, origin.y, origin.z);
+  } else {
+    // IfcAxis2Placement2D: RefDirectionでXY平面内のZ回転のみ
+    const xRefRaw = dirFromIfcDirection(placement.RefDirection);
+    const angle = xRefRaw ? Math.atan2(xRefRaw.y, xRefRaw.x) : 0;
+    m.makeRotationZ(angle);
+    m.setPosition(origin.x, origin.y, 0);
+  }
+  return m;
+}
+
+// フラット化(flatten:true)済みのIfcLocalPlacementオブジェクトを親子チェーンに沿って再帰的に
+// 積算し、ワールド行列を求める（PlacementRelToが無くなるまで遡る）。expressIDをキーに
+// cacheへメモ化し、同じ親を持つ複数のIfcAnnotationからの再計算を避ける。
+function placementChainToMatrix(localPlacementObj, cache) {
+  if (!localPlacementObj) return new THREE.Matrix4();
+  const key = localPlacementObj.expressID;
+  if (key != null && cache.has(key)) return cache.get(key).clone();
+  let parentMatrix = new THREE.Matrix4();
+  const relTo = localPlacementObj.PlacementRelTo;
+  if (relTo && typeof relTo === 'object' && relTo.RelativePlacement) {
+    parentMatrix = placementChainToMatrix(relTo, cache);
+  }
+  const localMatrix = axis2PlacementToMatrix(localPlacementObj.RelativePlacement);
+  const worldMatrix = parentMatrix.multiply(localMatrix);
+  if (key != null) cache.set(key, worldMatrix.clone());
+  return worldMatrix;
+}
+
+function resolveAnnotationPlacementMatrix(api, modelID, placementId, cache) {
+  if (placementId == null) return new THREE.Matrix4();
+  if (cache.has(placementId)) return cache.get(placementId).clone();
+  let placementObj;
+  try {
+    // flatten:trueではなく、ホワイトリスト方式の安全なリゾルバで親チェーンごと解決する
+    // （理由はresolveAnnotationGeometryNode()のコメント参照）
+    placementObj = resolveAnnotationGeometryNode(api, modelID, placementId);
+  } catch (err) {
+    return new THREE.Matrix4();
+  }
+  return placementChainToMatrix(placementObj, cache);
+}
+
+// IfcProject.UnitsInContextから長さ単位のSI接頭辞を調べ、メートル換算スケールを返す
+// （RIKCAD/ArchiCAD出力は通常ミリメートル）。
+//
+// 【実データ検証で判明した重要な前提（2026-07-31）】 web-ifcのIFCLoader経由で生成される
+// 3D本体側のFlatMeshは、内部でメートル換算済みのワールド変換行列(flatTransformation)を
+// 持つ（＝ifc-viewer.html上での3D表示・計測は常にメートル換算後の座標系）。一方、
+// ifcManager.ifcAPI.GetLine()で直接読むIfcCartesianPoint等の生座標値・配置(Placement)は
+// 換算されずファイル記載の単位（例:ミリメートル）のままである。そのため、raw APIで
+// 直接読む本機能（注記）の座標は、このスケールを掛けて3D本体と同じメートル座標系に
+// 揃える必要がある（福井様.ifcをNode+web-ifcで実際に読み込み、3D本体のFlatMesh
+// ワールド座標(flatTransformationを乗算した値、例: X 59.7〜71.0)と、注記側の生座標に
+// スケールを掛けた値がおおよそ一致することを確認済み）。
+//
+// 【実データで判明したIfcSIUnitのフィールド対応のズレ】 本ファイル（IFC2X3スキーマ）を
+// このweb-ifcバージョンで読むと、IfcSIUnit(Dimensions,UnitType,Prefix,Name)の
+// UnitType/Prefix/Nameの値が想定と1つずつズレて格納される現象を確認した
+// （例: 本来UnitType='LENGTHUNIT'/Prefix='MILLI'/Name='METRE'となるはずが、
+// 実際は UnitType=(空)/Prefix='LENGTHUNIT'/Name='MILLI' という並びで返ってきた）。
+// どのフィールドに入っていても拾えるよう、3フィールドすべてを対象にLENGTHUNIT判定・
+// SI接頭辞判定を行う防御的な実装にしている。
+function siPrefixToScale(prefix) {
+  const map = {
+    EXA: 1e18, PETA: 1e15, TERA: 1e12, GIGA: 1e9, MEGA: 1e6, KILO: 1e3,
+    HECTO: 1e2, DECA: 1e1, DECI: 1e-1, CENTI: 1e-2, MILLI: 1e-3,
+    MICRO: 1e-6, NANO: 1e-9, PICO: 1e-12, FEMTO: 1e-15, ATTO: 1e-18,
+  };
+  return prefix && map[prefix] != null ? map[prefix] : 1;
+}
+
+function resolveIfcLengthUnitScale(api, modelID) {
+  try {
+    const projIds = getLineIdsOfType(api, modelID, IFCPROJECT);
+    if (!projIds.length) return 1;
+    const project = api.GetLine(modelID, projIds[0], true);
+    const units = project && project.UnitsInContext && Array.isArray(project.UnitsInContext.Units)
+      ? project.UnitsInContext.Units : [];
+    for (const u of units) {
+      if (!u) continue;
+      // UnitType/Prefix/Nameのどこに実際の値が入っているか不定（上記コメント参照）なので、
+      // 3フィールドとも文字列値を集めてまとめて判定する
+      const values = [u.UnitType, u.Prefix, u.Name]
+        .map(f => (f && typeof f.value === 'string') ? f.value : null)
+        .filter(v => v != null);
+      if (!values.includes('LENGTHUNIT')) continue;
+      for (const v of values) {
+        if (v === 'LENGTHUNIT') continue;
+        const scale = siPrefixToScale(v);
+        if (scale !== 1) return scale; // 接頭辞（MILLI等）が見つかった
+      }
+      return 1; // LENGTHUNITは見つかったが接頭辞なし＝メートルそのもの
+    }
+  } catch (err) {
+    console.warn('[ifcAnnotation] 長さ単位の解決に失敗したため1(メートル相当)を使用します', err);
+  }
+  return 1;
+}
+
+function reportUnsupportedAnnotationCurve(type) {
+  if (_annotationUnsupportedTypes.has(type)) return;
+  _annotationUnsupportedTypes.add(type);
+  console.warn('[ifcAnnotation] 未対応の曲線種別のためスキップしました: ' + type);
+}
+
+// ── IfcIndexedPolyCurve対応（2026-08-03追加、engineering/docs/2Dアノテーション表示機能_仕様書.md）──
+// 【web-ifcの既知の制約】IfcIndexedPolyCurveは「座標点リスト(IfcCartesianPointList2D/3D)」＋
+// 「セグメント列(IfcLineIndex/IfcArcIndexのリスト)」という“リストのリスト”構造の属性
+// （CoordList・Segments）を持つが、web-ifcのGetLineはこの形の属性を正しく値化できず、
+// 空のプレースホルダーが返ることを確認済み（IFC4形式のArchiCAD/RIKCAD出力で使われる書き方。
+// 本ファイルの動作確認に使った福井様.ifcはIFC2X3出力のためIfcIndexedPolyCurveを含まず未検証だが、
+// 仕様書の指示に基づき将来のIFC4出力に備えて対応する）。このため他のGetLineバグ回避と同様、
+// 生STEPテキストを正規表現で直接パースして座標・セグメントを取得する。
+//
+// パースしたデータは{ pointLists: Map<expressID,[[x,y]|[x,y,z],...]>,
+// indexedCurves: Map<expressID,{pointListId, segments:[{kind:'line'|'arc', indices:number[]}]}> }
+// という形（stepGeomオブジェクト）にまとめ、loadIfcAnnotations()で1回だけ生成して使い回す。
+function parseStepGeometryForCurves(rawText) {
+  const pointLists = new Map();
+  const indexedCurves = new Map();
+  if (typeof rawText !== 'string' || !rawText.length) return { pointLists, indexedCurves };
+
+  // IFCCARTESIANPOINTLIST2D / IFCCARTESIANPOINTLIST3D: #id=IFCCARTESIANPOINTLIST2D(((x,y),(x,y),...));
+  const pointListRe = /#(\d+)\s*=\s*IFCCARTESIANPOINTLIST[23]D\(\(([\s\S]*?)\)\)\s*;/g;
+  let m;
+  while ((m = pointListRe.exec(rawText))) {
+    const id = Number(m[1]);
+    const pts = [];
+    const ptRe = /\(([^()]*)\)/g;
+    let pm;
+    while ((pm = ptRe.exec(m[2]))) {
+      pts.push(pm[1].split(',').map(s => parseFloat(s)));
+    }
+    pointLists.set(id, pts);
+  }
+
+  // IFCINDEXEDPOLYCURVE: #id=IFCINDEXEDPOLYCURVE(#coordListId,(IFCLINEINDEX((..)),IFCARCINDEX((..))),SelfIntersect);
+  // Segmentsが省略される場合は「$」（この場合は座標点リストの並び順をそのまま折れ線とみなす）。
+  // 【2026-08-03その6・重要なバグ修正】当初は第3引数(SelfIntersect)が必ず`.T.`/`.F.`のいずれかで
+  // あることを前提にした固定形の正規表現（`\.[TF]\.`）を使っていたが、実データ（20260802.ifc、
+  // RIKCAD13/IFC4出力）で検証したところ、この引数は全213件が`$`（未指定）であり、旧正規表現は
+  // 1件もマッチしなかった（＝indexedCurvesが常に空になり、線・塗りが1本も生成されなかった直接の
+  // 原因）。第3引数の実際の値を決め打ちしない、括弧の対応を数えて引数を取り出す方式に置き換えた
+  // （`extractBalancedParen`/`splitTopLevelArgs`、動作実績のある参考実装
+  // `engineering/docs/ifc-viewer (9).html`の同名関数を移植）。
+  const idxCurveStartRe = /#(\d+)\s*=\s*IFCINDEXEDPOLYCURVE\(/g;
+  let sm2;
+  while ((sm2 = idxCurveStartRe.exec(rawText))) {
+    const id = Number(sm2[1]);
+    const openParenIdx = idxCurveStartRe.lastIndex - 1; // マッチ末尾の"("の位置
+    const argsStr = extractBalancedParen(rawText, openParenIdx);
+    if (argsStr === null) continue;
+    const args = splitTopLevelArgs(argsStr);
+    const pointsIdMatch = /^#(\d+)$/.exec(args[0] || '');
+    if (!pointsIdMatch) continue;
+    const segments = [];
+    const segRaw = args[1] || '';
+    if (segRaw && segRaw !== '$') {
+      const segItemRe = /IFC(LINE|ARC)INDEX\(\(([^)]*)\)\)/g;
+      let sm;
+      while ((sm = segItemRe.exec(segRaw))) {
+        segments.push({
+          kind: sm[1] === 'ARC' ? 'arc' : 'line',
+          indices: sm[2].split(',').map(s => parseInt(s.trim(), 10)),
+        });
+      }
+    }
+    indexedCurves.set(id, { pointListId: Number(pointsIdMatch[1]), segments });
+  }
+
+  return { pointLists, indexedCurves };
+}
+
+// startIdxが'('の位置。対応する閉じ括弧までの中身（括弧自体は含まない）を返す
+// （2026-08-03その6追加。ネストした括弧・引数内の任意のトークンに依存せず引数を取り出せるため、
+// IFCINDEXEDPOLYCURVEのように引数の実際の値（$/.T./.F.等）を決め打ちできないケースで使う）
+function extractBalancedParen(str, startIdx) {
+  let depth = 0;
+  for (let i = startIdx; i < str.length; i++) {
+    if (str[i] === '(') depth++;
+    else if (str[i] === ')') { depth--; if (depth === 0) return str.slice(startIdx + 1, i); }
+  }
+  return null;
+}
+
+// 括弧の深さを見ながらトップレベルのカンマだけで引数を分割する（ネストした引数内のカンマでは分割しない）
+function splitTopLevelArgs(s) {
+  const args = [];
+  let depth = 0, cur = '';
+  for (const ch of s) {
+    if (ch === '(') { depth++; cur += ch; }
+    else if (ch === ')') { depth--; cur += ch; }
+    else if (ch === ',' && depth === 0) { args.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  if (cur.length) args.push(cur);
+  return args.map(a => a.trim());
+}
+
+// 3点(始点・通過点・終点)から円の中心・半径を求め、始点→通過点側→終点の向きにsegments分割で
+// サンプリングした点列を返す（円弧の厳密な描画ではなく直線近似。仕様書の指示通り12分割を既定値とする）。
+// 3点がほぼ一直線上で外接円が定義できない場合は始点・終点の2点にフォールバックする。
+function sampleArc2D(p1, p2, p3, segments) {
+  segments = segments || 12;
+  const ax = p1.x, ay = p1.y, bx = p2.x, by = p2.y, cx = p3.x, cy = p3.y;
+  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+  if (Math.abs(d) < 1e-9) return [p1, p3];
+  const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
+  const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
+  const center = { x: ux, y: uy };
+  const radius = Math.hypot(ax - ux, ay - uy);
+  const norm = (a) => { let x = a % (Math.PI * 2); if (x <= -Math.PI) x += Math.PI * 2; if (x > Math.PI) x -= Math.PI * 2; return x; };
+  const angleOf = (p) => Math.atan2(p.y - center.y, p.x - center.x);
+  const a1 = angleOf(p1), a2 = angleOf(p2);
+  // p1→p3の掃引角には数学的に2通り(正回り/逆回り)あるため、通過点p2を実際に通る側を選ぶ
+  let deltaPos = norm(angleOf(p3) - a1); if (deltaPos < 0) deltaPos += Math.PI * 2;
+  const deltaNeg = deltaPos - Math.PI * 2;
+  const passesThrough = (delta) => {
+    let t = norm(a2 - a1);
+    if (delta >= 0) { if (t < 0) t += Math.PI * 2; return t <= delta + 1e-6; }
+    t = (t > 0) ? t - Math.PI * 2 : t;
+    return t >= delta - 1e-6;
+  };
+  const chosen = passesThrough(deltaPos) ? deltaPos : deltaNeg;
+
+  const pts = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = a1 + chosen * (i / segments);
+    pts.push({ x: center.x + radius * Math.cos(a), y: center.y + radius * Math.sin(a) });
+  }
+  return pts;
+}
+
+// IfcIndexedPolyCurve 1件（expressIDで指定）を、stepGeom（parseStepGeometryForCurves()の結果）から
+// ローカル2D点列に解決する。IFCLINEINDEXは指定インデックスの点をそのまま連結、IFCARCINDEXは
+// [始点,通過点,終点]の3インデックスからsampleArc2D()で円弧近似する。連続する点が同一の場合は
+// 重複を除去する（セグメント境界で同じ点を共有するIFCの仕様のため）。
+function resolveIndexedPolyCurve(expressID, stepGeom) {
+  if (!stepGeom) return null;
+  const curve = stepGeom.indexedCurves.get(expressID);
+  if (!curve) return null;
+  const pts = stepGeom.pointLists.get(curve.pointListId);
+  if (!pts || !pts.length) return null;
+  const at = (i1) => { const p = pts[i1 - 1]; return p ? { x: p[0], y: p[1] } : null; };
+  const out = [];
+  const pushPt = (p) => {
+    if (!p) return;
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.x - p.x) < 1e-9 && Math.abs(last.y - p.y) < 1e-9) return;
+    out.push(p);
+  };
+  if (!curve.segments.length) {
+    // Segments省略時: 座標点リストの並び順をそのまま単純な折れ線として扱う(IFC仕様の既定解釈)
+    for (const p of pts) pushPt({ x: p[0], y: p[1] });
+    return out;
+  }
+  for (const seg of curve.segments) {
+    if (seg.kind === 'line') {
+      for (const idx of seg.indices) pushPt(at(idx));
+    } else {
+      const p1 = at(seg.indices[0]), p2 = at(seg.indices[1]), p3 = at(seg.indices[2]);
+      if (p1 && p2 && p3) {
+        for (const p of sampleArc2D(p1, p2, p3, 12)) pushPt(p);
+      }
+    }
+  }
+  return out;
+}
+
+// ── 塗り(IfcAnnotationFillArea)の実際の色解決（2026-08-03追加）──────────
+// 【実データ検証で判明した実際の参照チェーン(福井様.ifc、Node+web-ifcで確認済み)】
+// IfcAnnotationFillArea自体ではなく、その"出現"を表すIfcAnnotationFillAreaOccurrence側が
+// Stylesプロパティ(IfcPresentationStyleAssignmentのリスト)を持つ。
+// IfcAnnotationFillAreaOccurrence.Item → 対象のIfcAnnotationFillArea(expressID)
+// IfcAnnotationFillAreaOccurrence.Styles[] → IfcPresentationStyleAssignment.Styles[] →
+// IfcFillAreaStyle.FillStyles[] → IfcColourRgb(Red,Green,Blue、0〜1) または
+// IfcDraughtingPreDefinedColour(Name、'black'/'white'等の定義済み色名)。
+// 実データでは85件中74件がこのチェーンで解決でき(黒/白の定義済み色名のみ確認、RGB直接指定は
+// 未確認だが仕様上あり得るため両対応する)、対応するOccurrenceが無い8件・チェーンが辿れない
+// 3件は仕様書の指示通りグレー(0x999999)にフォールバックする。
+// 【FillStyleHatching(ハッチングパターン)は仕様書の指示通り引き続き非対応】色のみを反映し、
+// パターン自体の再現は行わない(2026-07-31その2での坂東さん承認方針を維持)。
+const IFC_PREDEFINED_COLOUR_MAP = {
+  black: 0x000000, white: 0xffffff, red: 0xff0000, green: 0x00ff00,
+  blue: 0x0000ff, yellow: 0xffff00, magenta: 0xff00ff, cyan: 0x00ffff,
+};
+const ANNOTATION_FILL_COLOR_FALLBACK = 0x999999;
+
+function resolveFillAreaStyleColor(api, modelID, fillAreaStyleLine) {
+  const fillStyles = Array.isArray(fillAreaStyleLine.FillStyles) ? fillAreaStyleLine.FillStyles : [];
+  for (const fs of fillStyles) {
+    if (!fs || fs.value == null) continue;
+    let colourLine;
+    try { colourLine = api.GetLine(modelID, fs.value, false); } catch (err) { continue; }
+    if (!colourLine) continue;
+    if (colourLine.type === IFCCOLOURRGB) {
+      const clamp255 = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+      const r = colourLine.Red && colourLine.Red.value, g = colourLine.Green && colourLine.Green.value, b = colourLine.Blue && colourLine.Blue.value;
+      if (r != null && g != null && b != null) return (clamp255(r) << 16) | (clamp255(g) << 8) | clamp255(b);
+    } else if (colourLine.type === IFCDRAUGHTINGPREDEFINEDCOLOUR) {
+      const name = colourLine.Name && typeof colourLine.Name.value === 'string' ? colourLine.Name.value.toLowerCase() : null;
+      if (name && IFC_PREDEFINED_COLOUR_MAP[name] != null) return IFC_PREDEFINED_COLOUR_MAP[name];
+    }
+  }
+  return null;
+}
+
+// IfcAnnotationFillAreaOccurrenceを全件走査し、Map<fillAreaExpressID, colorHex>を構築する。
+// GetLine(flatten:false)を1段ずつ辿るだけの浅いチェーン（Occurrence→StyleAssignment→FillAreaStyle→
+// Colour、最大4ホップ）のため、flatten:trueで発生したスタックオーバーフローのリスクは無い。
+function buildFillColorMap(api, modelID) {
+  const map = new Map();
+  try {
+    const occIds = getLineIdsOfType(api, modelID, IFCANNOTATIONFILLAREAOCCURRENCE);
+    for (const occId of occIds) {
+      let occ;
+      try { occ = api.GetLine(modelID, occId, false); } catch (err) { continue; }
+      if (!occ || !occ.Item || occ.Item.value == null) continue;
+      const fillAreaId = occ.Item.value;
+      const styleHandles = Array.isArray(occ.Styles) ? occ.Styles : [];
+      let color = null;
+      for (const sh of styleHandles) {
+        if (color != null || !sh || sh.value == null) continue;
+        let psa;
+        try { psa = api.GetLine(modelID, sh.value, false); } catch (err) { continue; }
+        const inner = psa && Array.isArray(psa.Styles) ? psa.Styles : [];
+        for (const st of inner) {
+          if (!st || st.value == null) continue;
+          let styleLine;
+          try { styleLine = api.GetLine(modelID, st.value, false); } catch (err) { continue; }
+          if (styleLine && styleLine.type === IFCFILLAREASTYLE) {
+            const c = resolveFillAreaStyleColor(api, modelID, styleLine);
+            if (c != null) color = c;
+          }
+        }
+      }
+      if (color != null) map.set(fillAreaId, color);
+    }
+  } catch (err) {
+    console.warn('[ifcAnnotation] 塗りの色解決に失敗しました。全件グレーにフォールバックします', err);
+  }
+  return map;
+}
+
+// 塗りの色ごとにMeshBasicMaterialをキャッシュする（同じ色の塗りが多数あるため使い回す。
+// clearIfcAnnotations()でファイル再読込時に破棄する）
+const _annotationFillMaterialCache = new Map();
+function getAnnotationFillMaterial(colorHex) {
+  if (_annotationFillMaterialCache.has(colorHex)) return _annotationFillMaterialCache.get(colorHex);
+  const mat = new THREE.MeshBasicMaterial({
+    color: colorHex, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthTest: false,
+  });
+  _annotationFillMaterialCache.set(colorHex, mat);
+  return mat;
+}
+
+// 円弧（フルサークルまたはトリム後）をローカル2D座標の折れ線にテッセレーションする
+function circleArcToPoints2D(circle, startAngle, sweep) {
+  const radius = circle && circle.Radius && circle.Radius.value != null ? circle.Radius.value : 0;
+  const pos = circle && circle.Position;
+  const center = pos && pos.Location ? pointFromCartesian(pos.Location) : { x: 0, y: 0 };
+  const refDir = pos ? dirFromIfcDirection(pos.RefDirection) : null;
+  const baseAngle = refDir ? Math.atan2(refDir.y, refDir.x) : 0;
+  const segCount = Math.max(4, Math.round(48 * Math.abs(sweep) / (Math.PI * 2)));
+  const pts = [];
+  for (let i = 0; i <= segCount; i++) {
+    const a = baseAngle + startAngle + sweep * (i / segCount);
+    pts.push({ x: center.x + radius * Math.cos(a), y: center.y + radius * Math.sin(a) });
+  }
+  return pts;
+}
+
+// IfcTrimmedCurve（本ファイルではBasisCurveがIfcCircleのケースのみ確認済み）を、
+// Trim1/Trim2（IfcCartesianPointまたはIfcParameterValue=ラジアン角）とSenseAgreementから
+// 円弧としてテッセレーションする
+function trimmedCurveToPoints2D(curve, stepGeom) {
+  const basis = curve.BasisCurve;
+  if (!basis || basis.type !== IFCCIRCLE) {
+    reportUnsupportedAnnotationCurve('IFCTRIMMEDCURVE(non-circle basis, type=' + (basis && basis.type) + ')');
+    return curveToPoints2D(basis, stepGeom); // フォールバック: トリムせず基準曲線全体を返す（参考値）
+  }
+  const pos = basis.Position;
+  const center = pos && pos.Location ? pointFromCartesian(pos.Location) : { x: 0, y: 0 };
+  const refDir = pos ? dirFromIfcDirection(pos.RefDirection) : null;
+  const baseAngle = refDir ? Math.atan2(refDir.y, refDir.x) : 0;
+
+  const angleOf = (trimSet) => {
+    if (!Array.isArray(trimSet)) return null;
+    for (const t of trimSet) {
+      if (t && Array.isArray(t.Coordinates)) {
+        const p = pointFromCartesian(t);
+        return Math.atan2(p.y - center.y, p.x - center.x) - baseAngle;
+      }
+      if (t && t.value != null) return t.value; // IfcParameterValue: ラジアン角（IFC仕様）
+    }
+    return null;
+  };
+  let a1 = angleOf(curve.Trim1);
+  let a2 = angleOf(curve.Trim2);
+  if (a1 == null) a1 = 0;
+  if (a2 == null) a2 = Math.PI * 2;
+
+  const senseAgreement = !(curve.SenseAgreement && curve.SenseAgreement.value === false);
+  let sweep = (a2 - a1) % (Math.PI * 2);
+  if (senseAgreement) { if (sweep <= 0) sweep += Math.PI * 2; }
+  else { if (sweep >= 0) sweep -= Math.PI * 2; }
+  return circleArcToPoints2D(basis, a1, sweep);
+}
+
+// 曲線1本（IfcPolyline/IfcCompositeCurve/IfcTrimmedCurve/IfcCircle/IfcIndexedPolyCurve）を
+// ローカル2D座標の折れ線点列に変換する。対応していない曲線種別はスキップし警告する
+// （本ファイルの実データで確認できたのは上記5種のみ。IfcLine/IfcBSplineCurve等は未対応）。
+// stepGeomはIfcIndexedPolyCurve解決専用（parseStepGeometryForCurves()の結果、無ければnull可）。
+function curveToPoints2D(curve, stepGeom) {
+  if (!curve) return null;
+  switch (curve.type) {
+    case IFCPOLYLINE: {
+      const pts = Array.isArray(curve.Points) ? curve.Points : [];
+      return pts.map(p => pointFromCartesian(p));
+    }
+    case IFCCOMPOSITECURVE: {
+      const segs = Array.isArray(curve.Segments) ? curve.Segments : [];
+      const result = [];
+      for (const seg of segs) {
+        if (!seg || !seg.ParentCurve) continue;
+        let segPts = curveToPoints2D(seg.ParentCurve, stepGeom) || [];
+        if (seg.SameSense && seg.SameSense.value === false) segPts = segPts.slice().reverse();
+        if (!segPts.length) continue;
+        if (result.length) {
+          const last = result[result.length - 1];
+          const first = segPts[0];
+          const same = Math.abs(last.x - first.x) < 1e-6 && Math.abs(last.y - first.y) < 1e-6;
+          result.push(...(same ? segPts.slice(1) : segPts));
+        } else {
+          result.push(...segPts);
+        }
+      }
+      return result;
+    }
+    case IFCTRIMMEDCURVE:
+      return trimmedCurveToPoints2D(curve, stepGeom);
+    case IFCCIRCLE:
+      return circleArcToPoints2D(curve, 0, Math.PI * 2);
+    case IFCINDEXEDPOLYCURVE:
+      // GetLineでは属性を正しく取得できないため、STEPテキストを正規表現で直接パースした
+      // stepGeomから解決する（curve.expressIDをキーに引く。詳細はresolveIndexedPolyCurve参照）
+      return resolveIndexedPolyCurve(curve.expressID, stepGeom);
+    default:
+      reportUnsupportedAnnotationCurve(String(curve.type));
+      return null;
+  }
+}
+
+// Representation.Itemsの1要素（曲線そのもの／IfcGeometricCurveSet／IfcAnnotationFillArea）を
+// 再帰的にたどり、折れ線点列の配列（1要素＝1本のTHREE.Line分）を集める
+function extractCurveSegmentsFromItem(item, stepGeom, out) {
+  out = out || [];
+  if (!item || item.type == null) return out;
+  switch (item.type) {
+    case IFCGEOMETRICCURVESET:
+    case IFCGEOMETRICSET: {
+      const elements = Array.isArray(item.Elements) ? item.Elements : [];
+      for (const el of elements) extractCurveSegmentsFromItem(el, stepGeom, out);
+      break;
+    }
+    case IFCANNOTATIONFILLAREA: {
+      if (item.OuterBoundary) extractCurveSegmentsFromItem(item.OuterBoundary, stepGeom, out);
+      const inners = Array.isArray(item.InnerBoundaries) ? item.InnerBoundaries : [];
+      for (const b of inners) extractCurveSegmentsFromItem(b, stepGeom, out);
+      break;
+    }
+    default: {
+      const pts = curveToPoints2D(item, stepGeom);
+      if (pts && pts.length >= 2) out.push(pts);
+    }
+  }
+  return out;
+}
+
+// Representation.Itemsの1要素を再帰的にたどり、含まれるIfcAnnotationFillArea本体（オブジェクト自体）を
+// すべて集める（IfcGeometricCurveSetのElements配下にネストしているケースにも対応するため、
+// extractCurveSegmentsFromItem()と同じ考え方でIFCGEOMETRICCURVESET/IFCGEOMETRICSETのみ再帰する。
+// IfcAnnotationFillArea自身の境界(OuterBoundary/InnerBoundaries)はIfcCurveのみのため、その内側を
+// さらに再帰する必要はない）
+function collectFillAreaItems(item, out) {
+  out = out || [];
+  if (!item || item.type == null) return out;
+  if (item.type === IFCANNOTATIONFILLAREA) {
+    out.push(item);
+    return out;
+  }
+  if (item.type === IFCGEOMETRICCURVESET || item.type === IFCGEOMETRICSET) {
+    const elements = Array.isArray(item.Elements) ? item.Elements : [];
+    for (const el of elements) collectFillAreaItems(el, out);
+  }
+  return out;
+}
+
+// IfcAnnotationFillArea 1件を、外形(OuterBoundary)＋穴(InnerBoundaries)を考慮した
+// THREE.ShapeGeometry（穴対応の三角形分割）でMesh化する。曲線種別はcurveToPoints2D()を再利用する
+// ため、外形・穴とも直線(IfcPolyline)に限らず円弧(IfcTrimmedCurve等)を含む境界にも対応する。
+// 【色】colorHexはbuildFillColorMap()で解決した実際の色（見つからなければ呼び出し元で
+// ANNOTATION_FILL_COLOR_FALLBACKを渡す）。ハッチング柄そのものの再現は引き続き非対応
+// （2026-07-31その2での坂東さん承認方針を維持、色のみ実データに近づける）。
+function buildAnnotationFillMesh(item, placementMatrix, scale, coordMatrix, stepGeom, colorHex) {
+  if (!item || !item.OuterBoundary) return null;
+  const outerPts = curveToPoints2D(item.OuterBoundary, stepGeom);
+  if (!outerPts || outerPts.length < 3) return null;
+
+  const shape = new THREE.Shape(outerPts.map(p => new THREE.Vector2(p.x, p.y)));
+  const inners = Array.isArray(item.InnerBoundaries) ? item.InnerBoundaries : [];
+  for (const inner of inners) {
+    const innerPts = curveToPoints2D(inner, stepGeom);
+    if (innerPts && innerPts.length >= 3) {
+      shape.holes.push(new THREE.Path(innerPts.map(p => new THREE.Vector2(p.x, p.y))));
+    }
+  }
+
+  let geometry;
+  try {
+    geometry = new THREE.ShapeGeometry(shape);
+  } catch (err) {
+    reportUnsupportedAnnotationCurve('IFCANNOTATIONFILLAREA(triangulation failed)');
+    return null;
+  }
+  if (!geometry.attributes.position || geometry.attributes.position.count < 3) return null;
+
+  // ShapeGeometryはローカルXY平面(z=0)で三角形分割された結果を返すため、他の注記座標と同じ
+  // 変換チェーン（配置行列→長さ単位スケール→座標調整行列→IFC→Three.js軸変換）を頂点ごとに適用する
+  // （line点の変換ロジックと完全に同一の手順にすることでズレを防ぐ）
+  const posAttr = geometry.attributes.position;
+  const transformed = new Float32Array(posAttr.count * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < posAttr.count; i++) {
+    v.set(posAttr.getX(i), posAttr.getY(i), 0);
+    v.applyMatrix4(placementMatrix);
+    v.multiplyScalar(scale);
+    v.applyMatrix4(coordMatrix);
+    v.applyMatrix4(IFC_TO_THREE_AXIS_MATRIX);
+    transformed[i * 3] = v.x;
+    transformed[i * 3 + 1] = v.y;
+    transformed[i * 3 + 2] = v.z;
+  }
+  geometry.setAttribute('position', new THREE.BufferAttribute(transformed, 3));
+  geometry.computeVertexNormals();
+
+  const mesh = new THREE.Mesh(geometry, getAnnotationFillMaterial(colorHex != null ? colorHex : ANNOTATION_FILL_COLOR_FALLBACK));
+  // 塗りは半透明(transparent:true)のためThree.jsの透過パスで描画され、不透明(既定)の
+  // 注記線パスより後段になる＝線が塗りの上に透けて見える（renderOrderの調整は不要）
+  mesh.renderOrder = 995;
+  return mesh;
+}
+
+// STEP（ISO-10303-21）のUnicodeエスケープ（\X2\<UTF-16BEの16進4桁の並び>\X0\）を復元する。
+// web-ifc自体が既にデコード済みの場合は\X2\が残っていないため何もしない（安全な二重適用防止）
+function decodeStepUnicodeEscapes(str) {
+  if (typeof str !== 'string' || str.indexOf('\\X2\\') === -1) return str;
+  return str.replace(/\\X2\\([0-9A-Fa-f]+)\\X0\\/g, (m, hex) => {
+    let out = '';
+    for (let i = 0; i + 4 <= hex.length; i += 4) out += String.fromCharCode(parseInt(hex.slice(i, i + 4), 16));
+    return out;
+  });
+}
+
+// 注記テキストの表示サイズ・色（2026-08-03、planning/meetings/2026-07-31RIKCADビューア仕様.pptx
+// スライド9「注記について」のオーナー指示）。元々はIfcTextLiteral.Extent.SizeInYから可変で
+// 求めていたが、「文字サイズは統一し、色はRGB(85/85/85)としてください」との明示指示のため、
+// 個々の注記が持つサイズ情報は無視し、常に固定サイズ・固定色で描画する（詳細は意思決定ログ参照）。
+const ANNOTATION_TEXT_HEIGHT_METERS = 0.25; // 旧実装のExtent未取得時フォールバック値を統一値として採用
+const ANNOTATION_TEXT_COLOR = '#555555'; // RGB(85,85,85)
+
+// テキストをThree.jsのSprite（カメラ常時正面向き）として生成する
+// （fils_demo/ifc-viewer.htmlの makeTextSprite / makeDistanceLabel と同じcanvas-texture手法）
+function makeIfcAnnotationTextSprite(text, heightMeters) {
+  const canvasEl = document.createElement('canvas');
+  const ctx = canvasEl.getContext('2d');
+  const px = 48;
+  ctx.font = `${px}px sans-serif`;
+  const width = Math.max(4, Math.ceil(ctx.measureText(text).width) + 8);
+  canvasEl.width = width;
+  canvasEl.height = px + 8;
+  ctx.font = `${px}px sans-serif`; // canvasサイズ変更でコンテキストがリセットされるため再設定
+  ctx.fillStyle = ANNOTATION_TEXT_COLOR;
+  ctx.textBaseline = 'top';
+  ctx.fillText(text, 4, 4);
+  const texture = new THREE.CanvasTexture(canvasEl);
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(material);
+  const aspect = canvasEl.width / canvasEl.height;
+  const h = heightMeters > 1e-6 ? heightMeters : ANNOTATION_TEXT_HEIGHT_METERS;
+  sprite.scale.set(h * aspect, h, 1);
+  // IFCの配置点はテキストの左端・書き始め位置を指す（実データのBoxAlignment='bottom-left'とも
+  // 整合）。THREE.Spriteは既定でcenter=(0.5,0.5)＝中心基準のため、そのままだと配置点に対して
+  // テキストが左右上下にはみ出してズレる。center=(0,0)＝左下基準に変更し、テキストが配置点の
+  // 右上方向にのみ伸びるようにする（canvas側はtextBaseline='top'で上から描画しているため、
+  // これで寸法線・引出線の基準線と重ならない位置関係になる。2026-08-03、仕様書6章に基づき追加）。
+  sprite.center.set(0, 0);
+  sprite.renderOrder = 997;
+  return sprite;
+}
+
+// IfcTextLiteral / IfcTextLiteralWithExtent（注記文字列本体。寸法値・部材名の注記等）を
+// 1件分Spriteに変換する（Path/BoxAlignmentによる正確なアンカー位置合わせは簡略化し、
+// 原点をテキスト左下として描画する。文字サイズはExtentを見ず常に固定値を使う、上記参照）
+function buildAnnotationTextSprite(item, placementMatrix, scale, coordMatrix) {
+  let text = typeof item.Literal === 'string' ? item.Literal
+    : (item.Literal && item.Literal.value != null ? item.Literal.value : null);
+  if (!text) return null;
+  text = decodeStepUnicodeEscapes(text);
+
+  const placement = item.Placement;
+  const origin2D = placement && placement.Location ? pointFromCartesian(placement.Location) : { x: 0, y: 0 };
+  const v = new THREE.Vector3(origin2D.x, origin2D.y, 0);
+  v.applyMatrix4(placementMatrix);
+  v.multiplyScalar(scale);
+  v.applyMatrix4(coordMatrix);
+  v.applyMatrix4(IFC_TO_THREE_AXIS_MATRIX);
+
+  const sprite = makeIfcAnnotationTextSprite(text, ANNOTATION_TEXT_HEIGHT_METERS);
+  sprite.position.copy(v);
+  return sprite;
+}
+
+// モデル読込直後に呼ばれる本体。IfcAnnotationを全件走査し、Annotation2D表現の
+// 曲線・注記文字列をThree.jsオブジェクトとしてsceneに追加する。失敗しても致命的では
+// ないため、呼び出し元（loadFile）ではtry/catchで包み他機能に影響しないようにする。
+// fileBufferは読込中の生バイト列（ArrayBuffer）。IfcIndexedPolyCurve対応の
+// STEPテキスト正規表現パース（parseStepGeometryForCurves）専用に使う。
+async function loadIfcAnnotations(modelID, fileBuffer) {
+  clearIfcAnnotations();
+  const api = ifcLoader.ifcManager.ifcAPI;
+  _annotationUnsupportedTypes.clear();
+
+  let ids = [];
+  try {
+    ids = getLineIdsOfType(api, modelID, IFCANNOTATION);
+  } catch (err) {
+    console.warn('[ifcAnnotation] IfcAnnotationの列挙に失敗しました', err);
+    return;
+  }
+  if (!ids.length) return;
+
+  let stepGeom = { pointLists: new Map(), indexedCurves: new Map() };
+  try {
+    const rawText = new TextDecoder('utf-8').decode(fileBuffer);
+    stepGeom = parseStepGeometryForCurves(rawText);
+  } catch (err) {
+    console.warn('[ifcAnnotation] STEPテキストの解析に失敗しました（IfcIndexedPolyCurveは非対応になります）', err);
+  }
+
+  const fillColorMap = buildFillColorMap(api, modelID);
+
+  const scale = resolveIfcLengthUnitScale(api, modelID);
+  let coordMatrix = new THREE.Matrix4();
+  try {
+    const cm = api.GetCoordinationMatrix(modelID);
+    if (cm && cm.length === 16) coordMatrix.fromArray(cm);
+  } catch (err) { /* 座標調整行列が無い/取得失敗時は単位行列のまま続行 */ }
+
+  const placementCache = new Map();
+  const group = new THREE.Group();
+  group.name = 'ifc-annotations';
+  group.renderOrder = 997;
+  let lineCount = 0, textCount = 0, fillCount = 0, annotationWithGeometryCount = 0;
+
+  for (const id of ids) {
+    let annLine;
+    try { annLine = api.GetLine(modelID, id, false); } catch (err) { continue; }
+    if (!annLine || !annLine.Representation || annLine.Representation.value == null) continue;
+
+    const placementId = annLine.ObjectPlacement && annLine.ObjectPlacement.value != null
+      ? annLine.ObjectPlacement.value : null;
+    const placementMatrix = resolveAnnotationPlacementMatrix(api, modelID, placementId, placementCache);
+
+    let productShape;
+    try {
+      productShape = resolveAnnotationGeometryNode(api, modelID, annLine.Representation.value);
+    } catch (err) { continue; }
+    const reps = productShape && Array.isArray(productShape.Representations) ? productShape.Representations : [];
+
+    let gotGeometry = false;
+    for (const rep of reps) {
+      if (!rep || !rep.RepresentationType || rep.RepresentationType.value !== 'Annotation2D') continue;
+      const items = Array.isArray(rep.Items) ? rep.Items : [];
+      for (const item of items) {
+        if (item && (item.type === IFCTEXTLITERALWITHEXTENT || item.type === IFCTEXTLITERAL)) {
+          const sprite = buildAnnotationTextSprite(item, placementMatrix, scale, coordMatrix);
+          if (sprite) { group.add(sprite); textCount++; gotGeometry = true; }
+          continue;
+        }
+        // IfcAnnotationFillArea（塗りつぶし領域）は、外形線の描画とは別に塗りMeshも生成する
+        // （IfcGeometricCurveSetにネストしているケースも拾うため再帰探索。1件のitemに複数の
+        // FillAreaが入れ子で含まれることは無い想定だが、念のため配列で受ける）
+        const fillAreas = collectFillAreaItems(item);
+        for (const fillArea of fillAreas) {
+          const colorHex = (fillArea.expressID != null && fillColorMap.has(fillArea.expressID))
+            ? fillColorMap.get(fillArea.expressID) : ANNOTATION_FILL_COLOR_FALLBACK;
+          const mesh = buildAnnotationFillMesh(fillArea, placementMatrix, scale, coordMatrix, stepGeom, colorHex);
+          if (mesh) { group.add(mesh); fillCount++; gotGeometry = true; }
+        }
+        const segments = extractCurveSegmentsFromItem(item, stepGeom);
+        for (const seg of segments) {
+          if (seg.length < 2) continue;
+          const worldPts = seg.map(p => {
+            const v = new THREE.Vector3(p.x, p.y, 0);
+            v.applyMatrix4(placementMatrix);
+            v.multiplyScalar(scale);
+            v.applyMatrix4(coordMatrix);
+            v.applyMatrix4(IFC_TO_THREE_AXIS_MATRIX);
+            return v;
+          });
+          const geom = new THREE.BufferGeometry().setFromPoints(worldPts);
+          const line = new THREE.Line(geom, IFC_ANNOTATION_LINE_MATERIAL);
+          line.userData.ifcAnnotationExpressId = id;
+          // 2026-08-03その4追加: 塗り(renderOrder=995)より手前、テキスト(997)と同じ順位に明示設定
+          // （THREE.jsはrenderOrderをオブジェクト単体のプロパティとして見るため、親グループへの
+          // 設定だけでは子には伝播しない。塗りメッシュ・テキストSpriteは既に個別設定済みだった）
+          line.renderOrder = 997;
+          group.add(line);
+          lineCount++;
+          gotGeometry = true;
+        }
+      }
+    }
+    if (gotGeometry) annotationWithGeometryCount++;
+  }
+
+  if (lineCount > 0 || textCount > 0 || fillCount > 0) {
+    scene.add(group);
+    annotationGroup = group;
+    // 2026-08-03（pptxスライド9のオーナー指示）: 注記の表示/非表示は「平面図モード」の時のみ
+    // 選択可能で、それ以外のモードでは常に非表示。読込直後は平面図モードではないため、
+    // ここでは常に非表示で追加するだけにとどめ、トグルボタンもまだ出さない
+    // （enterPlanView()に入った時点で初めてボタンを表示し、その時点の既定値も非表示にする）。
+    group.visible = false;
+    annotationsVisible = false;
+  }
+  console.info(`[ifcAnnotation] IfcAnnotation ${ids.length}件中 ${annotationWithGeometryCount}件から線分${lineCount}本・塗りつぶし${fillCount}件・文字列${textCount}件を描画しました`
+    + (_annotationUnsupportedTypes.size ? `（未対応の曲線種別${_annotationUnsupportedTypes.size}種はスキップ）` : ''));
+}
+
+annotationToggle.addEventListener('click', () => {
+  // 平面図モード以外では注記のトグル自体を無効化する（pptxスライド9指示、ボタンも
+  // enterPlanView/exitPlanViewでその時しか表示しないため通常ここに到達しないが、念のため二重に防御）
+  if (!annotationGroup || !planViewMode) return;
+  annotationsVisible = !annotationsVisible;
+  annotationGroup.visible = annotationsVisible;
+  annotationToggle.textContent = annotationsVisible ? '📝 注記を非表示' : '📝 注記を表示';
+  annotationToggle.classList.toggle('active', annotationsVisible);
+});
+
 async function loadFile(file) {
   if (!file.name.toLowerCase().endsWith('.ifc')) {
     alert('.ifc ファイルを選択してください');
     return;
   }
   _ifcFileName = file.name || 'model.ifc';
+  document.getElementById('ifcFileNameLabel').textContent = _ifcFileName;
   loadingOverlay.classList.add('show');
   dropOverlay.style.display = 'none';
   try {
@@ -923,21 +2222,37 @@ async function loadFile(file) {
     clearMeasurement();
     clearAreaMeasurement();
     clearFaceMeasurement();
+    clearIfcAnnotations();
     modelEdgeSegments = null;
     lineMeasureMode = false;
-    lineMeasureToggle.textContent = '📐 線計測: OFF';
+    lineMeasureToggle.textContent = '📐 線計測';
     lineMeasureToggle.classList.remove('active');
     faceMeasureMode = false;
-    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.textContent = '⬜ 面選択計測';
     faceMeasureToggle.classList.remove('active');
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
     exitPlanView();
+    exitParallelView();
     if (pdfPivot) removePdf();
 
     const model = await ifcLoader.parse(buffer);
     scene.add(model);
     currentModel = model;
+
+    try {
+      const siteItems = await ifcLoader.ifcManager.getAllItemsOfType(model.modelID, IFCSITE, false);
+      siteElementIds = new Set(siteItems);
+    } catch (err) {
+      siteElementIds = new Set();
+    }
+
+    // IfcAnnotation（2D注記）のネイティブ描画。失敗しても3D本体の表示には影響させない
+    try {
+      await loadIfcAnnotations(model.modelID, buffer);
+    } catch (err) {
+      console.error('[ifcAnnotation] 2D注記の読み込みに失敗しました', err);
+    }
 
     fitCameraToModel(model);
     reloadBtn.style.display = '';
@@ -948,6 +2263,7 @@ async function loadFile(file) {
     areaMeasureToggle.style.display = '';
     faceMeasureToggle.style.display = '';
     planViewToggle.style.display = '';
+    parallelViewToggle.style.display = '';
     buildQtyBtn.style.display = '';
     hiddenIds.clear();
     checkedIds.clear();
@@ -958,10 +2274,14 @@ async function loadFile(file) {
     visibleSubsetMesh = null;
     showAllBtn.style.display = 'none';
     hidePlantsToggle.style.display = '';
-    plantsHidden = false;
     plantHiddenIds.clear();
-    hidePlantsToggle.textContent = '🌳 植栽を非表示';
-    hidePlantsToggle.classList.remove('active');
+    // ファイル読込時はデフォルトで植栽を非表示にする（2026-07-22オーナー指示）
+    const initialPlantIds = await getCategoryElementIds(model.modelID, '植栽');
+    initialPlantIds.forEach(id => { hiddenIds.add(id); plantHiddenIds.add(id); });
+    plantsHidden = true;
+    hidePlantsToggle.textContent = '🌳 植栽を表示に戻す';
+    hidePlantsToggle.classList.add('active');
+    await applyHiddenIds();
 
     document.getElementById('qtyPanel').classList.remove('show');
     document.getElementById('qtyBody').innerHTML = '<div class="qty-empty">「一覧表作成」ボタンを押すと数量が表示されます</div>';
@@ -1012,6 +2332,7 @@ planViewToggle.addEventListener('click', () => {
 
 function enterPlanView() {
   if (!currentModel || planViewMode) return;
+  if (parallelViewMode) exitParallelView();
   savedCameraState = {
     position: perspectiveCamera.position.clone(),
     target: controls.target.clone(),
@@ -1040,8 +2361,31 @@ function enterPlanView() {
   controls.update();
 
   planViewMode = true;
-  planViewToggle.textContent = '📐 平面図モード: ON';
+  planViewToggle.textContent = '📐 平面図モード';
   planViewToggle.classList.add('active');
+
+  // 2026-08-03（pptxスライド9「注記について」指示）: 2Dアノテーションの表示/非表示切替は
+  // 「平面図モード」の時のみ選択可能（平面図モードOFF時は非表示、exitPlanView()側で強制）。
+  // 注記が1件も読み込めていない場合はボタン自体を出さない。
+  //
+  // 【2026-08-03その3・重要な修正】当初は「平面図モードに入った直後も既定は非表示」（テキストの
+  // 「デフォルトを『注記を非表示』に」を字義通りに解釈）としていたが、坂東さんの実機確認で
+  // 「線（引出線・寸法線）が表示されない」と指摘された。原因調査の結果、注記の生成・座標変換
+  // 自体は正常（Node+web-ifcでの実データ検証、福井様.ifcで線分1948本・ワールド座標バウンディング
+  // ボックスが2026-07-31実装時の記録値と完全一致することを確認済み）で、`group.visible=false`の
+  // まま追加のクリック操作（ボタン押下）をしないと何も見えない状態になっていたことが原因と特定した。
+  // 「平面図モードOFFでは絶対に表示しない」という指示は明確だが、「平面図モード中は既定で
+  // 非表示（要クリック）」まで要求しているかは読み方が分かれる上、実際にオーナーが「表示されない」
+  // と感じた以上はこちらの読みを見直すべきと判断し、**平面図モードに入った時点で自動的に表示する**
+  // よう変更した（表示/非表示の切替自体は従来通りボタンで可能）。経緯は
+  // secretary/notes/2026-08-03-decisions.md 参照。
+  if (annotationGroup) {
+    annotationToggle.style.display = '';
+    annotationsVisible = true;
+    annotationGroup.visible = true;
+    annotationToggle.textContent = '📝 注記を非表示';
+    annotationToggle.classList.add('active');
+  }
 }
 
 function exitPlanView() {
@@ -1060,8 +2404,74 @@ function exitPlanView() {
 
   planViewMode = false;
   savedCameraState = null;
-  planViewToggle.textContent = '📐 平面図モード: OFF';
+  planViewToggle.textContent = '📐 平面図モード';
   planViewToggle.classList.remove('active');
+
+  // 2026-08-03（pptxスライド9指示）: 平面図モード以外では注記は常に非表示・トグル不可にする
+  if (annotationGroup) annotationGroup.visible = false;
+  annotationsVisible = false;
+  annotationToggle.style.display = 'none';
+}
+
+// ── 平行投影モード（現在の斜め視点のまま投影方式だけを平行投影にする） ────
+// RIKCADのアイソメ表示（透視図法を使わない平行投影の斜め視点）を再現する。
+// 新しいカメラは作らず、平面図モードと同じ`orthoCamera`を再利用する。
+// 平面図モードと違い、カメラの上下角度(polarAngle)は固定せず今の視点をそのまま維持する。
+let parallelViewMode = false;
+let savedParallelCameraState = null; // 平行投影モードOFF時に元の視点へ戻すための退避先
+
+const parallelViewToggle = document.getElementById('parallelViewToggle');
+parallelViewToggle.addEventListener('click', () => {
+  if (parallelViewMode) exitParallelView(); else enterParallelView();
+});
+
+function enterParallelView() {
+  if (!currentModel || parallelViewMode) return;
+  if (planViewMode) exitPlanView();
+  savedParallelCameraState = {
+    position: perspectiveCamera.position.clone(),
+    target: controls.target.clone(),
+  };
+
+  const distance = Math.max(perspectiveCamera.position.distanceTo(controls.target), 0.01);
+
+  camera = orthoCamera;
+  controls.object = orthoCamera;
+
+  // カメラ〜注視点間の距離とパースペクティブのFOVから、切替前後でモデルの見た目の
+  // 大きさ（画面占有率）が変わらないようにorthoHalfHeightを逆算する
+  orthoHalfHeight = distance * Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov / 2));
+  orthoCamera.zoom = 1;
+  orthoCamera.near = perspectiveCamera.near;
+  orthoCamera.far = perspectiveCamera.far;
+  resize(); // orthoHalfHeightを反映してleft/right/top/bottomを設定
+
+  // 現在のパースペクティブカメラの位置・向きをそのままコピー（角度は固定しない）
+  orthoCamera.position.copy(perspectiveCamera.position);
+  orthoCamera.quaternion.copy(perspectiveCamera.quaternion);
+  controls.update();
+
+  parallelViewMode = true;
+  parallelViewToggle.textContent = '📦 平行投影中';
+  parallelViewToggle.classList.add('active');
+}
+
+function exitParallelView() {
+  if (!parallelViewMode) return;
+
+  camera = perspectiveCamera;
+  controls.object = perspectiveCamera;
+  if (savedParallelCameraState) {
+    perspectiveCamera.position.copy(savedParallelCameraState.position);
+    controls.target.copy(savedParallelCameraState.target);
+  }
+  resize();
+  controls.update();
+
+  parallelViewMode = false;
+  savedParallelCameraState = null;
+  parallelViewToggle.textContent = '📦 平行投影';
+  parallelViewToggle.classList.remove('active');
 }
 
 // ── クリックで部材選択 ───────────────────────────────────
@@ -1178,6 +2588,105 @@ function computeSnapCandidate(e) {
   return { point, snapped };
 }
 
+// ── 🟩 面積計測専用: 隣接する別要素の頂点もスナップ候補に含める拡張版（2026-08-05追加） ──
+// 坂東さん指示: 壁とスラブが接する角のように、クリック中の要素自身には含まれない隣接要素の
+// 頂点にもスナップできるようにしてほしい、という要望への対応。
+// **設計方針（フリーズ不具合の反省を踏まえた最重要事項）**: 同日に一度実装したCSGブーリアン
+// 判定（面選択計測、めり込み除外）が、実機の大規模IFCでyield修正後もフリーズが解消せず
+// 差し戻しになった（詳細: engineering/docs/ifc-viewer.md「追記（2026-08-05その3）」）。
+// 同じ轍を踏まないよう、本実装は**モデル全体を走査する事前インデックス（グリッド/octree等）を
+// 一切作らない**。代わりに、既存のraycast（1回のクリック/ホバーにつき1本のレイをシーンへ
+// 飛ばす処理。モデルサイズに比例するコストを持つが、📏距離計測・🟩面積計測の頂点スナップで
+// 現在も毎pointermoveイベントで使われておりフリーズしないことが実証済み）を、**必要な場合にだけ
+// 固定本数（SNAP_WIDE_RING_COUNT=8本）だけ追加で飛ばす**方式にした。追加レイの本数は完全に
+// 固定されており、モデルの要素数・三角形数が増えても増加しない。
+// アルゴリズム:
+// 1. まず従来のcomputeSnapCandidate()と同じロジックで、ヒットした三角形自身の3頂点だけを
+//    チェックする（変更なし。ほとんどの場合はここで完結し、追加コストはゼロ）。
+// 2. それでスナップ候補が見つからず（SNAP_PIXEL_RADIUS以内に無かった）、かつ自分自身の
+//    最も近い頂点がそれよりやや広い範囲（SNAP_WIDE_VERTEX_MARGIN）にはある場合**のみ**、
+//    カーソル周囲にリング状の追加レイを飛ばして隣接部分の頂点も候補に加える。
+//    「ヒット三角形の辺までの距離」ではなく「頂点までの距離」でゲートしているのは、
+//    IFCメッシュの三角形分割（四角い面を対角線で2分割する等）によって生じる内部的な
+//    分割線（実際の要素境界ではない）を誤って「境界」と判定してしまう問題を避けるため
+//    （実装中にBoxGeometryでの検証テストで実際に発覚した不具合。面の中央が三角形分割の
+//    対角線上に乗り、辺距離だけでは常に拡張探索が発動してしまっていた）。壁とスラブが
+//    接する「角」（坂東さんの依頼文の具体例）は自分自身の頂点の近くにあることが大半のため、
+//    この頂点距離ベースのゲートで実用上のケースはカバーできる（辺の中点同士が接するT字
+//    接合等、頂点から離れた場所での接合は対象外という既知の制約として残る）。
+const SNAP_WIDE_RING_COUNT = 8; // 追加で飛ばすレイの本数（固定・モデルサイズに依存しない）
+const SNAP_WIDE_VERTEX_MARGIN = SNAP_PIXEL_RADIUS * 3; // 自分自身の頂点までの距離がこの範囲(px)内なら拡張探索を行う
+
+function computeSnapCandidateWide(e) {
+  if (!currentModel) return null;
+  const rect = canvas.getBoundingClientRect();
+  const cursorX = e.clientX - rect.left, cursorY = e.clientY - rect.top;
+  const nx = (cursorX / rect.width) * 2 - 1;
+  const ny = -(cursorY / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
+
+  const intersects = raycaster.intersectObject(visibleSubsetMesh || currentModel, true);
+  if (!intersects.length) return null;
+  const hit = intersects[0];
+
+  let point = hit.point.clone();
+  let snapped = false;
+  let bestDist = Infinity;
+  let bestWorld = null;
+
+  const posAttr = hit.face && hit.object.geometry && hit.object.geometry.attributes.position;
+  if (posAttr) {
+    const idxs = [hit.face.a, hit.face.b, hit.face.c];
+    for (const idx of idxs) {
+      const world = new THREE.Vector3().fromBufferAttribute(posAttr, idx).applyMatrix4(hit.object.matrixWorld);
+      const screen = worldToScreen(world, rect);
+      const d = Math.hypot(cursorX - screen.x, cursorY - screen.y);
+      if (d < bestDist) { bestDist = d; bestWorld = world; }
+    }
+    if (bestWorld && bestDist <= SNAP_PIXEL_RADIUS) {
+      point = bestWorld;
+      snapped = true;
+    }
+  }
+
+  if (snapped) return { point, snapped }; // 自分自身の頂点で足りた（最頻ケース、追加コストなし）
+
+  // 自分自身の最も近い頂点までの距離がSNAP_WIDE_VERTEX_MARGIN以内の場合のみ、拡張探索を行う
+  // （このゲートを通らない限り、以下の追加レイキャストは一切実行されない。面の中央のように
+  // 自分自身の頂点からも遠い場所では、他要素の頂点が近傍にあることは幾何学的にありえない）
+  if (bestWorld && bestDist <= SNAP_WIDE_VERTEX_MARGIN) {
+    const primaryObject = hit.object;
+    const primaryFaceIndex = hit.faceIndex;
+    for (let i = 0; i < SNAP_WIDE_RING_COUNT; i++) {
+      const angle = (i / SNAP_WIDE_RING_COUNT) * Math.PI * 2;
+      const ox = cursorX + Math.cos(angle) * SNAP_PIXEL_RADIUS;
+      const oy = cursorY + Math.sin(angle) * SNAP_PIXEL_RADIUS;
+      const rnx = (ox / rect.width) * 2 - 1;
+      const rny = -(oy / rect.height) * 2 + 1;
+      raycaster.setFromCamera(new THREE.Vector2(rnx, rny), camera);
+      const ringHits = raycaster.intersectObject(visibleSubsetMesh || currentModel, true);
+      if (!ringHits.length) continue;
+      const ringHit = ringHits[0];
+      if (ringHit.object === primaryObject && ringHit.faceIndex === primaryFaceIndex) continue; // 同じ三角形は既にチェック済み
+      const ringPosAttr = ringHit.face && ringHit.object.geometry && ringHit.object.geometry.attributes.position;
+      if (!ringPosAttr) continue;
+      const ringIdxs = [ringHit.face.a, ringHit.face.b, ringHit.face.c];
+      for (const idx of ringIdxs) {
+        const world = new THREE.Vector3().fromBufferAttribute(ringPosAttr, idx).applyMatrix4(ringHit.object.matrixWorld);
+        const screen = worldToScreen(world, rect);
+        const d = Math.hypot(cursorX - screen.x, cursorY - screen.y);
+        if (d < bestDist) { bestDist = d; bestWorld = world; }
+      }
+    }
+    if (bestWorld && bestDist <= SNAP_PIXEL_RADIUS) {
+      point = bestWorld;
+      snapped = true;
+    }
+  }
+
+  return { point, snapped };
+}
+
 // 頂点スナップ候補にカーソルが乗っている間、目印を表示する
 const snapHoverMarker = new THREE.Mesh(
   new THREE.SphereGeometry(0.09, 12, 12),
@@ -1192,7 +2701,9 @@ function updateSnapHover(e) {
     snapHoverMarker.visible = false;
     return;
   }
-  const result = computeSnapCandidate(e);
+  // 2026-08-05追記: 拡張スナップ（隣接要素の頂点も候補にする）は🟩面積計測のみが対象
+  // （坂東さん指示のスコープ）。📏距離計測は従来のcomputeSnapCandidate()のまま変更しない。
+  const result = areaMeasureMode ? computeSnapCandidateWide(e) : computeSnapCandidate(e);
   if (result && result.snapped) {
     snapHoverMarker.position.copy(result.point);
     snapHoverMarker.visible = true;
@@ -1230,8 +2741,19 @@ async function handlePick(e) {
     return;
   }
 
-  const hit = intersects[0];
-  const expressId = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+  // IFCSITE（敷地・地盤面）は部材情報・数量を持たないため、手前にヒットしても優先度を下げ、
+  // その奥にある実際の部材（床等）があればそちらをクリック選択できるようにする。
+  // ただしその場所に本当にIFCSITEしか無い場合は、選択不能にはせずIFCSITE自体を選択する
+  // （読み飛ばした結果「何も選択できない」になってしまうのを防ぐ保険）
+  let expressId = null;
+  let siteFallbackId = null;
+  for (const hit of intersects) {
+    const id = ifcLoader.ifcManager.getExpressId(hit.object.geometry, hit.faceIndex);
+    if (id == null) continue;
+    if (!siteElementIds.has(id)) { expressId = id; break; }
+    if (siteFallbackId == null) siteFallbackId = id;
+  }
+  if (expressId == null) expressId = siteFallbackId;
   if (expressId == null) {
     if (!e.shiftKey) clearSelection();
     return;
@@ -1261,8 +2783,14 @@ async function refreshSelectionUI() {
     setActiveQtyGroup(idToGroupKeyMap.get(onlyId) || null);
   } else {
     await showMultiSelectionSummary();
-    const groupKeys = Array.from(selectedIds).map(id => idToGroupKeyMap.get(id)).filter(Boolean);
-    setActiveQtyGroups(groupKeys);
+    // 2026-08-04追加（坂東さん指示「一覧表で合算行を選択したら、合算に関わった要素の行も
+    // 一覧表内でハイライト・選択されるようにする」対応）: 複数選択時（3Dでのshift選択、または
+    // 一覧表の合算行クリックのいずれの経路でも`selectedIds`が複数件になった場合はここを通る）は、
+    // 従来の`idToGroupKeyMap`（要素ごとのデフォルト行1件のみ）ベースのハイライトではなく、
+    // `setActiveQtyRowsForSelection()`（各要素が一覧表上に持つ全行＝elementIdToRows相当、かつ
+    // 全構成要素が選択中である合算行自身も対象に含む）に置き換えた。単一選択（size===1）・
+    // 未選択（size===0）の分岐は無変更（通常の個別行クリックの既存動作に影響を与えないため）。
+    setActiveQtyRowsForSelection(selectedIds);
   }
 }
 
@@ -1283,6 +2811,236 @@ async function applySelectionHighlight() {
   if (subset) subset.renderOrder = 999; // 元の面より必ず手前に描画する
 }
 
+// 2026-08-03変更（pptxスライド5・6「合算仕様（右ペイン）」指示）: 「🧮 合算」チェックボックス・
+// ボタンを廃止した（tfoot合計行で既に自動集計されているため不要、との坂東さん指摘）。
+// 代わりに数量セル自体をクリックで一覧表へ転記するトグルボタンに変更した
+// （スライド6「数量はトグルボタンになっていて、一覧表にない数量をクリックすると一覧表に
+// その値が転記される」指示。合算した結果=tfoot合計行の数量も同様に対応、showMultiSelectionSummary側）。
+// 「📋 一覧表転記」ボタンはチェックボックス方式を前提にしていたが、チェックボックス廃止に伴い
+// 「まだ転記していない全行を一括転記する」ボタンに挙動を変更した（詳細はcollectPanelMergeDescriptors参照）。
+function buildPanelMergeButtons() {
+  return `
+    <div style="display:flex; gap:6px; margin:8px 0 12px;">
+      <button type="button" class="btn btn-secondary panel-transfer-btn" style="flex:1; font-size:12px; padding:6px 10px;">📋 未転記をすべて一覧表へ転記</button>
+    </div>
+  `;
+}
+
+// パネル内の数量行（tfoot合計行も含む）のうち、まだ一覧表へ転記していない行（.panel-value-doneが
+// 付いていない<tr>）をすべて集める。個々の値クリック(.qty-value-toggle)・一括転記ボタンの両方から
+// 共通で使う（2026-08-03、旧・チェックボックス方式からの置き換え）。
+function collectPanelMergeDescriptors() {
+  return Array.from(document.querySelectorAll('#panelBody table.panel-merge-table tr[data-paramname]:not(.panel-value-done)')).map(tr => {
+    let ids = [];
+    try { ids = JSON.parse(tr.dataset.ids || '[]'); } catch (e) { ids = []; }
+    // namesは合算(tfoot)行のみdata-namesを持つ（複数要素の材質名称の集合）。個別行（1要素1行）は
+    // data-namesを持たないため、その行自身のlabelを1件だけの名称集合として扱う（2026-08-03追加、
+    // 坂東さん指示④「同一名称かつ同一単位の場合のみ転記を許可」の判定に使う）。
+    let names;
+    if (tr.dataset.names) {
+      try { names = JSON.parse(tr.dataset.names); } catch (e) { names = [tr.dataset.label]; }
+    } else {
+      names = [tr.dataset.label];
+    }
+    return {
+      label: tr.dataset.label, category: tr.dataset.category, paramName: tr.dataset.paramname,
+      unit: tr.dataset.unit, value: parseFloat(tr.dataset.value), hikidashi: tr.dataset.hikidashi || '', ids, tr,
+      globalId: tr.dataset.globalid || '', names,
+      // 2026-08-04追加: data-aggregate="1"（showMultiSelectionSummaryのtfoot合計行のみ）を
+      // isAggregateとしてそのまま伝播する。transcribeDescriptorToQtyTable()の挿入位置ロジック分岐
+      // （個別転記＝要素の行の直後／合算転記＝材質名称グループの末尾）に使う。
+      isAggregate: tr.dataset.aggregate === '1',
+    };
+  });
+}
+
+// 2026-08-03追加（タスクA詳細化、坂東さん指示④）: 合算(tfoot)行を一覧表へ転記する前に
+// 「同一名称かつ同一単位」の条件を満たしているか検証する。単位はtotals集計時点でparamName+unit
+// キーによりグルーピング済みのため構造上常に単一（＝同一単位は自動的に保証される）だが、
+// 名称(names)は複数要素の合算時に異なる材質名称が混在しうるため、ここでnames.length<=1で
+// あることを確認する。個別行（合算していない1要素の行）はnamesが常に1件なので必ずtrueになる。
+function validateDescriptorForTranscribe(d) {
+  const names = d.names || [d.label];
+  if (names.length > 1) {
+    return { ok: false, error: `「${d.paramName}」は異なる材質名称（${names.join('、')}）が混在した合算結果のため、一覧表へ転記できません。同一名称の項目のみ合算・転記してください。` };
+  }
+  return { ok: true };
+}
+
+// パネルの1行分の記述子(descriptor)を一覧表(qtyBody)へ追加する共通処理
+// （従来panel-transfer-btnハンドラ内にインラインで書かれていたものを、値クリック単体転記
+// （qty-value-toggle）とも共有できるよう関数として切り出した）。
+// 2026-08-03改訂（タスクA詳細化、坂東さん指示③）:
+// - 列構成をrenderQuantityTable側の簡素化（材質・名称/項目/数量/単位の4列＋転記チェック）に合わせた
+//   （合算・分類・参考価格・メーカー名・引出線名称の各列は生成しない）
+// - 追加位置を「一覧表の末尾」から「同じ材質名称（category+label）のグループの最後尾」に変更した。
+//   同名グループが一覧表にまだ無い場合は末尾に追加する（renderQuantityTableは分類内をlabelの
+//   五十音順にソート済みのため、同名グループは常に隣接しており「最後尾に追加」で自然にまとまる）
+// - 重複時（同じグループ内に同じ項目(paramName)の行が既にある場合）は新規行を増やさず、
+//   既存行の値を上書きする。「追加しない」だとクリックしても何も起きたように見えず紛らわしいこと、
+//   「上書き」の方が実際に押した操作に対する結果として自然であることを理由に採用した
+//   （判断根拠：secretary/notes/2026-08-03-decisions.md）
+// 戻り値は{tr, updated}（updated=true: 既存行を上書き、false: 新規追加）。
+//
+// 【重要な契約、2026-08-03バグ修正で明文化】dはUNIT_MAP準拠の生の値・単位（例:高さなら
+// mm・変換前の数値）を渡すこと。表示専用の変換（mm→m等）はこの関数の内部で
+// convertQtyDisplayUnit()を使って行い、groupKeyToMeta/qtyRowMetaには常に生の値を保存する。
+// 呼び出し元（showProperties・showMultiSelectionSummary・restoreQtyState）が誤って変換後の
+// 値をdに渡すと、後段のtransferToEstimateBtn（meta.paramsを生の値と仮定してmm→m変換を
+// 適用する）で二重変換され、値が1000分の1になる等のバグを引き起こす（実データ検証中に
+// 「壁中心長さ」が0.001mと表示される形で発覚・修正した。詳細はsecretary/notes参照）。
+// 2026-08-04変更（坂東さん確認回答、secretary/notes/2026-08-04-decisions.md参照）: 挿入位置の
+// ロジックを転記経路によって分岐させる。
+// - 個別転記（単一要素の➕一覧表ボタン等。d.isAggregateがfalsy）: 挿入位置＝転記元の要素
+//   （d.ids[0]、1件のみ）が一覧表に現在持っている行のうち一番下の行の直後。同じ材質の別要素の
+//   行がもっと下にあってもそこには挿入しない（pptxスライド4画像の矢印解析で確定した仕様）。
+// - 合算転記（複数選択して合算した結果。d.isAggregate===true、showMultiSelectionSummaryのtfoot
+//   合計行から呼ばれる）: 従来通り、同じ材質名称（category+label）グループの最後尾に挿入する
+//   （坂東さん指示: 合算は異なる材質名称グループ同士ではできない制限が既にあるため、合算結果は
+//   必ず単一の材質名称グループに属する＝グループ末尾でよい、という判断）。
+//   ※このパスを機能させるには、呼び出し元がd.category/d.labelに「合算」等のプレースホルダ文字列
+//   ではなく実際の材質名称を渡す必要がある（showMultiSelectionSummary側で対応済み、詳細は
+//   同関数のコメント参照）。
+// 2026-08-04再修正（坂東さん追加指示、secretary/notes/2026-08-04-decisions.md参照）: 合算転記の
+// 挿入位置を「同じ材質名称グループの最後尾」から「今回選択・合算した要素たちが一覧表上に実際に
+// 持っている行の最後尾」に変更した。従来は`category+label`が一致する行を表全体から探していたため、
+// 「今回の合算に寄与していない、たまたま同じ材質名称の別行（個別転記された行・以前の別の合算で
+// 追加された行等）」の末尾にも挿入されてしまっていた（坂東さん指摘）。
+// - `wholeGroupRows`: 「同じ材質名称（category+label）を持つ行」を表全体から探す（従来のロジック）。
+// - `elementRows`: 転記元の要素（個別転記なら1件、合算転記なら合算に寄与した全件）が一覧表上に
+//   現在持っている行（elementIdToRows由来、DOM順）。
+// 挿入位置(anchorRows)は「elementRowsがあればそちらを優先、無ければwholeGroupRowsにフォールバック」。
+// 重複判定(dupSearchRows)は「個別転記でelementRowsが取れた場合のみelementRowsに絞る（＝別要素の
+// 同名項目を誤って上書きしない、2026-08-04実装中に発見したリグレッションの修正）。それ以外
+// （合算転記・個別転記だが対象要素の行が無いフォールバック）はwholeGroupRowsのまま」とし、
+// 「同じ材質名称グループ内に同じ項目があれば上書きする」という合算転記側の従来の重複判定は
+// 変えていない。
+function transcribeDescriptorToQtyTable(table, d) {
+  const tbody = table.querySelector('tbody');
+
+  const wholeGroupRows = Array.from(tbody.querySelectorAll('tr.qty-row')).filter(tr => {
+    const meta = groupKeyToMeta.get(tr.dataset.group);
+    return meta && meta.category === d.category && meta.label === d.label;
+  });
+
+  const sourceId = (!d.isAggregate && d.ids && d.ids.length === 1) ? d.ids[0] : null;
+  let elementRows = null; // null＝「転記元要素の行が一覧表に見当たらない」を表す（[]と区別する）
+  if (sourceId != null && elementIdToRows.has(sourceId)) {
+    elementRows = elementIdToRows.get(sourceId).filter(tr => tbody.contains(tr));
+  } else if (d.isAggregate && d.ids && d.ids.length) {
+    const candidateSet = new Set();
+    for (const id of d.ids) {
+      const rows = elementIdToRows.get(id);
+      if (!rows) continue;
+      for (const tr of rows) { if (tbody.contains(tr)) candidateSet.add(tr); }
+    }
+    if (candidateSet.size) {
+      // DOM順に並べ直す（Mapの挿入順やd.idsの順は一覧表上の並びと一致しない場合があるため）
+      elementRows = Array.from(tbody.querySelectorAll('tr.qty-row')).filter(tr => candidateSet.has(tr));
+    }
+  }
+
+  // 2026-08-04再修正（坂東さん報告バグ「合算行が最前行に挿入される」対応）: 重複判定の対象を
+  // 転記経路ごとに絞る。
+  // - 個別転記（対象要素の行が見つかった場合）: その要素自身の行のみ（従来通り）。
+  // - 合算転記: 「既に合算転記済みの行」（`groupKeyToMeta`に`isAggregate:true`が付いている行）だけを
+  //   対象にする。従来は`wholeGroupRows`（同じ材質名称グループの全行）をそのまま使っており、
+  //   合算対象のparamNameが「各要素のデフォルト代表値と同じ項目」（例:壁の代表値=表面積を、
+  //   まさに表面積で合算する）場合、グループ内で最初に見つかった**無関係な1要素のデフォルト行**を
+  //   「既に合算済みの行」と誤認識し、新規挿入ではなくその行を上書きしてしまっていた
+  //   （そのデフォルト行がグループの先頭にあることが多く、「合算行が最前行に現れる」という症状の
+  //   直接の原因。jsdom実パイプラインテストで再現・特定した）。
+  // - それ以外（個別転記で対象要素の行が見つからないフォールバック）: 従来通りwholeGroupRows。
+  let dupSearchRows;
+  if (sourceId != null && elementRows) {
+    dupSearchRows = elementRows;
+  } else if (d.isAggregate) {
+    dupSearchRows = wholeGroupRows.filter(tr => groupKeyToMeta.get(tr.dataset.group)?.isAggregate);
+  } else {
+    dupSearchRows = wholeGroupRows;
+  }
+  // 挿入位置は「転記元要素（個別）／合算寄与要素（合算）の行」があればそちらを優先し、
+  // 無ければ同じ材質名称グループ（表全体）にフォールバックする
+  const anchorRows = (elementRows && elementRows.length) ? elementRows : wholeGroupRows;
+
+  const disp = convertQtyDisplayUnit(d.paramName, d.value);
+  const valueText = INT_PARAMS.has(d.paramName) ? String(Math.round(disp.value)) : disp.value.toFixed(2);
+  const dupTr = dupSearchRows.find(tr => tr.querySelector('.qty-param')?.textContent === d.paramName);
+  if (dupTr) {
+    const groupKey = dupTr.dataset.group;
+    const rowKey = `${groupKey}||${d.paramName}`;
+    dupTr.querySelector('.qty-value').textContent = valueText;
+    dupTr.querySelector('.qty-unit').textContent = disp.unit;
+    const meta = groupKeyToMeta.get(groupKey) || { category: d.category, label: d.label, ids: d.ids, maker: '' };
+    meta.params = { [d.paramName]: d.value }; // 生の値を保存（表示はdisp側で別途変換済み）
+    meta.hikidashi = d.hikidashi;
+    meta.ids = d.ids;
+    meta.globalId = d.globalId || meta.globalId || '';
+    // 2026-08-04追加: 「合算転記済みの行かどうか」を判定するためのフラグ（重複判定のスコープ
+    // 決定に使う、transcribeDescriptorToQtyTable冒頭のdupSearchRowsコメント参照）。
+    meta.isAggregate = !!d.isAggregate;
+    groupKeyToMeta.set(groupKey, meta);
+    qtyRowMeta.set(rowKey, { label: d.label, category: d.category, paramName: d.paramName, unit: d.unit, value: d.value, hikidashi: d.hikidashi, ids: d.ids, globalId: d.globalId || '' });
+    // 2026-08-04追加: 合算行の見た目（太字・インデント等）は既存行への上書き時にも反映し直す
+    // （個別転記行が後から合算で上書きされるケース等で表示が食い違わないようにするため）。
+    applyAggregateRowStyle(dupTr, d.isAggregate);
+    return { tr: dupTr, updated: true };
+  }
+
+  const groupKey = `${d.category}||panelTx-${++panelTranscribeSeq}`;
+  const rowKey = `${groupKey}||${d.paramName}`;
+  // 2026-08-04追加（坂東さん指示「合算した行だと一目でわかるように」対応）: 合算転記の行には
+  // qty-row-aggregateクラスを付与し、材質・名称セルに「合算」バッジを表示する（CSSで太字・
+  // 左インデント・アクセントの縦線を付け、個別転記行と視覚的に区別する。詳細はCSS定義側コメント参照）。
+  const rowHtml = `<tr class="qty-row${d.isAggregate ? ' qty-row-aggregate' : ''}" data-group="${escHtml(groupKey)}">`
+    + `<td class="qty-check"><input type="checkbox" class="qty-select" data-group="${escHtml(groupKey)}" onclick="event.stopPropagation()"></td>`
+    + `<td class="qty-group">${d.isAggregate ? '<span class="qty-aggregate-badge" title="複数選択して合算した結果です">合算</span>' : ''}${escHtml(d.label)}</td>`
+    + `<td class="qty-param">${escHtml(d.paramName)}</td>`
+    + `<td class="qty-value">${valueText}</td>`
+    + `<td class="qty-unit">${escHtml(disp.unit)}</td>`
+    + `</tr>`;
+
+  // 挿入位置: anchorRows（転記元の要素が一覧表上に持つ行、無ければ同名グループ）の最後尾（無ければ表の末尾）
+  const anchorTr = anchorRows.length ? anchorRows[anchorRows.length - 1] : null;
+  if (anchorTr) anchorTr.insertAdjacentHTML('afterend', rowHtml);
+  else tbody.insertAdjacentHTML('beforeend', rowHtml);
+  const newTr = anchorTr ? anchorTr.nextElementSibling : tbody.lastElementChild;
+
+  // globalId（タスクB永続化キー）はdに含まれていれば伝播する。呼び出し元（合算結果行・手動追加行）は
+  // 単一要素に対応しないためglobalIdを持たず、空文字のままになる（＝永続化対象外）。
+  // params/qtyRowMetaは生の値(d.value/d.unit)で保存する（表示のみdisp側の変換値を使う）。
+  groupKeyToMeta.set(groupKey, { category: d.category, label: d.label, ids: d.ids, params: { [d.paramName]: d.value }, maker: '', hikidashi: d.hikidashi, globalId: d.globalId || '', isAggregate: !!d.isAggregate });
+  qtyRowMeta.set(rowKey, { label: d.label, category: d.category, paramName: d.paramName, unit: d.unit, value: d.value, hikidashi: d.hikidashi, ids: d.ids, globalId: d.globalId || '' });
+  groupKeyToRows.set(groupKey, [newTr]);
+  // 2026-08-04追加: 個別転記の場合、この要素の行一覧に新しい行を追記しておく（次に同じ要素を
+  // 個別転記したとき、今追加したこの行のさらに直後に続けて挿入されるようにするため）。
+  // 合算転記・手動追加行・電卓転記（sourceId===null）はこのマップの対象外のまま
+  // （合算転記の行は複数要素に紐づくため、特定の1要素の「最後の行」として扱うのは意味が無い）。
+  if (sourceId != null) {
+    if (!elementIdToRows.has(sourceId)) elementIdToRows.set(sourceId, []);
+    elementIdToRows.get(sourceId).push(newTr);
+  }
+  wireQtyRowInteractions(newTr, groupKey);
+  return { tr: newTr, updated: false };
+}
+
+// 2026-08-04追加（坂東さん指示「合算した行だと一目でわかるように」対応）: 合算転記の行に
+// qty-row-aggregateクラス（CSS側で太字・左インデント・アクセントの縦線）と「合算」バッジを
+// 付与する。新規行はrowHtml生成時に直接クラスを埋め込むため、この関数は主に「既存行が後から
+// 合算で上書きされた場合」（dupTr分岐）の再適用に使う。
+function applyAggregateRowStyle(tr, isAggregate) {
+  if (!isAggregate) return; // 個別転記による上書きでバッジを消す仕様にはしない（一度合算されたら合算表示のまま）
+  tr.classList.add('qty-row-aggregate');
+  const groupCell = tr.querySelector('td.qty-group');
+  if (groupCell && !groupCell.querySelector('.qty-aggregate-badge')) {
+    const badge = document.createElement('span');
+    badge.className = 'qty-aggregate-badge';
+    badge.title = '複数選択して合算した結果です';
+    badge.textContent = '合算';
+    groupCell.insertBefore(badge, groupCell.firstChild);
+  }
+}
+
 // 複数選択中は個別のプロパティ表は出さず、件数・名称・数量の一覧と縦計のみの簡易表示にする
 async function showMultiSelectionSummary() {
   const panel = document.getElementById('panel');
@@ -1298,12 +3056,15 @@ async function showMultiSelectionSummary() {
     try {
       props = await ifcLoader.ifcManager.getItemProperties(currentModel.modelID, id, false);
     } catch (err) {
-      return { label: `(ExpressID: ${id})`, category: null, params: null };
+      return { id, label: `(ExpressID: ${id})`, category: null, params: null, hikidashi: '' };
     }
     const elementName = fieldValue(props.Name) || '';
     let psets = [];
     try { psets = await ifcLoader.ifcManager.getPropertySets(currentModel.modelID, id, true); } catch (err) { psets = []; }
-    const category = resolveCategory(elementName, psets);
+    // 2026-08-04追加（2026-08-03版pptxスライド8「除外オブジェクトの追加」指示）: 除外対象は
+    // カテゴリ未解決の要素と同じ扱いにする（部材情報パネルで拾わない＝分類・数量を出さない）。
+    let category = resolveCategory(elementName, psets);
+    if (isExcludedCategory(category, elementName, psets)) category = null;
 
     let label;
     if (category === '植栽') {
@@ -1317,49 +3078,100 @@ async function showMultiSelectionSummary() {
       label = elementName || `(ExpressID: ${id})`;
     }
 
-    const params = {};
-    if (category && CATEGORY_PARAMS[category]) {
-      const fixedQty = FIXED_QTY_CATEGORIES.has(category);
-      for (const paramName of CATEGORY_PARAMS[category]) {
-        if (fixedQty && paramName === '数量') { params['数量'] = 1; continue; }
-        const val = readParamValue(psets, paramName);
-        if (val != null) params[paramName] = val;
-      }
-    }
+    // 2026-08-04変更（2026-08-03版pptxスライド5「複数選択時の合算は取得可能なすべての数量に
+    // 対応してください」対応）: CATEGORY_PARAMS固定リストではなくallQtyParamNames()（部材情報
+    // パネルの表示対象と同じ「取得可能なすべての数量」）を渡す。
+    const params = computeCategoryParamValues(category, psets, allQtyParamNames(category));
+    const hikidashi = readArchicadText(psets, '引出線名称') || '';
+    const globalId = fieldValue(props.GlobalId) || ''; // タスクB永続化キー用
 
-    return { label, category, params };
+    return { id, label, category, params, hikidashi, globalId };
   }));
 
   // 項目名（＋単位）ごとの縦計を集計
-  const totals = new Map(); // key: paramName -> { paramName, unit, sum }
+  const totals = new Map(); // key: paramName -> { paramName, unit, sum, ids }
   let rowsHtml = '';
   for (const item of items) {
-    const paramNames = item.category ? (CATEGORY_PARAMS[item.category] || []) : [];
+    // 2026-08-04変更（2026-08-03版pptxスライド5対応）: CATEGORY_PARAMS固定リストではなく
+    // allQtyParamNames()（「取得可能なすべての数量」）を対象にする。
+    const paramNames = item.category ? allQtyParamNames(item.category) : [];
     const visibleParams = paramNames.filter(p => item.params && item.params[p] != null);
     const catText = item.category || '-';
 
     if (!visibleParams.length) {
-      rowsHtml += `<tr class="qty-row"><td class="qty-cat">${escHtml(catText)}</td><td class="qty-group">${escHtml(item.label)}</td><td class="qty-value" colspan="3" style="color:#999;">-</td></tr>`;
+      rowsHtml += `<tr class="qty-row"><td class="qty-cat">${escHtml(catText)}</td><td class="qty-group">${escHtml(item.label)}</td><td class="qty-value" colspan="4" style="color:#999;">-</td></tr>`;
       continue;
     }
+    // 2026-08-03変更（pptxスライド5・6指示）: 合算チェック列(.qty-merge)を廃止し、数量セルを
+    // クリックで一覧表へ転記できるトグルボタン(.qty-value-toggle)にした。data-*属性は<tr>に
+    // 残したままで、collectPanelMergeDescriptors()・値クリックハンドラの両方から参照する。
+    // 【2026-08-03バグ修正】表示(valueText)はconvertQtyDisplayUnit()でmm→m等の変換をかけるが、
+    // data-value/data-unit（transcribeDescriptorToQtyTableに渡る値）は生の値のままにする。
+    // 以前はdata-value/data-unitも変換後の値にしていたため、transferToEstimateBtn側で
+    // もう一度mm→m変換がかかり値が二重変換されるバグがあった（実データ検証で発覚・修正、
+    // 詳細はtranscribeDescriptorToQtyTableのコメント・secretary/notes参照）。
+    // 2026-08-04追加（2026-08-03版pptxスライド5「各数量ごとに数値コピーができるように各数量に
+    // 『数値コピー』ボタンを追加してください」対応）: 各行末に.qty-copy-btnを追加。
+    // #panelBodyのclickリスナーは既に.qty-copy-btnを汎用的に処理している（showProperties側の
+    // 小口面積コピー等と同じ仕組み）ため、新しいハンドラは不要。
     visibleParams.forEach((paramName, i) => {
-      const value = item.params[paramName];
-      const unit = UNIT_MAP[paramName] || '';
-      const valueText = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(2);
-      rowsHtml += '<tr class="qty-row">'
+      const rawValue = item.params[paramName];
+      const rawUnit = UNIT_MAP[paramName] || '';
+      const disp = convertQtyDisplayUnit(paramName, rawValue);
+      const valueText = INT_PARAMS.has(paramName) ? String(Math.round(disp.value)) : disp.value.toFixed(2);
+      rowsHtml += `<tr class="qty-row" data-label="${escHtml(item.label)}" data-category="${escHtml(item.category || '')}" data-paramname="${escHtml(paramName)}" data-unit="${escHtml(rawUnit)}" data-value="${rawValue}" data-hikidashi="${escHtml(item.hikidashi || '')}" data-ids="${escHtml(JSON.stringify([item.id]))}" data-globalid="${escHtml(item.globalId || '')}">`
         + (i === 0 ? `<td class="qty-cat" rowspan="${visibleParams.length}">${escHtml(catText)}</td><td class="qty-group" rowspan="${visibleParams.length}">${escHtml(item.label)}</td>` : '')
-        + `<td class="qty-param">${escHtml(paramName)}</td><td class="qty-value">${valueText}</td><td class="qty-unit">${unit}</td></tr>`;
-      const key = paramName + '||' + unit;
-      const acc = totals.get(key) || { paramName, unit, sum: 0 };
-      acc.sum += value;
+        + `<td class="qty-param">${escHtml(paramName)}</td>`
+        + `<td class="qty-value"><button type="button" class="qty-value-toggle" title="クリックで一覧表に転記">${valueText}</button></td>`
+        + `<td class="qty-unit">${disp.unit}</td>`
+        + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${escHtml(valueText)}" data-unit="${escHtml(disp.unit)}" title="数値をコピー">📋</button></td></tr>`;
+      const key = paramName + '||' + rawUnit;
+      // 2026-08-03追加（タスクA詳細化、坂東さん指示④）: namesは合算対象に含まれる材質名称の集合。
+      // 「同一名称かつ同一単位の場合のみ一覧表への転記を許可する」の判定に使う（転記時、
+      // names.size>1なら名称混在としてブロックする。単位は元々paramName+unitでグルーピングして
+      // いるため、このtotals1件の中に異なる単位が混ざることは構造上ありえない）。
+      // sum（合計）も生の値のまま積算する（表示専用の変換とは分離、transcribe時の二重変換防止）。
+      // 2026-08-04追加: categoriesも集計しておく（合算転記時にtranscribeDescriptorToQtyTable()へ
+      // 渡す実際の材質カテゴリを決めるために使う。詳細は下のtotalsHtml生成部分のコメント参照）。
+      const acc = totals.get(key) || { paramName, unit: rawUnit, sum: 0, ids: [], names: new Set(), categories: new Set() };
+      acc.sum += rawValue;
+      acc.ids.push(item.id);
+      acc.names.add(item.label);
+      acc.categories.add(item.category || '');
       totals.set(key, acc);
     });
   }
 
+  // 合算結果（tfoot合計行）の数量も、個別行と同様にクリックで一覧表へ転記できるようにする
+  // （スライド6「これは合算した結果の数量も同様です」指示）。転記時のidsは寄与した全要素分を渡す。
+  // data-value/data-unitは生の値（t.sum/t.unit）のまま、表示だけconvertQtyDisplayUnit()で変換する
+  // （個別行と同じ理由、二重変換防止）。
   const totalsHtml = Array.from(totals.values()).map(t => {
-    const valueText = INT_PARAMS.has(t.paramName) ? String(Math.round(t.sum)) : t.sum.toFixed(2);
-    return `<tr><td class="qty-cat" colspan="3" style="text-align:right;">${escHtml(t.paramName)} 合計</td>`
-      + `<td class="qty-value" style="font-weight:bold;">${valueText}</td><td class="qty-unit">${t.unit}</td></tr>`;
+    const disp = convertQtyDisplayUnit(t.paramName, t.sum);
+    const valueText = INT_PARAMS.has(t.paramName) ? String(Math.round(disp.value)) : disp.value.toFixed(2);
+    const namesArr = Array.from(t.names);
+    // 2026-08-04変更（坂東さん指示、合算転記の挿入位置＝同じ材質名称グループの最後尾、対応）:
+    // 従来data-label/data-categoryには表示用のプレースホルダ文字列（"○○合計"／"合算"）を
+    // そのまま入れていたが、これだとtranscribeDescriptorToQtyTable()の「同じ材質名称
+    // （category+label）グループ」判定が実在するどの材質グループとも一致せず、常に表の末尾に
+    // 追加される結果になっていた（＝坂東さんが期待する「グループ末尾への挿入」になっていなかった、
+    // 実装中に判明したバグ）。ここでは実際の材質カテゴリ・材質名を計算して渡す。
+    // - 名称は、異なる材質名称が混在している場合はvalidateDescriptorForTranscribe()で転記自体が
+    //   ブロックされる（既存仕様）ため、混在時に何を入れても実害は無いが、念のため単一名称の
+    //   場合のみ実名称を、混在時は従来通りのプレースホルダをフォールバックとして入れておく。
+    // - カテゴリも同様に、単一カテゴリの場合のみ実カテゴリを入れる（複数カテゴリに同名のparamName
+    //   ＋単位が存在するケースへの防御。通常は同一材質＝同一カテゴリのはずだが、将来的な拡張耐性
+    //   のため空文字フォールバックにしている＝該当グループが見つからず表の末尾に追加される）。
+    // - data-aggregate="1"は「合算転記である」ことを示す明示的なマーカー。個別転記の行
+    //   （visibleParams.forEach側）には付与しない。クリックハンドラ・collectPanelMergeDescriptors()
+    //   がこれを見てtranscribeDescriptorToQtyTable()にd.isAggregateを渡す。
+    const categoriesArr = Array.from(t.categories);
+    const realCategory = categoriesArr.length === 1 ? categoriesArr[0] : '合算';
+    const realLabel = namesArr.length === 1 ? namesArr[0] : (t.paramName + '合計');
+    return `<tr data-label="${escHtml(realLabel)}" data-category="${escHtml(realCategory)}" data-paramname="${escHtml(t.paramName)}" data-unit="${escHtml(t.unit)}" data-value="${t.sum}" data-hikidashi="" data-ids="${escHtml(JSON.stringify(t.ids))}" data-names="${escHtml(JSON.stringify(namesArr))}" data-aggregate="1">`
+      + `<td class="qty-cat" colspan="3" style="text-align:right;">${escHtml(t.paramName)} 合計</td>`
+      + `<td class="qty-value" style="font-weight:bold;"><button type="button" class="qty-value-toggle" title="クリックで一覧表に転記">${valueText}</button></td><td class="qty-unit">${disp.unit}</td>`
+      + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${escHtml(valueText)}" data-unit="${escHtml(disp.unit)}" title="数値をコピー">📋</button></td></tr>`;
   }).join('');
 
   const allHidden = ids.length > 0 && ids.every(id => hiddenIds.has(id));
@@ -1369,10 +3181,12 @@ async function showMultiSelectionSummary() {
     <div class="prop-type">Shift+クリックで選択を追加・解除できます</div>
     <button class="btn btn-primary hide-toggle-btn" style="width:100%; margin:8px 0;">${hideLabel}</button>
     <button class="btn btn-primary dify-multi-search-btn" style="width:100%; margin-bottom:12px; background:#1a6f4c;">💰 価格検索（${ids.length}件）</button>
-    <table class="qty-table" style="margin-top:8px;">
+    <table class="qty-table panel-merge-table" style="margin-top:8px;">
+      <thead><tr><th>分類</th><th>材質・名称</th><th>項目</th><th>数量</th><th>単位</th><th>コピー</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
       ${totalsHtml ? `<tfoot>${totalsHtml}</tfoot>` : ''}
     </table>
+    ${buildPanelMergeButtons()}
   `;
 }
 
@@ -1386,6 +3200,24 @@ function clearSelection() {
 }
 
 document.getElementById('closePanelBtn').addEventListener('click', clearSelection);
+
+// PropertySet名の画面表示用ラベルを決定する（2026-08-03追加、pptxスライド8「名称の変更」指示）。
+// 内部のマッチング・分岐（ARCHICAD_PSET_NAME等との比較、isAcSpecPset判定等）は元のpsetNameのまま
+// 行い、ここは見出しの見た目だけを差し替える。ArchiCADProperties/ArchiCADQuantitiesは完全一致、
+// AC_Pset_/AC_Equantity_は接頭辞一致（末尾のライブラリ部品名等が個体ごとに異なるため）。
+// 2026-08-03その4追加: RIKCAD_PSET（RIKCAD独自出力のプロパティセット。メーカー名・引出線名称等を
+// 持つ）も坂東さん指示により「RIKCAD作図情報」に統一（ArchiCADPropertiesと表示名が重複するが、
+// 同一要素に両方存在するケースでも見出しをそれぞれ「RIKCAD作図情報」として個別に表示する
+// ＝AC_Pset_接頭辞が複数存在する場合に全て「設定」として個別表示する既存の扱いと同じ考え方）。
+function displayPsetName(psetName) {
+  const n = String(psetName || '');
+  if (n === 'ArchiCADProperties') return 'RIKCAD作図情報';
+  if (n === 'ArchiCADQuantities') return '数量情報';
+  if (n === 'RIKCAD_PSET') return 'RIKCAD作図情報';
+  if (n.startsWith('AC_Pset_')) return '設定';
+  if (n.startsWith('AC_Equantity_')) return 'その他';
+  return n;
+}
 
 // ── 情報パネル描画 ───────────────────────────────────────
 function fieldValue(v) {
@@ -1417,7 +3249,11 @@ async function showProperties(modelID, expressId) {
   // 壁・スラブ・メッシュ・屋根・柱は「材質(全て)」、オブジェクト・ランプ・窓は「名称」、植栽は「樹木名称」
   const elementName = fieldValue(props.Name) || '';
   const globalId = fieldValue(props.GlobalId);
-  const category = resolveCategory(elementName, psets);
+  // 2026-08-04追加（2026-08-03版pptxスライド8「除外オブジェクトの追加」指示）: 除外対象は
+  // カテゴリ未解決の要素と同じ扱いにする（部材情報パネルで拾わない＝分類・数量情報・価格検索
+  // ボタンを出さない。3D側の表示・選択自体は本関数と無関係のため変わらない）。
+  let category = resolveCategory(elementName, psets);
+  if (isExcludedCategory(category, elementName, psets)) category = null;
   let name;
   if (category === '植栽') {
     name = readArchicadText(psets, '樹木名称') || elementName || `(ExpressID: ${expressId})`;
@@ -1429,6 +3265,72 @@ async function showProperties(modelID, expressId) {
   } else {
     name = elementName || `(ExpressID: ${expressId})`;
   }
+
+  // 2026-07-28新規実装:「小口面積」（壁の幅×高さ）。CATEGORY_PARAMSには含めず
+  // （一覧表の列構成・見積連携JSONへの影響を避けるため）、部材情報パネル限定の表示項目とする。
+  // 幅・高さはmm単位で取得されるため、m換算してからm²を算出する（ifc-viewer.html:856の
+  // 既存mm→m変換とは別実装だが、同じ「mmはmに換算して表示する」という既存の考え方を踏襲）。
+  // 2026-08-03変更（pptxスライド8「名称の変更」指示）: 従来は独立した別テーブルとして数量情報
+  // テーブルの外（先頭）に表示していたが、「壁の小口面積はこの数量情報に記載してください」との
+  // 指示に基づき、ArchiCADQuantities(→数量情報表示名)セクションの中に行として差し込む形に変更した
+  // （guchiMenAreaRowHtmlは<tr>のみ、下のpsetsループ内でArchiCADQuantitiesのpsetRowsに連結する）。
+  // 2026-08-04修正（デバッグログ2026-08-04-guchimen-area-button-missing.md、坂東さん報告バグ対応）:
+  // このguchiMenAreaRowHtmlは<tr>を手組みする独立コードパスであり、2026-08-04（新版pptxスライド3
+  // 「取得可能な数量情報すべてに『+一覧表』ボタンを追加」対応）で修正したのは下のpsetsループ内
+  // （isArchicadQty分岐、ArchiCADQuantitiesの各プロパティを機械的に描画する箇所）のみだった。
+  // 小口面積はArchiCADQuantitiesのプロパティ一覧を素通りする値ではなく幅×高さから独自に算出する
+  // 値のため、あの修正の対象コードパスを一度も通っておらず、➕一覧表ボタン自体がそもそも
+  // 実装されていなかった（表示条件の分岐ミスではなく、単純にボタンHTML生成コードが無かった）。
+  // 他のCATEGORY_PARAMS外の数量（内面壁長さ等）と同様の➕一覧表ボタンをここにも追加する。
+  let guchiMenAreaRowHtml = '';
+  if (category === '壁') {
+    const widthMM = readParamValue(psets, '幅');
+    const heightMM = readParamValue(psets, '高さ');
+    if (widthMM != null && heightMM != null) {
+      const guchiMenAreaNum = (widthMM / 1000) * (heightMM / 1000);
+      const areaText = guchiMenAreaNum.toFixed(2);
+      // 小口面積はCATEGORY_PARAMSに乗らない独自算出値のため、UNIT_MAPにも登録が無い
+      // （mm→m変換の対象外＝ここで既にm²換算済みの値）。転記時はconvertQtyDisplayUnit()を
+      // 通しても変換されない（UNIT_MAP未登録パラメータはそのまま返す仕様）ため、生の値として
+      // areaTextの数値をそのまま渡してよい。
+      const hikidashiForGuchimen = readArchicadText(psets, '引出線名称') || '';
+      const trAttrs = ` data-paramname="${escHtml('小口面積')}" data-label="${escHtml(name)}" data-category="${escHtml(category)}"`
+        + ` data-unit="m²" data-value="${areaText}" data-hikidashi="${escHtml(hikidashiForGuchimen)}"`
+        + ` data-ids="${escHtml(JSON.stringify([expressId]))}" data-globalid="${escHtml(globalId || '')}"`;
+      guchiMenAreaRowHtml = `<tr${trAttrs}><th>小口面積</th><td>${areaText}</td>`
+        + `<td class="qty-pane-unit">m²</td>`
+        + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${areaText}" data-unit="m²" title="数値をコピー">📋</button></td>`
+        + `<td class="qty-pane-transcribe"><button type="button" class="qty-value-toggle" style="width:auto; display:inline-block; margin-left:4px; padding:2px 6px; font-size:11px;" title="この数量を一覧表に追加">➕一覧表</button></td></tr>`;
+
+      // 2026-08-05新規実装:「塗面積」（壁専用の独自算出値、坂東さん指示）。
+      // 塗面積 = 表面積×2 + 上部表面積(正味)×1 + 小口面積×2
+      // 「表面積」「上部表面積(正味)」はCATEGORY_PARAMS['壁']に含まれる既存値をreadParamValue()で
+      // そのまま取得する（UNIT_MAP上m²登録済みのため、小口面積と同じくmm→m変換は不要＝生値がm²）。
+      // 「小口面積」は上で算出したguchiMenAreaNumをそのまま使い、二重実装しない。
+      // 表面積・上部表面積(正味)のいずれかが取得できない場合は、小口面積の欠損時挙動
+      // （widthMM/heightMMが無ければ行自体を出さない）に合わせて塗面積行も出さない。
+      // guchiMenAreaRowHtmlに連結することで、小口面積と全く同じ表示位置・注入ロジック
+      // （ArchiCADQuantitiesセクション内への差し込み／セクション自体が無い場合のフォールバック）
+      // をそのまま踏襲する。
+      const hyoumenSeki = readParamValue(psets, '表面積');
+      const joubuHyoumenSekiSeimi = readParamValue(psets, '上部表面積(正味)');
+      if (hyoumenSeki != null && joubuHyoumenSekiSeimi != null) {
+        const nurimenAreaText = (hyoumenSeki * 2 + joubuHyoumenSekiSeimi * 1 + guchiMenAreaNum * 2).toFixed(2);
+        const trAttrsNurimen = ` data-paramname="${escHtml('塗面積')}" data-label="${escHtml(name)}" data-category="${escHtml(category)}"`
+          + ` data-unit="m²" data-value="${nurimenAreaText}" data-hikidashi="${escHtml(hikidashiForGuchimen)}"`
+          + ` data-ids="${escHtml(JSON.stringify([expressId]))}" data-globalid="${escHtml(globalId || '')}"`;
+        guchiMenAreaRowHtml += `<tr${trAttrsNurimen}><th>塗面積</th><td>${nurimenAreaText}</td>`
+          + `<td class="qty-pane-unit">m²</td>`
+          + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${nurimenAreaText}" data-unit="m²" title="数値をコピー">📋</button></td>`
+          + `<td class="qty-pane-transcribe"><button type="button" class="qty-value-toggle" style="width:auto; display:inline-block; margin-left:4px; padding:2px 6px; font-size:11px;" title="この数量を一覧表に追加">➕一覧表</button></td></tr>`;
+      }
+    }
+  }
+  let guchiMenAreaInjected = false;
+  // 2026-08-03追加（タスクA詳細化、坂東さん指示②）: 「数量情報」欄（ArchiCADQuantities由来の
+  // 表示）から直接一覧表へ転記できるようにするため、行ごとの引出線名称をここで1回だけ取得しておく
+  // （同一要素の全プロパティ行で共通の値なので、mapコールバック内で毎回呼ばない）。
+  const hikidashiForPanelTranscribe = readArchicadText(psets, '引出線名称') || '';
 
   const skipKeys = new Set(['expressID', 'Name', 'GlobalId', 'OwnerHistory', 'type', 'ObjectPlacement', 'Representation', 'Tag', 'PredefinedType']);
   const rows = Object.keys(props)
@@ -1450,19 +3352,20 @@ async function showProperties(modelID, expressId) {
   // ArchiCADPropertiesは情報量が多いため、材質・要素ID・レイヤー・ライブラリ部品名のみ表示する
   const ARCHICAD_PSET_NAME = normKey('ArchiCADProperties');
   const ARCHICAD_ALLOWED_PROPS = new Set(['材質', '材質(全て)', '要素ID', 'レイヤー', 'ライブラリ部品名'].map(normKey));
+  // RIKCAD_PSET（RIKCAD独自出力のプロパティセット）は、ArchiCADProperties/ArchiCADQuantitiesのような
+  // 絞り込みは行わず、他の未知Psetと同じ汎用パス（下記ループの最終return行、見出し＋key:value列挙）で
+  // 全プロパティをそのまま表示する。見つかった場合は他Psetより手前（基本属性テーブルの直後）に
+  // 表示されるよう、ループ後にpsetsHtmlの先頭へ差し込む（2026-07-27追加）
+  const RIKCAD_PSET_NAME = normKey('RIKCAD_PSET');
 
   // ArchiCADQuantitiesも同様に情報過多なため、分類ごとに必要な項目だけに絞り込む。
   // ランプ・窓・植栽はArchiCADQuantities自体を表示しない
   const ARCHICAD_QTY_PSET_NAME = normKey('ArchiCADQuantities');
   const HIDDEN_QTY_CATEGORIES = new Set(['ランプ', '窓', '植栽']);
-  const QTY_ALLOWED_PROPS = {
-    '壁': ['壁中心長さ', '内面壁長さ', '外面壁長さ', '上部表面積(正味)', '高さ', '幅', '表面積'],
-    'スラブ': ['高さ', '平面図外周', '面積', '体積(正味)'],
-    'メッシュ': ['平面図外周', '上部表面積(正味)', '表面積', '体積(正味)'],
-    '屋根': ['表面積', '高さ'],
-    '柱': ['躯体高さ/直径', '最大高さ'],
-    'オブジェクト': ['長さ(A)', '高さ'],
-  };
+  // QTY_ALLOWED_PROPSは2026-08-04にグローバルスコープへ移動した（CATEGORY_PARAMS定義の直後、
+  // allQtyParamNames()参照）。複数選択パネル（showMultiSelectionSummary）でも同じ「表示対象の
+  // 数量情報」リストを使う必要が生じたため（2026-08-03版pptxスライド5対応）、この関数ローカルの
+  // 定義のままだと共用できなかった。挙動・値は変更していない。
   const qtyAllowSet = category && QTY_ALLOWED_PROPS[category]
     ? new Set(QTY_ALLOWED_PROPS[category].map(normKey))
     : null;
@@ -1478,11 +3381,21 @@ async function showProperties(modelID, expressId) {
   const difyQtyCandidates = [];
 
   let psetsHtml = '';
+  // 2026-08-03その5変更（坂東さん指摘: 表示名を「RIKCAD_PSET」→「RIKCAD作図情報」に置き換えただけでは
+  // 意図と違った。正しくは「RIKCAD_PSET」という見出し自体を出さず、その中身をArchiCADProperties由来の
+  // 「RIKCAD作図情報」セクションに統合して1つのセクションにまとめる）。
+  // そのため、ArchiCADProperties・RIKCAD_PSETの行はどちらもこの共有バッファに集約し、ループの外で
+  // 1つの「RIKCAD作図情報」ブロックとしてまとめて出力する（他Psetより前に表示する従来の位置づけを維持）。
+  let rikcadInfoRows = ''; // ArchiCADProperties由来の行（フィルタ済み）
+  let rikcadPsetRows = '';  // RIKCAD_PSET由来の行（フィルタ無し、従来通り）
+  const rikcadInfoKeys = new Set(); // 統合セクション内で既に出したプロパティ名（重複検出用）
+  const rikcadInfoDupes = []; // ArchiCADProperties/RIKCAD_PSETで名前が重複したプロパティ（デバッグ・報告用）
   for (const pset of psets) {
     const psetName = fieldValue(pset.Name) || 'Property Set';
     if (HIDDEN_PSET_NAMES.has(normKey(psetName))) continue;
     const isArchicad = normKey(psetName) === ARCHICAD_PSET_NAME;
     const isArchicadQty = normKey(psetName) === ARCHICAD_QTY_PSET_NAME;
+    const isRikcadPset = normKey(psetName) === RIKCAD_PSET_NAME;
     if (isArchicadQty && HIDDEN_QTY_CATEGORIES.has(category)) continue;
     const isAcSpecPset = psetName.startsWith('AC_Pset_') && psetName !== 'AC_Pset_RenovationAndPhasing';
     // IfcPropertySet は HasProperties(+NominalValue)、
@@ -1509,25 +3422,111 @@ async function showProperties(modelID, expressId) {
         }
         if (isArchicad && !ARCHICAD_ALLOWED_PROPS.has(normKey(pName))) return null;
         if (isArchicadQty && qtyAllowSet && !qtyAllowSet.has(normKey(pName))) return null;
+        // 2026-08-03その5追加: ArchiCADProperties/RIKCAD_PSETを統合する際の重複キー検出。
+        // 実データでの重複ケースは未確認（手元のサンプルにRIKCAD_PSET自体が存在しないため）だったため、
+        // 「情報を落とさない」ことを優先し両方とも表示する（重複時は2行とも出す。挙動の判断根拠は
+        // secretary/notes/2026-08-03-decisions.md参照）
+        if (isArchicad || isRikcadPset) {
+          const k = normKey(pName);
+          if (rikcadInfoKeys.has(k)) rikcadInfoDupes.push(pName);
+          rikcadInfoKeys.add(k);
+        }
         if (isArchicadQty) {
-          const unit = UNIT_MAP[pName] || '';
+          const rawUnit = UNIT_MAP[pName] || '';
           // 一覧表(buildQuantityTable)と同じ表示ルール: 数値は小数第2位まで（toFixed(2)＝実質四捨五入）
           const num = parseFloat(pVal);
-          const displayVal = Number.isNaN(num) ? pVal : num.toFixed(2);
-          return `<tr><th>${escHtml(pName)}</th><td>${escHtml(displayVal)}</td>`
-            + `<td class="qty-pane-unit">${escHtml(unit)}</td>`
-            + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${escHtml(displayVal)}" title="数値をコピー">📋</button></td></tr>`;
+          // 2026-08-04（2026-08-03版pptxスライド2「部材情報の長さの単位はmmからmに変換してください」
+          // 指示）: 従来はここだけ生のmm値のまま表示していた（一覧表側は既にconvertQtyDisplayUnit()で
+          // mm→m/m²→㎡変換済みだった）。同じ変換関数を使い表示値・表示単位を揃える。
+          const disp = Number.isNaN(num) ? { value: num, unit: rawUnit } : convertQtyDisplayUnit(pName, num);
+          const displayVal = Number.isNaN(num) ? pVal : (INT_PARAMS.has(pName) ? String(Math.round(disp.value)) : disp.value.toFixed(2));
+          const displayUnit = Number.isNaN(num) ? rawUnit : disp.unit;
+          // 2026-08-03追加（タスクA詳細化、坂東さん指示②「一覧表に追加できる数量欄を廃止し、
+          // 数量情報欄自体から直接一覧表へ追加できるようにする」）: この行のdata-*属性は既存の
+          // collectPanelMergeDescriptors()・.qty-value-toggleクリックハンドラ（#panelBody click
+          // listener）にそのまま乗せる。
+          // 2026-08-04（2026-08-03版pptxスライド3「取得可能な数量情報すべてに『+一覧表』ボタンを
+          // 追加してください」指示）: 従来はCATEGORY_PARAMSに含まれる項目のみ➕ボタンを出していたが、
+          // 表示している数量情報（＝QTY_ALLOWED_PROPSで絞り込み済みの項目、絞り込み自体は変更なし）
+          // すべてに➕ボタンを出すよう変更した。CATEGORY_PARAMS外の項目を転記してもJSON出力
+          // （transferToEstimateBtn）から漏れないよう、そちら側もmeta.paramsの実キーを見るよう
+          // 合わせて修正済み（該当コメント参照）。
+          // 【2026-08-03バグ修正】転記用のdata-value/data-unitは常に生の値（UNIT_MAP準拠）を渡し、
+          // 表示用の変換はtranscribeDescriptorToQtyTable側で一元的に行う契約（二重変換防止のため、
+          // ここでも生値のまま渡す）。
+          let trAttrs = '';
+          let transcribeBtnHtml = '';
+          if (category && !Number.isNaN(num)) {
+            trAttrs = ` data-paramname="${escHtml(pName)}" data-label="${escHtml(name)}" data-category="${escHtml(category)}"`
+              + ` data-unit="${escHtml(rawUnit)}" data-value="${num}" data-hikidashi="${escHtml(hikidashiForPanelTranscribe)}"`
+              + ` data-ids="${escHtml(JSON.stringify([expressId]))}" data-globalid="${escHtml(globalId || '')}"`;
+            transcribeBtnHtml = `<button type="button" class="qty-value-toggle" style="width:auto; display:inline-block; margin-left:4px; padding:2px 6px; font-size:11px;" title="この数量を一覧表に追加">➕一覧表</button>`;
+          }
+          return `<tr${trAttrs}><th>${escHtml(pName)}</th><td>${escHtml(displayVal)}</td>`
+            + `<td class="qty-pane-unit">${escHtml(displayUnit)}</td>`
+            + `<td class="qty-pane-copy"><button type="button" class="qty-copy-btn" data-copy="${escHtml(displayVal)}" data-unit="${escHtml(displayUnit)}" title="数値をコピー">📋</button></td>`
+            + (transcribeBtnHtml ? `<td class="qty-pane-transcribe">${transcribeBtnHtml}</td>` : '')
+            + `</tr>`;
+        }
+        // 2026-08-05追加（坂東さん指示）: 「設定」（AC_Pset_*、displayPsetName()が'設定'に
+        // マッピングする見出し）の各行に「+仕様」ボタンを追加する。押すと選択中商品のJSON出力
+        // （transferToEstimateBtn）のSIYOUフィールドに「パラメータ名：値」形式で書き込まれる
+        // （elementSiyouMap、click委譲ハンドラは#panelBodyのclickリスナー内）。
+        // 「名称」はdifySpecs同様、商品名そのものとして別枠で扱うためSIYOU側には含めない
+        // （既存の「「名称」はDifyのNAMEに使う商品名そのものなのでSIYOU側には含めない」という
+        // すぐ上のコメント・difySpecs除外ロジックと同じ考え方に揃えた）。
+        if (isAcSpecPset && pVal && normKey(pName) !== normKey('名称')) {
+          const trAttrsSiyou = ` data-paramname="${escHtml(pName)}" data-value="${escHtml(pVal)}"`;
+          return `<tr${trAttrsSiyou}><th>${escHtml(pName)}</th><td>${formatPropValueHtml(pVal)}</td>`
+            + `<td class="qty-pane-transcribe"><button type="button" class="siyou-add-btn" style="width:auto; display:inline-block; margin-left:4px; padding:2px 6px; font-size:11px;" title="この項目を仕様として追加">➕仕様</button></td></tr>`;
         }
         return `<tr><th>${escHtml(pName)}</th><td>${formatPropValueHtml(pVal)}</td></tr>`;
       })
       .filter(Boolean)
       .join('');
-    if (psetRows) {
-      psetsHtml += `<div class="pset-title">${escHtml(psetName)}</div><table class="prop-table">${psetRows}</table>`;
+    if (isArchicad) { rikcadInfoRows += psetRows; continue; }
+    if (isRikcadPset) { rikcadPsetRows += psetRows; continue; }
+    // 2026-08-03追加: 壁の「小口面積」行はArchiCADQuantities(→数量情報)セクションの中に差し込む
+    // （2026-08-05追記: 「塗面積」行もguchiMenAreaRowHtmlに連結済みのため、同じ注入で一緒に入る）
+    let finalPsetRows = psetRows;
+    if (isArchicadQty && guchiMenAreaRowHtml) {
+      finalPsetRows += guchiMenAreaRowHtml;
+      guchiMenAreaInjected = true;
+    }
+    if (finalPsetRows) {
+      // isArchicadQtyの表（数量情報）だけ、collectPanelMergeDescriptors()のセレクタ
+      // （table.panel-merge-table）に一致するよう panel-merge-table クラスを追加する
+      // （タスクA詳細化、坂東さん指示②。転記ボタンを埋め込んだ行のdata-*属性はこのクラスが
+      // 無いと一括転記ボタンから拾われない）。
+      const tableCls = isArchicadQty ? 'prop-table panel-merge-table' : 'prop-table';
+      psetsHtml += `<div class="pset-title">${escHtml(displayPsetName(psetName))}</div><table class="${tableCls}">${finalPsetRows}</table>`;
+      if (isArchicadQty) psetsHtml += buildPanelMergeButtons();
     }
   }
+  // ArchiCADProperties・RIKCAD_PSETの中身を「RIKCAD作図情報」1セクションに統合して出力
+  // （ArchiCADProperties由来の行を先、RIKCAD_PSET由来の行を後ろに連結。片方しか無い要素でもそのまま表示される）
+  const rikcadInfoCombined = rikcadInfoRows + rikcadPsetRows;
+  const rikcadPsetHtml = rikcadInfoCombined
+    ? `<div class="pset-title">RIKCAD作図情報</div><table class="prop-table">${rikcadInfoCombined}</table>`
+    : '';
+  if (rikcadInfoDupes.length) {
+    console.warn('[showProperties] ArchiCADProperties/RIKCAD_PSETでプロパティ名が重複しました（両方表示しています）:', rikcadInfoDupes);
+  }
+  // ArchiCADQuantitiesセクション自体が無い/フィルタで空になった壁要素でも、小口面積（・塗面積）は
+  // 独立した「数量情報」見出しの下に表示する（表示自体が消えないようにするフォールバック）。
+  // 2026-08-04追加: panel-merge-tableクラスも付与する（無いと「📋 未転記をすべて一覧表へ転記」
+  // 一括ボタンのcollectPanelMergeDescriptors()がこの行を拾えない。個別の➕クリックは
+  // クラスに依らず動くため実害は軽微だが、一括転記との整合性のため揃えた）。
+  if (guchiMenAreaRowHtml && !guchiMenAreaInjected) {
+    psetsHtml += `<div class="pset-title">数量情報</div><table class="prop-table panel-merge-table">${guchiMenAreaRowHtml}</table>`;
+  }
+  psetsHtml = rikcadPsetHtml + psetsHtml;
 
   _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20), quantityCandidates: difyQtyCandidates };
+
+  // 2026-08-03改訂（タスクA詳細化、坂東さん指示②）: 「一覧表に追加できる数量」という専用ブロックは
+  // 廃止した。転記導線は既存の「数量情報」（ArchiCADQuantities由来のpsetsHtml内の表）に統合済み
+  // （上記isArchicadQty分岐で➕ボタンを埋め込み、panel-merge-tableクラスを付与している）。
 
   const hideLabel = hiddenIds.has(expressId) ? '👁 非表示を解除' : '🙈 非表示にする';
   // 価格検索（Dify連携）はオブジェクト・ランプ・窓のみ対象
@@ -1551,10 +3550,117 @@ document.getElementById('panelBody').addEventListener('click', async e => {
     openMultiDifySearchFromSelection();
     return;
   }
+  // 2026-08-05追加（坂東さん指示）: 「設定」欄の「+仕様」ボタン。押した行のパラメータ名・値を
+  // 「パラメータ名：値」形式（例: 柱ｶﾗｰ：ﾌﾞﾗｯｸ）でelementSiyouMapに蓄積する。対象要素は
+  // showProperties()が直前に設定した_currentDifyTarget.expressId（単一選択パネル表示時に
+  // 常に最新の表示中要素を指す、既存のDify連携用の参照をそのまま流用）。
+  const siyouBtn = e.target.closest('.siyou-add-btn');
+  if (siyouBtn) {
+    const tr = siyouBtn.closest('tr');
+    const paramName = tr?.dataset.paramname || '';
+    const value = tr?.dataset.value || '';
+    const targetId = _currentDifyTarget?.expressId;
+    if (paramName && value && targetId != null) {
+      if (!elementSiyouMap.has(targetId)) elementSiyouMap.set(targetId, []);
+      const list = elementSiyouMap.get(targetId);
+      // 2026-08-05再修正（坂東さん指示）: parametersに書き込む記号は他のパラメータ行
+      // （`${paramName}:${text}${unit}`）と揃え、全角「：」ではなく半角「:」にする。
+      const entry = `${paramName}:${value}`;
+      if (!list.includes(entry)) list.push(entry);
+      siyouBtn.classList.add('active');
+      siyouBtn.textContent = '✓仕様';
+      siyouBtn.title = '仕様に追加済み';
+      showMeasureToast(`「${entry}」を仕様に追加しました`);
+    }
+    return;
+  }
   const copyBtn = e.target.closest('.qty-copy-btn');
   if (copyBtn) {
     const ok = await copyToClipboardText(copyBtn.dataset.copy || '');
-    showMeasureToast(ok ? `${copyBtn.dataset.copy} をコピーしました` : 'コピーに失敗しました');
+    // 2026-08-04追加（坂東さん指示「電卓を出している状態で、部材情報の『コピー』ボタン→電卓に
+    // 反映」対応）: 電卓パレットが開いている場合は、クリップボードへのコピーに加えてその数値を
+    // 電卓にも反映する。反映の仕方は3D計測ラベルクリック時の`transferMeasureLabelToCalc()`が
+    // 既に使っている`calcInputValue()`をそのまま流用した（直前が四則演算記号ならその続きとして
+    // 追記、そうでなければ表示値をまるごと置き換える、という既存の電卓の数値入力の挙動と統一する
+    // ため。新しい反映ルールを別途作ると、3D計測ラベル経由の反映と部材情報コピー経由の反映とで
+    // 挙動が食い違ってしまう）。単位(`calcLastUnit`)も同様に更新し、電卓の「一覧表に転記」時に
+    // 反映した数量の単位が引き継がれるようにする。電卓が閉じている場合は従来通りコピーのみ。
+    const num = parseFloat(copyBtn.dataset.copy);
+    let toastMsg = ok ? `${copyBtn.dataset.copy} をコピーしました` : 'コピーに失敗しました';
+    if (calcPanel.classList.contains('show') && !Number.isNaN(num)) {
+      calcInputValue(num);
+      calcLastUnit = copyBtn.dataset.unit || '';
+      toastMsg = ok ? `${copyBtn.dataset.copy} をコピー＆電卓に反映しました` : `電卓に反映しました（コピーは失敗）`;
+    }
+    showMeasureToast(toastMsg);
+    return;
+  }
+  // 2026-08-03変更（pptxスライド5・6指示）: 数量セルクリックによる単体転記（旧・合算チェック＋
+  // 「🧮 合算」ボタンは廃止。tfoot合計行で既に自動集計されているため不要、との坂東さん指摘）。
+  // 2026-08-03改訂（タスクA詳細化、坂東さん指示④）: 合算(tfoot)行は転記前にvalidateDescriptorForTranscribe()
+  // で「同一名称かつ同一単位」を検証し、条件を満たさない場合は転記を中断してエラーを表示する。
+  const valueToggle = e.target.closest('.qty-value-toggle');
+  if (valueToggle) {
+    const tr = valueToggle.closest('tr');
+    if (!tr || tr.classList.contains('panel-value-done')) return; // 転記済みは再クリックしても何もしない
+    const qtyBody = document.getElementById('qtyBody');
+    const table = qtyBody.querySelector('table.qty-table');
+    if (!table) { alert('先に「📋 一覧表作成」で一覧表を作成してください'); return; }
+    let ids = [];
+    try { ids = JSON.parse(tr.dataset.ids || '[]'); } catch (err) { ids = []; }
+    let names;
+    if (tr.dataset.names) { try { names = JSON.parse(tr.dataset.names); } catch (e) { names = [tr.dataset.label]; } }
+    else { names = [tr.dataset.label]; }
+    const d = {
+      label: tr.dataset.label, category: tr.dataset.category, paramName: tr.dataset.paramname,
+      unit: tr.dataset.unit, value: parseFloat(tr.dataset.value), hikidashi: tr.dataset.hikidashi || '', ids,
+      globalId: tr.dataset.globalid || '', names,
+      // 2026-08-04追加: data-aggregate="1"（合算tfoot行のみ）をisAggregateとして伝播する
+      isAggregate: tr.dataset.aggregate === '1',
+    };
+    const validation = validateDescriptorForTranscribe(d);
+    if (!validation.ok) { alert(validation.error); return; }
+    const result = transcribeDescriptorToQtyTable(table, d);
+    tr.classList.add('panel-value-done');
+    valueToggle.classList.add('active');
+    valueToggle.title = '転記済み';
+    // 2026-08-05追加（坂東さん指示）: 「+一覧表」で追加/更新された行を、一覧表側でも選択状態
+    // （ハイライト）にする。同じ要素が持つ他の行（既存の代表数量行等）もあわせてアクティブに
+    // なる既存のsetActiveQtyRowsForSelectionをそのまま再利用しつつ、実際に追加/更新された
+    // result.tr自身が見える位置まで確実にスクロールする（firstRowはDOM順で最初の行になり、
+    // 今回追加した行と一致するとは限らないため、こちらは明示的に指定する）。
+    setActiveQtyRowsForSelection(new Set(d.ids));
+    requestAnimationFrame(() => result.tr.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    showMeasureToast(result.updated
+      ? `「${d.label}」の${d.paramName}を一覧表の既存行で更新しました`
+      : `「${d.label}」の${d.paramName}を一覧表に転記しました`);
+    return;
+  }
+  // 「📋 未転記をすべて一覧表へ転記」: パネル内でまだ転記していない行（値クリックで未クリックの行）
+  // すべてを一覧表(qtyBody)へ追加する。2026-08-03改訂（タスクA詳細化、坂東さん指示③④）:
+  // - 重複（同名グループ内の同一項目）は追加ではなく上書きに変更（transcribeDescriptorToQtyTable側で対応）
+  // - 合算(tfoot)行で名称混在のものは個別に検証し、転記対象から除外してエラーを集約表示する
+  //   （1件でも無効な組み合わせがあっても、有効な行の一括転記自体は中断しない）
+  if (e.target.closest('.panel-transfer-btn')) {
+    const qtyBody = document.getElementById('qtyBody');
+    const table = qtyBody.querySelector('table.qty-table');
+    if (!table) { alert('先に「📋 一覧表作成」で一覧表を作成してください'); return; }
+    const descriptors = collectPanelMergeDescriptors();
+    if (!descriptors.length) { showMeasureToast('転記できる項目はすべて転記済みです'); return; }
+    let newCount = 0, updatedCount = 0;
+    const errors = [];
+    for (const d of descriptors) {
+      const validation = validateDescriptorForTranscribe(d);
+      if (!validation.ok) { errors.push(validation.error); continue; }
+      const result = transcribeDescriptorToQtyTable(table, d);
+      if (result.updated) updatedCount++; else newCount++;
+      d.tr.classList.add('panel-value-done');
+      const btn = d.tr.querySelector('.qty-value-toggle');
+      if (btn) { btn.classList.add('active'); btn.title = '転記済み'; }
+    }
+    const total = newCount + updatedCount;
+    if (total) showMeasureToast(`一覧表に${total}件転記しました（新規${newCount}件・更新${updatedCount}件）`);
+    if (errors.length) alert(`以下の${errors.length}件は名称混在のため転記できませんでした:\n\n${errors.join('\n')}`);
     return;
   }
   const btn = e.target.closest('.hide-toggle-btn');
@@ -1574,6 +3680,7 @@ document.getElementById('panelBody').addEventListener('click', async e => {
   } else {
     await refreshSelectionUI(); // 非表示を解除した場合はパネルを再描画してボタン表示を更新する
   }
+  await refreshQtyTableIfOpen();
 });
 
 // ── 価格検索（RIKCAD材料引き当て / Dify ワークフロー）─────────────
@@ -1682,64 +3789,157 @@ function sumItemAmounts(items) {
   }, 0);
 }
 
+// 2026-08-04変更（2026-08-03版pptxスライド9「価格検索 複数の情報が検索できた場合は検索結果の
+// 画面内でチェックボックス等で選択できるようにしてください」対応）: items（部材）が2件以上
+// 見つかった場合、各行にチェックボックスを表示し、実際に一覧表へ転記する金額をチェック済みの
+// 部材だけの合算に限定できるようにした（従来は常に全件を機械的に合算していた＝誤マッチの部材が
+// 混ざっていても除外する手段が無かった）。1件のみの場合はチェックボックスを出さない（選ぶ意味が
+// ないため）。デフォルトは全件チェック済みとし、従来の「全件合算」挙動と後方互換にしている。
 function renderDifyResult(parsed) {
   const items = Array.isArray(parsed.items) ? parsed.items : [];
+  const showChk = items.length > 1;
   let html = '<div class="dify-result-meta">一致度: '
     + `<span class="${parsed.一致度 === '該当なし' ? 'tag-nohit' : ''}">${escHtml(parsed.一致度 || '-')}</span>`
     + (parsed.備考 ? ` ／ 備考: ${escHtml(parsed.備考)}` : '') + '</div>';
+  if (showChk) {
+    html += '<div style="font-size:11px; color:#888; margin-bottom:4px;">複数の部材が見つかりました。転記する部材だけチェックしてください（既定は全件）。</div>';
+  }
   if (items.length) {
-    html += '<table class="dify-result-table"><thead><tr><th>部材名</th><th>商品名</th><th>仕様</th><th>単価</th><th>数量</th><th>小計</th></tr></thead><tbody>';
-    for (const it of items) {
-      html += `<tr><td>${escHtml(it.部材名 || '')}</td><td>${escHtml(it.商品名 || '')}</td><td>${escHtml(it.仕様 || '')}</td>`
+    html += '<table class="dify-result-table"><thead><tr>'
+      + (showChk ? '<th></th>' : '')
+      + '<th>部材名</th><th>商品名</th><th>仕様</th><th>単価</th><th>数量</th><th>小計</th></tr></thead><tbody>';
+    items.forEach((it, i) => {
+      html += '<tr>'
+        + (showChk ? `<td><input type="checkbox" class="dify-item-chk" data-idx="${i}" checked></td>` : '')
+        + `<td>${escHtml(it.部材名 || '')}</td><td>${escHtml(it.商品名 || '')}</td><td>${escHtml(it.仕様 || '')}</td>`
         + `<td class="dify-num">${escHtml(String(it.単価 ?? ''))}</td><td class="dify-num">${escHtml(String(it.数量 ?? ''))}</td><td class="dify-num">${escHtml(String(it.小計 ?? ''))}</td></tr>`;
-    }
+    });
     html += '</tbody>';
   }
 
-  // 「合計金額」が数値として得られない場合（複数部材がセットで返ってきて金額を確定できない場合等）は、
-  // 各部材の金額（単価×数量。数量が補完できていればそれも反映）を合算した参考値を表示する
+  // 「合計金額」が数値として得られない場合（複数部材がセットで返ってきて金額を確定できない場合等）、
+  // またはチェックボックスで選択可能な状態（items.length > 1）の場合は、各部材の金額
+  // （単価×数量。数量が補完できていればそれも反映）を合算した参考値を表示する
+  // （showChk時はrecomputeDifyResultTotal()がチェック状態に応じて都度書き換える）。
+  const colspan = 5 + (showChk ? 1 : 0);
   let totalLabel = '合計金額';
   let totalText = escHtml(String(parsed.合計金額 ?? ''));
-  if (parseYenAmount(parsed?.合計金額) == null && items.length) {
+  if ((showChk || parseYenAmount(parsed?.合計金額) == null) && items.length) {
     const sum = sumItemAmounts(items);
-    if (sum > 0) {
-      totalLabel = '単価合計（参考）';
-      totalText = `${sum.toLocaleString()}円`;
-    }
+    totalLabel = showChk ? '選択分合計（参考）' : '単価合計（参考）';
+    totalText = sum > 0 ? `${sum.toLocaleString()}円` : '-';
   }
-  html += `<tfoot><tr><td colspan="5" style="text-align:right;font-weight:bold;">${totalLabel}</td><td class="dify-num" style="font-weight:bold;">${totalText}</td></tr></tfoot></table>`;
+  html += `<tfoot><tr><td colspan="${colspan}" id="difyResultTotalLabel" style="text-align:right;font-weight:bold;">${totalLabel}</td><td class="dify-num" id="difyResultTotalCell" style="font-weight:bold;">${totalText}</td></tr></tfoot></table>`;
   difyModalBody.innerHTML = html;
+  if (showChk) wireDifyItemCheckboxes(items);
 }
 
+// チェックボックスの状態が変わるたびに、フッターの参考合計を再計算する
+function wireDifyItemCheckboxes(items) {
+  const table = difyModalBody.querySelector('table.dify-result-table');
+  if (!table) return;
+  const recompute = () => {
+    const checks = Array.from(table.querySelectorAll('.dify-item-chk'));
+    const checkedItems = items.filter((_, i) => checks[i]?.checked);
+    const labelCell = document.getElementById('difyResultTotalLabel');
+    const totalCell = document.getElementById('difyResultTotalCell');
+    if (!checkedItems.length) {
+      if (labelCell) labelCell.textContent = '選択分合計（参考）';
+      if (totalCell) totalCell.textContent = '-';
+      return;
+    }
+    const sum = sumItemAmounts(checkedItems);
+    if (labelCell) labelCell.textContent = '選択分合計（参考）';
+    if (totalCell) totalCell.textContent = sum > 0 ? `${sum.toLocaleString()}円` : '-';
+  };
+  table.addEventListener('change', e => {
+    if (e.target.classList.contains('dify-item-chk')) recompute();
+  });
+}
+
+// difyTransferBtn（一覧表への転記）が、チェックボックスで選択された部材だけを対象にするための
+// ヘルパー。チェックボックスが無い（items.length<=1）場合はnullを返し、呼び出し元は従来通り
+// items全件・parsed.合計金額ベースの計算にフォールバックする。
+function getDifyCheckedItems(items) {
+  const table = difyModalBody.querySelector('table.dify-result-table');
+  const checks = table ? Array.from(table.querySelectorAll('.dify-item-chk')) : [];
+  if (!checks.length) return null;
+  return items.filter((_, i) => checks[i]?.checked);
+}
+
+// 2026-08-03再修正（タスクA詳細化その2、坂東さん指示②「Dify価格検索の一覧表書き込みを復旧する」）:
+// 列削減（pptxスライド3対応）で参考価格列(.qty-price)自体を廃止したため、以前はこの関数が
+// 常に対象セルを見つけられず機能しなくなっていた（「既知の副作用」として報告済み）。
+// 列を復活させるのではなく、書き込み先を「材質・名称」セル(.qty-group)へのバッジ表示に変更し、
+// 新しい5列構成のまま機能を復旧させた。あわせて、取得した金額をgroupKeyToMeta.priceに保持し、
+// transferToEstimateBtn（見積へ転記）のJSON出力`kakaku`フィールド（従来は常に0固定だった）に
+// 反映されるようにした。
 difyTransferBtn.addEventListener('click', () => {
   if (!_difyLastResult) return;
   const { target, parsed } = _difyLastResult;
   const groupKey = idToGroupKeyMap.get(target.expressId);
   const qtyBodyEl = document.getElementById('qtyBody');
-  const cell = groupKey && qtyBodyEl.querySelector(`.qty-price[data-group="${cssEscape(groupKey)}"]`);
-  if (!cell) { alert('数量一覧に該当行が見つかりませんでした'); return; }
+  const row = groupKey && qtyBodyEl.querySelector(`tr.qty-row[data-group="${cssEscape(groupKey)}"]`);
+  if (!row) { alert('数量一覧に該当行が見つかりませんでした'); return; }
 
   const items = Array.isArray(parsed.items) ? parsed.items : [];
-  const totalAmount = parseYenAmount(parsed?.合計金額);
-  let cellText;
-  if (totalAmount != null) {
-    cellText = `${totalAmount.toLocaleString()}円`;
+  // 2026-08-04追加（2026-08-03版pptxスライド9対応）: items が2件以上ある場合はチェックボックスで
+  // 選択された部材のみを転記対象にする（getDifyCheckedItemsはチェックボックスが無い＝1件以下の
+  // 場合はnullを返すので、その場合は従来通りparsed.合計金額／items全件合算にフォールバックする）。
+  const checkedItems = getDifyCheckedItems(items);
+  let amount = 0, cellText;
+  if (checkedItems != null) {
+    if (!checkedItems.length) { alert('転記する部材を1件以上選択してください'); return; }
+    const sum = sumItemAmounts(checkedItems);
+    amount = sum;
+    cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${checkedItems.length}件)` : '-';
   } else {
-    // 合計金額が非数値（「記載なし」等）の場合は、部材ごとの金額（単価×数量）合算をフォールバックとして使う
-    const sum = sumItemAmounts(items);
-    cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${items.length}件)` : '-';
+    const totalAmount = parseYenAmount(parsed?.合計金額);
+    if (totalAmount != null) {
+      amount = totalAmount;
+      cellText = `${totalAmount.toLocaleString()}円`;
+    } else {
+      // 合計金額が非数値（「記載なし」等）の場合は、部材ごとの金額（単価×数量）合算をフォールバックとして使う
+      const sum = sumItemAmounts(items);
+      amount = sum;
+      cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${items.length}件)` : '-';
+    }
   }
-  cell.textContent = cellText;
-  cell.title = JSON.stringify(items, null, 1);
+
+  const meta = groupKeyToMeta.get(groupKey);
+  if (meta) meta.price = amount;
+
+  const groupCell = row.querySelector('td.qty-group');
+  if (groupCell) {
+    let badge = groupCell.querySelector('.qty-price-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'qty-price-badge';
+      groupCell.appendChild(badge);
+    }
+    badge.textContent = `💰${cellText}`;
+    badge.title = JSON.stringify(items, null, 1);
+  }
   closeDifyModal();
+  showMeasureToast(`Dify価格検索結果（${cellText}）を一覧表に反映しました`);
 });
 
 function cssEscape(s) {
   return String(s).replace(/["\\]/g, '\\$&');
 }
 
+// 2026-08-03修正（タスクA詳細化、坂東さん指示④の実装中に発見したバグ）: 従来&/</>のみ
+// エスケープしており"（ダブルクォート）を escape していなかった。数値配列(data-ids等)を
+// JSON.stringify()してdata属性に埋め込む既存コードは値が数値のみだったため偶然影響が
+// 出ていなかったが、今回`data-names`に材質名称（文字列）の配列をJSON.stringifyして埋め込んだ
+// ところ、JSON表現に含まれる`"`がdata属性自体の区切り引用符と衝突し、属性値が
+// `["`で途切れてしまう不具合が発生した（Playwrightでの実機検証中に発見）。"（&quot;）・
+// '（&#39;）も含めてエスケープするよう修正し、テキスト内容・属性値の両方で安全に使えるようにした
+// （テキスト内容として使われている既存箇所ではブラウザがエンティティを復号して表示するだけなので
+// 見た目への影響は無い）。
 function escHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 // パラメータの値がURL（http/https）そのものであれば、新しいタブで開けるリンクとして描画する。
@@ -1766,6 +3966,10 @@ const ALL_SCAN_TYPES = [
 const HIDE_SCAN_TYPES = [
   ...ALL_SCAN_TYPES, IFCDOOR, IFCPLATE, IFCMEMBER, IFCCOVERING,
   IFCSTAIR, IFCSTAIRFLIGHT, IFCRAILING, IFCBEAM, IFCFOOTING,
+  // IFCSITE（敷地・地盤面）を含めていないと、getAllModelIds()の集計対象から漏れて
+  // 「何か1つでも非表示にする」たびに敷地面が一緒に消える不具合になる
+  // （2026-07-22判明。植栽を非表示にすると床が消える不具合の原因）
+  IFCSITE,
 ];
 const CATEGORY_NAMES = ['壁', 'スラブ', 'メッシュ', '屋根', '柱', 'オブジェクト', 'ランプ', '植栽', '窓'];
 const CATEGORY_PARAMS = {
@@ -1779,14 +3983,77 @@ const CATEGORY_PARAMS = {
   '植栽': ['数量'],
   '窓': ['数量'],
 };
+// 2026-08-04追加（元は showProperties() 内のローカル定数だったものをここへ移動、詳細は
+// showProperties側のコメント参照）。部材情報パネル（右ペイン）の「数量情報」セクションで
+// 表示対象にする項目（分類ごと）。CATEGORY_PARAMSより広い項目を含む（例:壁の「内面壁長さ」
+// 「外面壁長さ」「幅」等はCATEGORY_PARAMSには無いが数量情報欄には表示する）。
+const QTY_ALLOWED_PROPS = {
+  '壁': ['壁中心長さ', '内面壁長さ', '外面壁長さ', '上部表面積(正味)', '高さ', '幅', '表面積'],
+  'スラブ': ['高さ', '平面図外周', '面積', '体積(正味)'],
+  'メッシュ': ['平面図外周', '上部表面積(正味)', '表面積', '体積(正味)'],
+  '屋根': ['表面積', '高さ'],
+  '柱': ['躯体高さ/直径', '最大高さ'],
+  'オブジェクト': ['長さ(A)', '高さ'],
+};
+// 2026-08-04追加（2026-08-03版pptxスライド5「複数選択時の合算は取得可能なすべての数量に対応して
+// ください」対応）: 「取得可能なすべての数量」＝CATEGORY_PARAMS（一覧表の初期代表値・JSON出力用）
+// とQTY_ALLOWED_PROPS（部材情報パネルの表示用）の和集合として定義する。showMultiSelectionSummary
+// （複数選択時のパネル）がこれを使って表示・合算対象の項目を決める。単一選択時（showProperties）は
+// QTY_ALLOWED_PROPSで絞り込んだ項目をそのまま表示する既存仕様のままなので、こちらは変更しない。
+function allQtyParamNames(category) {
+  const base = CATEGORY_PARAMS[category] || [];
+  const extra = QTY_ALLOWED_PROPS[category] || [];
+  return Array.from(new Set([...base, ...extra]));
+}
+// 2026-08-03追加（タスクA対応、坂東さん指示③「一覧表のデフォルト表示を簡素化」）:
+// 一覧表(renderQuantityTable)のデフォルト行は要素ごとに代表数量1つだけに絞る。この優先順位は
+// 従来transferToEstimateBtn内にローカル定義していたPRIMARY_PARAM（suuryo=代表数量の選定基準）を
+// そのまま流用したもの（挙動の一貫性のため1箇所に集約）。ここに無いカテゴリ（オブジェクト/ランプ/
+// 植栽/窓）はCATEGORY_PARAMSが元々1項目のみのため優先順位を持つ必要が無い。
+// 2026-08-03改訂（タスクA詳細化、pptxスライド3再確認）: スライド3が「初期表示の数量は以下の1種類と
+// します: 壁…表面積、スラブ…面積、メッシュ…上部表面積、屋根…表面積」と明記しており、壁の初期優先が
+// 従来の「高さ」のままだったのは誤りだった（スライド3では壁の代表値は面積系＝表面積であるべき）。
+// 壁の優先順位を表面積優先に変更（面積が無い場合のフォールバックは坂東さん指示「これまで通りでよい」
+// に従い、旧・高さ→壁中心長さの順を末尾に残す）。スラブ/メッシュ/屋根はスライド3の指定と元々一致して
+// いたため変更していない（柱はスライド3に記載が無いため既存のフォールバック順のまま）。
+const DEFAULT_PARAM_PRIORITY = {
+  '壁': ['表面積', '高さ', '壁中心長さ'],
+  'スラブ': ['面積'],
+  'メッシュ': ['上部表面積(正味)', '表面積'],
+  '屋根': ['表面積'],
+  '柱': ['躯体高さ/直径', '最大高さ'],
+};
 // 数量は1決め打ち（＝名称でグルーピングし、同名要素の件数を積算する）
 const FIXED_QTY_CATEGORIES = new Set(['オブジェクト', 'ランプ', '植栽', '窓']);
+// 数量一覧に出したくない部材（材質・名称が一致する要素を除外。2026-07-22オーナー指示）
+const EXCLUDED_LABELS = new Set(['CH_KASAGI', 'CH_MEJI', 'リック縁石本体', 'リック縁石目地', 'リックピンコロ本体']);
 const UNIT_MAP = {
   '高さ': 'mm', '壁中心長さ': 'mm', '表面積': 'm²', '平面図外周': 'mm', '面積': 'm²', '上部表面積(正味)': 'm²',
   '躯体高さ/直径': 'mm', '最大高さ': 'mm', '数量': '個', 'フェンス本体枚数': '枚', '枚数': '枚', 'フリー支柱': '本',
   '内面壁長さ': 'mm', '外面壁長さ': 'mm', '幅': 'mm', '体積(正味)': 'm³', '長さ(A)': 'mm',
+  // 2026-08-04追加: 「小口面積」はCATEGORY_PARAMS外の壁専用算出値（幅×高さ、m²済み）。
+  // UNIT_MAPに無いとconvertQtyDisplayUnit()が単位を空文字にしてしまい、一覧表へ転記した際に
+  // 単位欄が空欄になるバグになる（➕一覧表ボタン追加時に発見・対処）。
+  '小口面積': 'm²',
+  // 2026-08-05追加:「塗面積」も小口面積と同じくCATEGORY_PARAMS外の壁専用独自算出値（m²済み）。
+  // UNIT_MAP未登録だと一覧表への転記時に単位欄が空になる（小口面積と同じ理由）。
+  '塗面積': 'm²',
 };
 const INT_PARAMS = new Set(['数量', 'フェンス本体枚数', '枚数', 'フリー支柱']);
+
+// 数量値をUNIT_MAPの生の単位（mm・m²等）から表示用の単位（m・㎡等）に変換する共通ヘルパー
+// （2026-08-03新設）。従来はrenderQuantityTable・transferToEstimateBtnにそれぞれ同じmm→m/m²→㎡
+// 変換処理がコピペされていたが、showMultiSelectionSummary（部材情報パネルの複数選択時サマリ）
+// にはこの変換が漏れており「一覧表側は1.50mと表示されるのに、パネル側は同じ値を1500.00mmと表示する」
+// という表記の不整合があった（タスクA詳細化の作業中に発見）。1箇所に集約し、この3箇所すべてで
+// 共用することで今後同種の漏れが起きないようにした。
+function convertQtyDisplayUnit(paramName, rawValue) {
+  let unit = UNIT_MAP[paramName] || '';
+  let value = rawValue;
+  if (unit === 'mm') { value = value / 1000; unit = 'm'; }
+  else if (unit === 'm²') { unit = '㎡'; }
+  return { value, unit };
+}
 
 // 「壁-004」→「壁」のように末尾の連番を除いた接頭辞を取り出し、対象分類か判定する
 // RIKCADの出力では「ｽﾗﾌﾞ」「ﾒｯｼｭ」等、分類名が半角カナのことがあるためNFKCで正規化する
@@ -1802,18 +4069,86 @@ function detectCategory(name) {
 // （例: 要素IDは「壁-001」なのに要素タイプは「スラブ」等）。
 // ArchiCADProperties「要素タイプ」の方が実際に描かれた作図要素を示す正の情報なので、
 // これが取得できて既知の分類名と一致する場合はそちらを優先し、無ければ要素名から推定する。
+// 2026-08-03追加（pptxスライド7「作図要素の判定」指示）: 作図要素（＝上記「要素タイプ」）が
+// 「オブジェクト」でも、パラメータ名「NM」が存在する要素は「植栽」として扱う
+// （RIKCADの植栽ライブラリ部品が「オブジェクト」＋「NM」パラメータの組み合わせで出力される
+// ケースへの対応。Pset名は限定せず全PropertySet横断で存在チェックする＝値は問わず有無だけ見る）。
+function hasAnyProp(psets, paramName) {
+  for (const pset of psets) {
+    const items = pset.HasProperties || pset.Quantities || [];
+    for (const p of items) {
+      if (namesMatch(fieldValue(p.Name), paramName)) return true;
+    }
+  }
+  return false;
+}
+
 function resolveCategory(elementName, psets) {
   const trueType = readArchicadText(psets, '要素タイプ');
   if (trueType) {
     const normalized = trueType.trim().normalize('NFKC');
+    if (normalized === 'オブジェクト' && hasAnyProp(psets, 'NM')) return '植栽';
     if (CATEGORY_NAMES.includes(normalized)) return normalized;
   }
   return detectCategory(elementName);
 }
 
+// 2026-08-04追加（2026-08-03版pptxスライド8「除外オブジェクトの追加」指示）:
+// 作図要素「オブジェクト」で「栗石」「割石」「景石」「組み石」の文字列を含むもの、作図要素「窓」で
+// 「1枚窓」「2枚窓」の文字列を含むものは、部材情報パネルにも一覧表にも出さない（＝カテゴリ未解決の
+// 要素と同じ扱いにする）。3Dビュー自体（メッシュの表示・選択）はこの判定と無関係のため、
+// この判定によって3D表示が変わることはない（pptx「ただし３Dには表示する」を満たす）。
+// 判定に使う文字列は、名称系プロパティ（要素名・名称・呼称・ライブラリ部品名・材質(全て)）を
+// 横断的に見る。RIKCAD側でどのプロパティに商品名が入るかが要素によって揺れるため、判定漏れを
+// 避けるために複数候補を見る設計にした（読み取りロジックはlabel決定側と同じreadArchicadText）。
+// resolveCategory()自体には組み込まず、呼び出し元（showProperties・showMultiSelectionSummary・
+// buildQuantityTable）が「カテゴリを最終確定した後」に呼ぶ別関数にした。buildQuantityTableは
+// resolveCategory()がnullを返した場合に要素名ベースのnameCategoryへフォールバックする既存ロジック
+// を持っており、resolveCategory側でnullを返す実装にすると「フォールバックで除外前のカテゴリに
+// 戻ってしまう」バグになるため（実装中に発見）。
+const OBJECT_EXCLUDE_KEYWORDS = ['栗石', '割石', '景石', '組み石'];
+const WINDOW_EXCLUDE_KEYWORDS = ['1枚窓', '2枚窓'];
+function isExcludedCategory(category, elementName, psets) {
+  if (category !== 'オブジェクト' && category !== '窓') return false;
+  const keywords = category === 'オブジェクト' ? OBJECT_EXCLUDE_KEYWORDS : WINDOW_EXCLUDE_KEYWORDS;
+  const candidates = [
+    elementName,
+    readArchicadText(psets, '名称'),
+    readArchicadText(psets, '呼称'),
+    readArchicadText(psets, 'ライブラリ部品名'),
+    readArchicadText(psets, '材質(全て)'),
+  ].filter(Boolean);
+  return candidates.some(text => keywords.some(kw => text.includes(kw)));
+}
+
 let idToGroupKeyMap = new Map(); // expressId → "分類||expressId"（行グループの一意キー）
 let groupKeyToRows = new Map();  // 上記キー → <tr>要素の配列
-let groupKeyToMeta = new Map();  // 上記キー → { category, label, ids }
+let groupKeyToMeta = new Map();  // 上記キー → { category, label, ids, params, maker, hikidashi, manual?, manualUnit? }
+// 2026-08-05追加（坂東さん指示「部材情報の『設定』の各行に『+仕様』ボタンを追加し、選択商品の
+// JSONのSIYOUに『パラメータ名：値』で書き込む」対応）: expressId → 追加済み仕様文字列の配列。
+// buildQuantityTable()で一覧表を作り直すたび（＝expressIdが別ファイル由来に変わりうるタイミング）
+// にidToGroupKeyMap等と一緒にリセットする。行の再描画（renderQuantityTable内の部分更新等）では
+// リセットしない＝一覧表の行が増減しても、既に「+仕様」で選んだ内容は保持される設計。
+let elementSiyouMap = new Map();
+// 2026-08-04追加（坂東さん指示、個別転記の挿入位置＝転記元の要素の行の直後、対応）:
+// expressId → その要素に対応する一覧表の<tr>配列（デフォルト行＋個別転記で追加した行、DOM順）。
+// renderQuantityTable()で表を作り直すたびにリセット・再構築し、transcribeDescriptorToQtyTable()の
+// 個別転記パスが「この要素の一覧表上の最後の行」を見つけるために使う。ids.length===1の行のみ
+// 対象（合算行・手動追加行・電卓行はids.length!==1のためここには登録しない）。
+let elementIdToRows = new Map();
+
+// 2026-07-28追加:「合算」機能・手動追加行機能で使う状態。
+// qtyRowMeta: 各行（=1グループ内の1パラメータ）を一意に識別するrowKey（"groupKey||paramName"形式）
+// → 合算に必要な情報。2026-08-03のタスクA詳細化で一覧表側の「🧮合算」ボタンを撤去したため、
+// 現時点ではこのMapへの書き込みのみが残り読み出し元が無い（合算は部材情報パネル側の
+// collectPanelMergeDescriptors()が別途自前でdescriptorを組み立てるため）。将来的に一覧表側の行から
+// 合算情報を引く用途が復活する可能性を考慮し、書き込み自体は残したまま削除していない
+// （現状は実害の無い保持コストのみ）。
+let qtyRowMeta = new Map();
+let manualRowSeq = 0;   // 手動追加行のgroupKey採番用（旧✏️手動追加行ボタンは撤去済みだが、
+// 電卓からの一覧表転記(calcTransferBtn)が同じ採番方式を使い続けているため変数は存続）
+let mergeRowSeq = 0;    // 旧・一覧表側「🧮合算」ボタン専用の採番カウンタ（ボタン撤去に伴い未使用）
+let panelTranscribeSeq = 0; // 部材情報パネル「一覧表転記」で作る行のgroupKey採番用
 
 // プロパティ名の表記ゆれ（例:「ﾌｪﾝｽ本体枚数」のように一部だけ半角カナ）を吸収して比較する
 function namesMatch(actualName, targetName) {
@@ -1856,6 +4191,159 @@ function findPropText(psets, paramName, psetName) {
   return null;
 }
 
+// 分類ごとのCATEGORY_PARAMS値をpsetsから実際に読み取る。一覧表(buildQuantityTable)・
+// 複数選択サマリー(showMultiSelectionSummary)・部材情報パネル(showProperties)の3箇所で
+// 同じロジックを使っていたため2026-07-28に共通化した。
+// 「フェンスオブジェクトに適用」パラメータの値が'T'の場合（作図要素がオブジェクトの時のみ判定）、
+// オブジェクト分類の固定値「数量:1」は出力しない（一覧表側で「フェンス本体枚数」「枚数」のみを
+// 数量として見せたいという2026-07-28オーナー指示。フェンス本体枚数・枚数自体は元々別パラメータとして
+// 存在すれば通常通りreadParamValueで拾われるため、ここでは「数量」だけをスキップすればよい）
+// 2026-08-03変更（pptxスライド7指示）: フェンス判定パラメータ名として「IsFense」も追加対応
+// （従来の「フェンスオブジェクトに適用」に加え、いずれかが'T'ならフェンスとして扱う）
+// 2026-08-04変更（2026-08-03版pptxスライド5対応）: 第3引数paramListを追加。省略時は従来通り
+// CATEGORY_PARAMS[category]を使う（buildQuantityTable等の既存呼び出し元は挙動不変）。
+// showMultiSelectionSummaryはallQtyParamNames(category)（CATEGORY_PARAMSとQTY_ALLOWED_PROPSの
+// 和集合）を渡し、「取得可能なすべての数量」を対象にする。
+function computeCategoryParamValues(category, psets, paramList) {
+  const params = {};
+  if (!category || !CATEGORY_PARAMS[category]) return params;
+  const fixedQty = FIXED_QTY_CATEGORIES.has(category);
+  const fenceFlag = category === 'オブジェクト'
+    ? (readArchicadText(psets, 'フェンスオブジェクトに適用') || readArchicadText(psets, 'IsFense'))
+    : null;
+  const isFenceApplied = fenceFlag != null && String(fenceFlag).trim().normalize('NFKC').toUpperCase() === 'T';
+  // 2026-08-05追加（坂東さん指示）: 従来は「フェンスオブジェクトに適用」/「IsFense」フラグが
+  // 'T'の場合のみ固定「数量:1」をスキップしていたが、このフラグに頼らず「フェンス本体枚数」
+  // または「枚数」のいずれかのパラメータに実値がある場合は常にそちらを数量として優先表示する
+  // よう変更した（フラグが実データで正しく設定されていないケースへの対応）。
+  // 2026-08-05再修正（坂東さん指摘）: 「フェンス本体枚数」のみを見ていたが、「枚数」のみを
+  // 持つオブジェクトも対象。両方持つ場合は「フェンス本体枚数」を優先する必要があるが、
+  // これはCATEGORY_PARAMS['オブジェクト']の並び順（'数量'の次が'フェンス本体枚数'、その次が
+  // '枚数'）により、数量さえスキップすれば下のループでフェンス本体枚数が先にparamsへ入り、
+  // 呼び出し元（buildQuantityTable等）のvisibleParams（CATEGORY_PARAMSの並び順を保ったまま
+  // params内に存在するものだけに絞り込む）が自然にフェンス本体枚数を先頭にするため、
+  // 追加の優先順位ロジックは不要（次のfor文の外側で個別に判定する必要はない）。
+  const hasFenceOrSheetCount = category === 'オブジェクト'
+    && (readParamValue(psets, 'フェンス本体枚数') != null || readParamValue(psets, '枚数') != null);
+  for (const paramName of (paramList || CATEGORY_PARAMS[category])) {
+    if (fixedQty && paramName === '数量') {
+      if (isFenceApplied || hasFenceOrSheetCount) continue;
+      params['数量'] = 1;
+      continue;
+    }
+    const val = readParamValue(psets, paramName);
+    if (val != null) params[paramName] = val;
+  }
+  return params;
+}
+
+// 「合算」機能のルール判定＋合計計算（2026-07-28実装）。
+// 2026-08-03（タスクA詳細化、訂正）: 一覧表側の「🧮 合算」ボタン撤去に伴い、この関数の
+// 呼び出し元（旧mergeQtyBtnハンドラ）は無くなった。坂東さん指示④「転記条件は同一名称かつ
+// 同一単位」の実際の検証は、より単純な専用関数`validateDescriptorForTranscribe()`
+// （showMultiSelectionSummary近く）を新設してそちらで行っている（単位は元々totals集計の
+// キーに含まれ構造上保証されるため、名称の一致だけを見れば足りるため）。この関数自体は
+// 現時点で呼び出し元が無いが、「同一名称・同一項目/単位・引出線名称の例外」という合算ルールの
+// 参照実装として残している（再度一覧表側に合算機能を復活させる際に流用できる）。
+// ルール（オーナー確定、docs/ifc-viewer.md「追記（2026-07-28）」参照）:
+//   1. 同一材料（材質・名称）・同一項目（＝単位を一意に決めるパラメータ名）でなければ合算不可
+//   2. 引出線名称が異なる行同士は合算不可。ただし選択行のうち引出線名称が入っているのが1件のみ
+//      （他は空欄）なら合算可とし、その1件の引出線名称を結果行の名称として採用する
+function computeMergeResult(rowDescriptors) {
+  if (rowDescriptors.length < 2) {
+    return { ok: false, error: '合算するには2件以上の行を選択してください' };
+  }
+  const first = rowDescriptors[0];
+  if (rowDescriptors.some(r => r.label !== first.label || r.category !== first.category)) {
+    return { ok: false, error: '異なる材料が選ばれているため合算できません' };
+  }
+  if (rowDescriptors.some(r => r.paramName !== first.paramName || r.unit !== first.unit)) {
+    return { ok: false, error: '異なる項目・単位が選ばれているため合算できません' };
+  }
+  const hikidashiValues = Array.from(new Set(rowDescriptors.map(r => (r.hikidashi || '').trim()).filter(Boolean)));
+  if (hikidashiValues.length > 1) {
+    return { ok: false, error: '引出線名称が異なる行が含まれているため合算できません' };
+  }
+  const sum = rowDescriptors.reduce((s, r) => s + r.value, 0);
+  const ids = Array.from(new Set(rowDescriptors.flatMap(r => r.ids || [])));
+  return { ok: true, label: first.label, category: first.category, paramName: first.paramName, unit: first.unit, sum, hikidashi: hikidashiValues[0] || '', ids };
+}
+
+// 一覧表(qtyBody)の<tr class="qty-row">に、行クリックでの3D選択連動＋転記チェックの
+// changeハンドラを配線する。renderQuantityTable内の初期描画分と、合算結果行・手動追加行・
+// パネルからの転記行など後から動的に挿入する行の両方から呼べるよう共通化した（2026-07-28）。
+function wireQtyRowInteractions(tr, groupKey) {
+  tr.addEventListener('click', async (ev) => {
+    if (ev.target.closest('input, button')) return;
+    const meta = groupKeyToMeta.get(groupKey);
+    if (!meta || !meta.ids || !meta.ids.length) return; // 手動追加行等、3D実体を持たない行はクリックしても無反応
+    if (ev.shiftKey || ev.ctrlKey || ev.metaKey) {
+      const allSelected = meta.ids.every(id => selectedIds.has(id));
+      if (allSelected) meta.ids.forEach(id => selectedIds.delete(id));
+      else meta.ids.forEach(id => selectedIds.add(id));
+    } else {
+      selectedIds = new Set(meta.ids);
+    }
+    await refreshSelectionUI();
+  });
+  const cb = tr.querySelector('input.qty-select');
+  if (cb) {
+    cb.addEventListener('change', async () => {
+      const meta = groupKeyToMeta.get(groupKey);
+      if (!meta) return;
+      // 2026-08-04追加（坂東さん指示「一覧表で『転記対象』チェックを入れたら、一覧表の選択状態を
+      // 解除する」対応）: 合算に寄与した各要素の行と合算結果の行が同時に「選択中(active)」表示の
+      // ままになるのを防ぐため、チェックを入れた瞬間に一覧表側のactiveハイライトだけを解除する
+      // （`setActiveQtyGroup(null)`は`#qtyBody`の`.active`クラスを外すだけの処理で、3Dハイライト・
+      // 部材情報パネルの選択状態=selectedIdsには触れない。指示が「一覧表の選択状態」に限定されて
+      // いるため、3D/パネル側は意図的に変更していない）。チェックを外した場合は特に指示が無いため
+      // 現状維持（再度activeにはならない。選択操作をやり直せば通常通りactiveになる）。
+      if (cb.checked) setActiveQtyGroup(null);
+
+      // 2026-08-05修正: 合算行(meta.isAggregate===true)は、通常の複数選択ミラー同期とは別の
+      // 非対称挙動にする（坂東さん指示、二重転記防止）。
+      // - 合算行ONにしたとき: 構成要素（meta.idsに含まれる各expressIDを持つ非合算行）は強制OFF
+      // - 合算行OFFにしたとき: 構成要素側は自動ONにしない（何もしない）
+      // 通常の複数選択（3Dでshift選択した複数行の一括チェック）の既存ミラー同期挙動は
+      // isAggregateでない場合のみ通す形で維持する。
+      if (meta.isAggregate) {
+        const targetIds = meta.ids || [];
+        for (const id of targetIds) {
+          if (cb.checked) checkedIds.add(id); else checkedIds.delete(id);
+        }
+        await applyCheckedIds();
+        if (cb.checked) {
+          const targetIdSet = new Set(targetIds);
+          document.querySelectorAll('#qtyBody input.qty-select').forEach(otherCb => {
+            if (otherCb === cb) return;
+            const otherMeta = groupKeyToMeta.get(otherCb.dataset.group);
+            if (otherMeta && !otherMeta.isAggregate && (otherMeta.ids || []).some(id => targetIdSet.has(id))) {
+              otherCb.checked = false;
+            }
+          });
+        }
+        return;
+      }
+
+      const isPartOfMultiSelection = selectedIds.size > 1 && (meta.ids || []).some(id => selectedIds.has(id));
+      const targetIds = isPartOfMultiSelection ? Array.from(selectedIds) : (meta.ids || []);
+      for (const id of targetIds) {
+        if (cb.checked) checkedIds.add(id); else checkedIds.delete(id);
+      }
+      await applyCheckedIds();
+      if (isPartOfMultiSelection) {
+        const targetIdSet = new Set(targetIds);
+        document.querySelectorAll('#qtyBody input.qty-select').forEach(otherCb => {
+          const otherMeta = groupKeyToMeta.get(otherCb.dataset.group);
+          if (otherMeta && (otherMeta.ids || []).some(id => targetIdSet.has(id))) {
+            otherCb.checked = cb.checked;
+          }
+        });
+      }
+    });
+  }
+}
+
 async function buildQuantityTable(modelID) {
   const qtyPanel = document.getElementById('qtyPanel');
   const qtyBody = document.getElementById('qtyBody');
@@ -1867,32 +4355,68 @@ async function buildQuantityTable(modelID) {
   checkedIds.clear();
   await applyCheckedIds();
 
+  // 「一覧表作成」で表を作り直すと、手動追加行・合算結果行は消える仕様（2026-07-28オーナー決定、
+  // 段階導入。永続化・再注入は次回以降のスコープ）。合わせて採番カウンタもリセットする。
   idToGroupKeyMap = new Map();
+  manualRowSeq = 0;
+  mergeRowSeq = 0;
+  // 2026-08-05追加: 「+仕様」で蓄積したexpressId→仕様文字列もここでリセットする
+  // （expressIdは読み込んだIFCファイルに紐づくため、表の作り直し＝別ファイル読込の可能性がある
+  // タイミングで古いファイルのexpressIdに紐づくデータを持ち越さないようにする）。
+  elementSiyouMap = new Map();
   const manager = ifcLoader.ifcManager;
 
   // 1段目: getAllItemsOfType(..., verbose=true)でタイプごとに一括取得し、
   // 要素ごとに個別のgetItemProperties呼び出しをしない（WASM呼び出し回数を約半減）
+  //
+  // 2026-08-04修正（デバッグログ2026-08-04-ifc-list-element-missing.md、坂東さん報告バグ対応）:
+  // 従来はここで`detectCategory(elementName)`（要素名の接頭辞パターンマッチ）が不一致の要素を
+  // その場でtargetsから除外していた（`if (category) targets.push(...)`）。RIKCAD側の命名規則に
+  // 依らない名前（例:「NATEX_G_KB00333_-」のような資材コード風の名前）が付いた要素は、実際には
+  // ArchiCADProperties「要素タイプ」に正しく「壁」等が設定されていても、psetsを取得する前の
+  // この時点で名前だけを見て弾かれ、一覧表に一切出てこないバグになっていた（`福井様.ifc`で
+  // 壁18件中18件・スラブ30件中29件がこのパターンで欠落することを実データで確認、詳細は
+  // デバッグログ参照）。要素タイプ等IFC/ArchiCADプロパティに基づく正の判定は2段目の
+  // `resolveCategory()`が既に持っているため、1段目では対象IFCタイプ（ALL_SCAN_TYPES）に
+  // 該当する要素を名前で選別せず全件targetsに積み、2段目で`resolveCategory()`（要素タイプ優先）
+  // に判定させる。`nameCategory`（旧`category`）は2段目でresolveCategoryが要素タイプを取得
+  // できなかった場合の最終フォールバックとして引き続き使う（`resolveCategory(...) || nameCategory`、
+  // 変更なし）。
   const targets = [];
   for (const t of ALL_SCAN_TYPES) {
     let items = [];
     try { items = await manager.getAllItemsOfType(modelID, t, true); } catch (err) { items = []; }
     for (const props of items) {
+      if (hiddenIds.has(props.expressID)) continue; // 3D側で非表示中の要素は一覧表からも除外する
       const elementName = fieldValue(props.Name) || '';
-      const category = detectCategory(elementName);
-      if (category) targets.push({ id: props.expressID, elementName, category });
+      const nameCategory = detectCategory(elementName); // 2段目のフォールバック専用（除外判定には使わない）
+      // 2026-08-03追加（タスクB対応）: GlobalId（IFCのGUID）は再エクスポートしても要素ごとに
+      // 維持される想定のため、拾い出し状態の永続化キーに使う（expressIDはRIKCAD側の再編集で
+      // 番号がずれる可能性がある、質問3の結論に基づく）。getAllItemsOfType(verbose:true)の
+      // 戻り値にGlobalIdが含まれているため、ここで一度だけ取得し以後使い回す
+      // （個別のgetItemProperties呼び出しを追加しない＝WASM呼び出し削減の方針を維持）。
+      const globalId = fieldValue(props.GlobalId) || '';
+      targets.push({ id: props.expressID, elementName, category: nameCategory, globalId });
     }
   }
 
   // 2段目: 対象要素（対象9分類のみ）だけPropertySetsを並列取得して材質・名称と数量パラメータを組み立てる
   // （フェンス本体枚数等のライブラリ部品パラメータもインスタンス側Psetに直接ついているため
   //   タイプ側の追加取得は不要と実データで確認済み。呼び出し削減のため行わない）
-  const rows = await Promise.all(targets.map(async ({ id, elementName, category: nameCategory }) => {
+  const rows = await Promise.all(targets.map(async ({ id, elementName, category: nameCategory, globalId }) => {
     let psets = [];
     try { psets = await manager.getPropertySets(modelID, id, true); } catch (err) { psets = []; }
 
     // 要素名の接頭辞（1段目の粗い判定）と実際のArchiCADProperties「要素タイプ」が食い違うことがあるため、
     // psetsが取れたこの時点で正の分類に上書きする（resolveCategoryは要素タイプが無ければ元の判定にフォールバック）
     const category = resolveCategory(elementName, psets) || nameCategory;
+
+    // 2026-08-04追加（2026-08-03版pptxスライド8「除外オブジェクトの追加」指示）: 除外対象は
+    // category:nullを返して後段のループ（下記rows処理）で読み飛ばす（categoryRowsはCATEGORY_NAMES
+    // のキーしか持たないため、nullのまま.push()すると例外になる点に注意）。
+    if (isExcludedCategory(category, elementName, psets)) {
+      return { id, category: null, label: '', params: {}, maker: '', hikidashi: '', globalId };
+    }
 
     const fixedQty = FIXED_QTY_CATEGORIES.has(category);
     // 壁・スラブ・メッシュ・屋根・柱: ArchiCADProperties「材質(全て)」
@@ -1908,23 +4432,28 @@ async function buildQuantityTable(modelID) {
       label = readArchicadText(psets, '材質(全て)') || '(材質未設定)';
     }
 
-    const params = {};
-    for (const paramName of CATEGORY_PARAMS[category]) {
-      if (fixedQty && paramName === '数量') {
-        params['数量'] = 1; // オブジェクト・ランプ・窓は要素1件＝数量1決め打ち
-        continue;
-      }
-      const val = readParamValue(psets, paramName);
-      if (val != null) params[paramName] = val;
-    }
+    const params = computeCategoryParamValues(category, psets);
 
-    return { id, category, label, params };
+    // RIKCAD_PSET（右パネルには既に優先表示済み）の「メーカー名」「引出線名称」を一覧表用に読み取る。
+    // readArchicadTextはPset名を決め打ちしないため、RIKCAD_PSETが無い/該当プロパティが無い要素では
+    // 単にnullが返り、空文字として扱う（2026-07-28オーナー決定: エラーにせず空表示）
+    const maker = readArchicadText(psets, 'メーカー名') || '';
+    const hikidashi = readArchicadText(psets, '引出線名称') || '';
+
+    return { id, category, label, params, maker, hikidashi, globalId };
   }));
 
   const categoryRows = new Map(CATEGORY_NAMES.map(n => [n, []])); // 分類 → [{ id, label, params }]（要素1件＝1エントリ）
+  // 2026-08-03追加（タスクB対応）: GlobalId→行データの逆引きマップ。restoreQtyState()が、
+  // デフォルト行に選ばれなかった数量（前回セッションで部材情報パネルから積み上げた分）を
+  // 再構築する際、当該要素の全パラメータ(params)を引き直すために使う。
+  const globalIdToRowData = new Map();
   for (const r of rows) {
-    categoryRows.get(r.category).push({ id: r.id, label: r.label, params: r.params });
+    if (!r.category) continue; // 2026-08-04追加: 除外オブジェクト（栗石等）・除外窓（1枚窓等）はcategory:nullで来る
+    if (EXCLUDED_LABELS.has(r.label.trim())) continue; // 数量一覧から除外する部材
+    categoryRows.get(r.category).push({ id: r.id, label: r.label, params: r.params, maker: r.maker, hikidashi: r.hikidashi, globalId: r.globalId });
     idToGroupKeyMap.set(r.id, `${r.category}||${r.id}`);
+    if (r.globalId) globalIdToRowData.set(r.globalId, r);
   }
 
   const categoryResults = CATEGORY_NAMES.map(name => ({
@@ -1934,8 +4463,98 @@ async function buildQuantityTable(modelID) {
 
   renderQuantityTable(categoryResults);
   console.timeEnd('[数量一覧] 集計時間');
+
+  // 2026-08-03追加（タスクB対応）: 一覧表の描画が終わった時点で、Supabaseに永続化済みの
+  // 拾い出し状態があれば復元する（同じ物件・同じIFCファイル名の組み合わせのみ対象）。
+  // ?url=パラメータからproperty_idが取れない場合（ローカルファイルのドラッグ&ドロップ等、
+  // Supabase経由でない使い方）は何もせず静かにスキップする。
+  const propertyIdForRestore = getPropertyIdFromUrl();
+  if (propertyIdForRestore && _ifcFileName) {
+    try {
+      await restoreQtyState(propertyIdForRestore, _ifcFileName, globalIdToRowData);
+    } catch (err) {
+      console.warn('[タスクB] 拾い出し状態の復元中にエラーが発生しました', err);
+    }
+  }
 }
 
+// 2026-08-03追加（タスクB対応）: buildQuantityTable()完了後に呼び出し、ifc_quantity_stateに
+// 永続化された拾い出し状態を一覧表に復元する。
+// - 復元対象は checked:true の行のみ（未チェックのまま保存された行は無い想定だが、念のためフィルタ）
+// - デフォルト行（renderQuantityTableが選んだ代表数量）と一致する行は、既存のチェックボックスに
+//   チェックを入れるだけでよい
+// - デフォルトと異なる数量（前回セッションで部材情報パネルから積み上げた行）は、GlobalIdで
+//   当該要素の全パラメータ(globalIdToRowData)を引き直し、transcribeDescriptorToQtyTable()で
+//   一覧表に再構築してからチェックを入れる（部材情報パネルからの通常の積み上げ操作と同じ経路）
+// - GlobalIdを持たない行（手動追加行・合算結果行）や、対応する要素がこのIFCに見つからない行
+//   （RIKCAD側で削除された・番号体系が変わった等）は復元できないため無条件でスキップする
+//   （復元できないだけで、Supabase側の永続化データ自体は削除・変更しない）
+async function restoreQtyState(propertyId, ifcFileName, globalIdToRowData) {
+  let saved = [];
+  try {
+    const res = await fetch(`${SB}/ifc_quantity_state?property_id=eq.${encodeURIComponent(propertyId)}&ifc_file_name=eq.${encodeURIComponent(ifcFileName)}&select=*`, { headers: H });
+    if (!res.ok) return;
+    saved = await res.json();
+  } catch (err) {
+    console.warn('[タスクB] 拾い出し状態の取得に失敗しました', err);
+    return;
+  }
+  if (!Array.isArray(saved) || !saved.length) return;
+
+  const qtyBody = document.getElementById('qtyBody');
+  const table = qtyBody.querySelector('table.qty-table');
+  if (!table) return;
+
+  let restoredCount = 0, skippedCount = 0;
+  for (const row of saved) {
+    if (!row.checked) continue;
+    const gid = row.global_id || '';
+    if (!gid) { skippedCount++; continue; } // 手動追加行・合算結果行はGlobalIdが無いため復元不可
+
+    const rData = globalIdToRowData.get(gid);
+    if (!rData || rData.params[row.param_name] == null) { skippedCount++; continue; } // 要素が見つからない/該当パラメータが無い
+
+    const defaultGroupKey = `${row.category}||${rData.id}`;
+    const defaultMeta = groupKeyToMeta.get(defaultGroupKey);
+    let targetGroupKey;
+    if (defaultMeta && Object.keys(defaultMeta.params || {})[0] === row.param_name) {
+      // デフォルト行がちょうど同じ数量を代表値として選んでいる場合はチェックを入れるだけでよい
+      targetGroupKey = defaultGroupKey;
+    } else {
+      // デフォルトと異なる数量は、部材情報パネルからの積み上げと同じ経路で行を再構築する。
+      // 2026-08-03再修正: transcribeDescriptorToQtyTable()は「dは生の値（UNIT_MAP準拠）を渡す」
+      // という契約に統一した（表示用の変換は関数内部で行う）。rData.params[...]はそもそも
+      // convertQtyDisplayUnit未適用の生値（例:高さなら生のmm）なので、そのまま渡せばよい
+      // （かつて一時的にconvertQtyDisplayUnit()を呼んで変換してから渡していたが、それだと
+      // 関数内部でさらに変換され二重変換になってしまうため、変換呼び出しは削除した）。
+      const d = { category: row.category, label: rData.label, paramName: row.param_name, unit: UNIT_MAP[row.param_name] || '', value: rData.params[row.param_name], hikidashi: rData.hikidashi || '', ids: [rData.id], globalId: gid };
+      const { tr: newTr } = transcribeDescriptorToQtyTable(table, d);
+      targetGroupKey = newTr.dataset.group;
+    }
+    const cb = qtyBody.querySelector(`tr[data-group="${cssEscape(targetGroupKey)}"] input.qty-select`);
+    if (cb) {
+      cb.checked = true;
+      const targetMeta = groupKeyToMeta.get(targetGroupKey);
+      (targetMeta?.ids || []).forEach(id => checkedIds.add(id));
+      restoredCount++;
+    }
+  }
+  if (restoredCount) await applyCheckedIds();
+  if (restoredCount || skippedCount) {
+    console.log(`[タスクB] 拾い出し状態を復元しました（復元${restoredCount}件${skippedCount ? `、復元不可${skippedCount}件` : ''}）`);
+    showMeasureToast(`前回の拾い出し状態を復元しました（${restoredCount}件）`);
+  }
+}
+
+// 2026-08-03（タスクA再設計、坂東さん指示②③）: 従来は1要素(材質名称)につきCATEGORY_PARAMSの
+// 全パラメータをrowspanでまとめ、チェックボックス（転記対象）も要素単位で1個だけだった。
+// 今回、デフォルト表示は「要素ごとに代表数量1つ」まで簡素化し、チェックボックスも1行=1数量の
+// 粒度に変更した（rowspanでの共有をやめ、行ごとに独立させた）。同じ材質で他の数量パラメータ
+// （例:壁の「壁中心長さ」）も個別に転記対象にしたい場合は、3Dビューアで該当要素を選択し、
+// 部材情報パネル（showProperties()に追加した数量トグル、別レイヤー）から一覧表に積み上げていく
+// （既存のpanelTranscribeSeq／transcribeDescriptorToQtyTable機構をそのまま利用、行は追加のみで
+// 一覧表本体の再構築とは独立している）。代表数量の選定はtransferToEstimateBtnのsuuryo選定と
+// 同じDEFAULT_PARAM_PRIORITYを使い、一貫性を保つ。
 function renderQuantityTable(categoryResults) {
   const qtyBody = document.getElementById('qtyBody');
 
@@ -1944,7 +4563,9 @@ function renderQuantityTable(categoryResults) {
     for (const r of rows) {
       const visibleParams = def.params.filter(p => r.params[p] != null);
       if (!visibleParams.length) continue;
-      rowList.push({ id: r.id, label: r.label, visibleParams, params: r.params });
+      const priority = DEFAULT_PARAM_PRIORITY[def.name] || [];
+      const defaultParam = priority.find(p => visibleParams.includes(p)) || visibleParams[0];
+      rowList.push({ id: r.id, label: r.label, defaultParam, params: r.params, maker: r.maker, hikidashi: r.hikidashi, globalId: r.globalId });
     }
     rowList.sort((a, b) => a.label.localeCompare(b.label, 'ja')); // 分類内は「材質・名称」の名称順
     return { def, rowList };
@@ -1955,45 +4576,52 @@ function renderQuantityTable(categoryResults) {
     return;
   }
 
+  // 2026-08-03改訂（タスクA詳細化、pptxスライド3「一覧表の初期表示は材質・名称と数量のみ」＋
+  // 「合算のチェックはなくしてください」指示）: 合算(qty-merge)・分類(qty-cat)・参考価格(qty-price)・
+  // メーカー名(qty-maker)・引出線名称(qty-hikidashi)の5列を表示から削除し、
+  // [チェックボックス(転記用)/材質・名称/項目/数量/単位]の5列のみにした。
+  // 削除した列の元データ（category/maker/hikidashi）はgroupKeyToMeta/qtyRowMeta・JSON出力
+  // （transferToEstimateBtn）では引き続き保持・使用する（表示だけを簡素化し、データモデルは
+  // 変更していない）。分類ごとの区切りが無いと同名以外の材質が並んだ際に見づらくなるため、
+  // 列ではなく非interactiveな区切り行（.qty-cat-divider）で分類名を表示する形にした
+  // （pptxの「材質・名称と数量のみ」という指示は表としての列構成についてのものと解釈し、
+  // 可読性のための軽量な区切り表示は妨げないと判断。判断根拠はsecretary/notes参照）。
   let html = '<table class="qty-table"><thead><tr>'
-    + '<th style="width:26px;"></th><th>分類</th><th>材質・名称</th><th>項目</th><th>数量</th><th>単位</th><th>参考価格</th>'
+    + '<th style="width:26px;"></th><th>材質・名称</th><th>項目</th><th>数量</th><th>単位</th>'
     + '</tr></thead><tbody>';
 
   groupKeyToMeta = new Map();
+  qtyRowMeta = new Map();
 
   for (const { def, rowList } of prepared) {
-    const catRowCount = rowList.reduce((sum, r) => sum + r.visibleParams.length, 0);
-    let catFirst = true;
+    html += `<tr class="qty-cat-divider"><td colspan="5">${escHtml(def.name)}</td></tr>`;
 
     for (const r of rowList) {
       const groupKey = `${def.name}||${r.id}`;
-      groupKeyToMeta.set(groupKey, { category: def.name, label: r.label, ids: [r.id], params: r.params });
-      let rowFirst = true;
+      const paramName = r.defaultParam;
+      const value = r.params[paramName]; // 生の値（UNIT_MAP準拠、例:高さなら生のmm）
+      const unit = UNIT_MAP[paramName] || '';
+      // 2026-08-03バグ修正: 表示だけconvertQtyDisplayUnit()でmm→m等に変換する（従来は生の値の
+      // まま表示しており、例えば柱の「躯体高さ/直径」が代表値の場合に生のmm値が出てしまう
+      // 潜在的な不整合があった。現状の全カテゴリの既定優先順位はたまたまm²系のため症状が
+      // 表面化していなかったが、パネル側転記行との表示規約を統一するため合わせて修正した）。
+      // meta.params/qtyRowMetaには引き続き生の値を保存する（JSON出力側の変換ロジックとの
+      // 二重変換を防ぐため。詳細はtranscribeDescriptorToQtyTableのコメント参照）。
+      const disp = convertQtyDisplayUnit(paramName, value);
+      const valueText = INT_PARAMS.has(paramName) ? String(Math.round(disp.value)) : disp.value.toFixed(2);
+      const rowKey = `${groupKey}||${paramName}`;
 
-      for (const paramName of r.visibleParams) {
-        const value = r.params[paramName];
-        const unit = UNIT_MAP[paramName] || '';
-        const valueText = INT_PARAMS.has(paramName) ? String(Math.round(value)) : value.toFixed(2);
+      // meta.paramsは代表数量1件のみ保持する（転記チェック対象の粒度を「数量ごと」にするため）。
+      // globalIdはタスクB（拾い出し状態の永続化）の差分キーに使う。category/maker/hikidashiは
+      // 表示列からは無くなったがJSON出力（transferToEstimateBtn）で引き続き使うため保持する。
+      groupKeyToMeta.set(groupKey, { category: def.name, label: r.label, ids: [r.id], params: { [paramName]: value }, maker: r.maker, hikidashi: r.hikidashi, globalId: r.globalId });
+      qtyRowMeta.set(rowKey, { label: r.label, category: def.name, paramName, unit, value, hikidashi: r.hikidashi, ids: [r.id], globalId: r.globalId });
 
-        const isFirstRow = rowFirst;
-        html += `<tr class="qty-row" data-group="${escHtml(groupKey)}">`;
-        if (rowFirst) {
-          html += `<td class="qty-check" rowspan="${r.visibleParams.length}"><input type="checkbox" class="qty-select" data-group="${escHtml(groupKey)}" onclick="event.stopPropagation()"></td>`;
-        }
-        if (catFirst) {
-          html += `<td class="qty-cat" rowspan="${catRowCount}">${escHtml(def.name)}</td>`;
-          catFirst = false;
-        }
-        if (rowFirst) {
-          html += `<td class="qty-group" rowspan="${r.visibleParams.length}">${escHtml(r.label)}</td>`;
-          rowFirst = false;
-        }
-        html += `<td class="qty-param">${escHtml(paramName)}</td><td class="qty-value">${valueText}</td><td class="qty-unit">${unit}</td>`;
-        if (isFirstRow) {
-          html += `<td class="qty-price" rowspan="${r.visibleParams.length}" data-group="${escHtml(groupKey)}">-</td>`;
-        }
-        html += '</tr>';
-      }
+      html += `<tr class="qty-row" data-group="${escHtml(groupKey)}">`;
+      html += `<td class="qty-check"><input type="checkbox" class="qty-select" data-group="${escHtml(groupKey)}" onclick="event.stopPropagation()"></td>`;
+      html += `<td class="qty-group">${escHtml(r.label)}</td>`;
+      html += `<td class="qty-param">${escHtml(paramName)}</td><td class="qty-value">${valueText}</td><td class="qty-unit">${disp.unit}</td>`;
+      html += '</tr>';
     }
   }
 
@@ -2001,48 +4629,20 @@ function renderQuantityTable(categoryResults) {
   qtyBody.innerHTML = html;
 
   groupKeyToRows = new Map();
+  // 2026-08-04追加: 表を作り直すたびにelementIdToRowsもリセットして再構築する
+  // （個別転記の挿入位置判定用、transcribeDescriptorToQtyTableのコメント参照）
+  elementIdToRows = new Map();
   qtyBody.querySelectorAll('tr.qty-row').forEach(tr => {
     const key = tr.dataset.group;
     if (!groupKeyToRows.has(key)) groupKeyToRows.set(key, []);
     groupKeyToRows.get(key).push(tr);
-    tr.addEventListener('click', async (ev) => {
-      const meta = groupKeyToMeta.get(key);
-      if (!meta) return;
-      if (ev.shiftKey || ev.ctrlKey || ev.metaKey) {
-        // Shift/Ctrlクリックは3Dビューア側と同じく複数選択への追加/解除にする
-        const allSelected = meta.ids.every(id => selectedIds.has(id));
-        if (allSelected) meta.ids.forEach(id => selectedIds.delete(id));
-        else meta.ids.forEach(id => selectedIds.add(id));
-      } else {
-        selectedIds = new Set(meta.ids);
-      }
-      await refreshSelectionUI();
-    });
-  });
-
-  // チェック（拾い出しチェック用）: ONでIFC側を黄色に、OFFで色を外す（クリック選択の色とは独立）
-  // 3Dビューアで複数選択中（Shift+クリック）にそのうちの1行をチェックした場合は、
-  // 選択している要素すべてにチェックを反映する
-  qtyBody.querySelectorAll('input.qty-select').forEach(cb => {
-    cb.addEventListener('change', async () => {
-      const meta = groupKeyToMeta.get(cb.dataset.group);
-      if (!meta) return;
-      const isPartOfMultiSelection = selectedIds.size > 1 && meta.ids.some(id => selectedIds.has(id));
-      const targetIds = isPartOfMultiSelection ? Array.from(selectedIds) : meta.ids;
-      for (const id of targetIds) {
-        if (cb.checked) checkedIds.add(id); else checkedIds.delete(id);
-      }
-      await applyCheckedIds();
-      if (isPartOfMultiSelection) {
-        const targetIdSet = new Set(targetIds);
-        qtyBody.querySelectorAll('input.qty-select').forEach(otherCb => {
-          const otherMeta = groupKeyToMeta.get(otherCb.dataset.group);
-          if (otherMeta && otherMeta.ids.some(id => targetIdSet.has(id))) {
-            otherCb.checked = cb.checked;
-          }
-        });
-      }
-    });
+    wireQtyRowInteractions(tr, key);
+    const meta = groupKeyToMeta.get(key);
+    if (meta && meta.ids && meta.ids.length === 1) {
+      const elId = meta.ids[0];
+      if (!elementIdToRows.has(elId)) elementIdToRows.set(elId, []);
+      elementIdToRows.get(elId).push(tr);
+    }
   });
 }
 
@@ -2077,7 +4677,45 @@ function setActiveQtyGroups(groupKeys) {
     rows.forEach(tr => tr.classList.add('active'));
     if (!firstRow) firstRow = rows[0];
   }
-  if (firstRow) firstRow.scrollIntoView({ block: 'nearest' });
+  // 2026-08-05修正（坂東さん指摘: 3D選択時にハイライトは当たるがスクロールされない）:
+  // 従来は`{block:'nearest'}`のみで、対象行が僅かでもビューポート内と判定されると
+  // スクロール自体が発生しなかったり、直前のパネル開閉（display切替・高さ変化）で
+  // レイアウトが確定する前に呼ばれてスクロール量の計算がずれるケースがあった。
+  // requestAnimationFrameでレイアウト確定後まで1フレーム遅らせ、block:'center'で
+  // 「僅かに視界に入っていれば動かさない」ではなく必ず視認しやすい位置まで動かすようにした。
+  if (firstRow) {
+    requestAnimationFrame(() => firstRow.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  }
+}
+
+// 2026-08-04追加（坂東さん指示「一覧表で合算行を選択したら、合算に関わった要素の行も一覧表内で
+// ハイライト・選択されるようにする」対応）: `refreshSelectionUI()`の複数選択分岐から呼ばれる。
+// `selectedIdsSet`（現在選択中のexpressID集合。3Dのshift選択、または一覧表の合算行クリックの
+// どちらでもここに来る）に対し、一覧表の各行の`meta.ids`が「全てselectedIdsSetに含まれる」行を
+// アクティブ表示にする。この「部分集合」判定により、以下を1つのロジックで両立できる:
+// - 各要素の一覧表上の行（デフォルト行＋個別転記で積み上げた行、＝elementIdToRowsで追跡している
+//   ものと同じ集合。meta.idsが単一要素のIDのみの行は常に条件を満たす）
+// - 選択中の要素たちだけで構成されている合算行自身（meta.idsが複数件でも、その全件が選択中で
+//   あれば含める。＝一覧表で合算行をクリックした直後は、selectedIds＝その合算行のmeta.idsそのもの
+//   になるため、クリックした合算行自身も必ずアクティブになる）
+// 従来の`setActiveQtyGroups`（`idToGroupKeyMap`のデフォルト行1件のみが対象）は単一選択・未選択の
+// 分岐（`setActiveQtyGroup`経由）でそのまま使い続けており、この関数は複数選択の分岐専用。
+function setActiveQtyRowsForSelection(selectedIdsSet) {
+  document.querySelectorAll('#qtyBody tr.qty-row.active').forEach(tr => tr.classList.remove('active'));
+  if (!selectedIdsSet || !selectedIdsSet.size) return;
+  let firstRow = null;
+  document.querySelectorAll('#qtyBody tr.qty-row').forEach(tr => {
+    const meta = groupKeyToMeta.get(tr.dataset.group);
+    if (!meta || !meta.ids || !meta.ids.length) return; // 手動追加行・電卓行等（3D実体を持たない）は対象外
+    if (meta.ids.every(id => selectedIdsSet.has(id))) {
+      tr.classList.add('active');
+      if (!firstRow) firstRow = tr;
+    }
+  });
+  // 2026-08-05修正: setActiveQtyGroups側と同じ理由で、確実に視認できる位置までスクロールする
+  if (firstRow) {
+    requestAnimationFrame(() => firstRow.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  }
 }
 
 // ── PDF重ね表示 ──────────────────────────────────────────
@@ -2189,7 +4827,7 @@ function updatePdfPageLabel() {
 pdfEditToggle.addEventListener('click', () => {
   pdfEditMode = !pdfEditMode;
   controls.enabled = !pdfEditMode; // ドラッグがカメラ回転と競合しないようにする
-  pdfEditToggle.textContent = `🖐 位置調整モード: ${pdfEditMode ? 'ON' : 'OFF'}`;
+  pdfEditToggle.textContent = '🖐 位置調整モード';
   pdfEditToggle.classList.toggle('active', pdfEditMode);
 });
 
@@ -2671,7 +5309,7 @@ function removePdf() {
   pdfVisibleToggle.checked = true;
   pdfEditMode = false;
   controls.enabled = true;
-  pdfEditToggle.textContent = '🖐 位置調整モード: OFF';
+  pdfEditToggle.textContent = '🖐 位置調整モード';
   pdfEditToggle.classList.remove('active');
   pdfPanel.classList.remove('show');
   pdfLoadBtn.textContent = '📄 図面を重ねる';
@@ -2723,6 +5361,16 @@ async function applyHiddenIds() {
   showAllBtn.style.display = '';
 }
 
+// 一覧表パネルが開いている間は「再クリックで閉じるだけ・作り直さない」仕様のため、
+// 非表示状態が変わった時にパネルを開いたままにしていると内容が古いままになる。
+// 非表示操作のたびにこれを呼び、開いていれば作り直して常に3D表示と一致させる
+async function refreshQtyTableIfOpen() {
+  if (!currentModel) return;
+  if (document.getElementById('qtyPanel').classList.contains('show')) {
+    await buildQuantityTable(currentModel.modelID);
+  }
+}
+
 showAllBtn.addEventListener('click', async () => {
   hiddenIds.clear();
   plantsHidden = false;
@@ -2731,6 +5379,7 @@ showAllBtn.addEventListener('click', async () => {
   hidePlantsToggle.classList.remove('active');
   await applyHiddenIds();
   clearSelection();
+  await refreshQtyTableIfOpen();
 });
 
 // 名称接頭辞ベースの分類（detectCategory）が指定分類に一致する要素のexpressIDを集める
@@ -2765,6 +5414,7 @@ hidePlantsToggle.addEventListener('click', async () => {
   }
   await applyHiddenIds();
   clearSelection();
+  await refreshQtyTableIfOpen();
 });
 
 // ── 距離計測 ─────────────────────────────────────────────
@@ -2815,24 +5465,24 @@ measureToggle.addEventListener('click', () => {
   measureMode = !measureMode;
   if (measureMode && areaMeasureMode) {
     areaMeasureMode = false;
-    areaMeasureToggle.textContent = '🟩 面積計測: OFF';
+    areaMeasureToggle.textContent = '🟩 面積計測';
     areaMeasureToggle.classList.remove('active');
     clearAreaMeasurement();
   }
   if (measureMode && lineMeasureMode) {
     lineMeasureMode = false;
-    lineMeasureToggle.textContent = '📐 線計測: OFF';
+    lineMeasureToggle.textContent = '📐 線計測';
     lineMeasureToggle.classList.remove('active');
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
   if (measureMode && faceMeasureMode) {
     faceMeasureMode = false;
-    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.textContent = '⬜ 面選択計測';
     faceMeasureToggle.classList.remove('active');
     clearFaceMeasurement();
   }
-  measureToggle.textContent = `📏 距離計測: ${measureMode ? 'ON' : 'OFF'}`;
+  measureToggle.textContent = '📏 距離計測';
   measureToggle.classList.toggle('active', measureMode);
   if (!measureMode) clearMeasurement();
 });
@@ -2870,7 +5520,7 @@ function addMeasurePoint(point) {
     label.position.y += 0.15;
     scene.add(label);
     measureObjects.push(label);
-    registerMeasureLabel(label, dist);
+    registerMeasureLabel(label, dist, 'm');
     copyMeasureResult(distText, dist.toFixed(3));
   }
 }
@@ -3000,7 +5650,7 @@ function handleLineMeasureClick(e) {
   label.position.y += 0.15;
   scene.add(label);
   measureObjects.push(label);
-  registerMeasureLabel(label, dist);
+  registerMeasureLabel(label, dist, 'm');
 
   // Shiftキーで複数の辺を測った場合は、これまでの長さと合算してコピー・トースト表示する
   lineMeasureEntries.push(dist);
@@ -3015,16 +5665,16 @@ function handleLineMeasureClick(e) {
 lineMeasureToggle.addEventListener('click', () => {
   lineMeasureMode = !lineMeasureMode;
   if (lineMeasureMode) {
-    if (measureMode) { measureMode = false; measureToggle.textContent = '📏 距離計測: OFF'; measureToggle.classList.remove('active'); clearMeasurement(); }
-    if (areaMeasureMode) { areaMeasureMode = false; areaMeasureToggle.textContent = '🟩 面積計測: OFF'; areaMeasureToggle.classList.remove('active'); clearAreaMeasurement(); }
-    if (faceMeasureMode) { faceMeasureMode = false; faceMeasureToggle.textContent = '⬜ 面選択計測: OFF'; faceMeasureToggle.classList.remove('active'); clearFaceMeasurement(); }
+    if (measureMode) { measureMode = false; measureToggle.textContent = '📏 距離計測'; measureToggle.classList.remove('active'); clearMeasurement(); }
+    if (areaMeasureMode) { areaMeasureMode = false; areaMeasureToggle.textContent = '🟩 面積計測'; areaMeasureToggle.classList.remove('active'); clearAreaMeasurement(); }
+    if (faceMeasureMode) { faceMeasureMode = false; faceMeasureToggle.textContent = '⬜ 面選択計測'; faceMeasureToggle.classList.remove('active'); clearFaceMeasurement(); }
     if (!modelEdgeSegments && currentModel) modelEdgeSegments = buildModelEdgeSegments(currentModel);
     canvas.style.cursor = 'crosshair';
   } else {
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
-  lineMeasureToggle.textContent = `📐 線計測: ${lineMeasureMode ? 'ON' : 'OFF'}`;
+  lineMeasureToggle.textContent = '📐 線計測';
   lineMeasureToggle.classList.toggle('active', lineMeasureMode);
   if (!lineMeasureMode) clearMeasurement();
 });
@@ -3047,24 +5697,24 @@ areaMeasureToggle.addEventListener('click', () => {
   areaMeasureMode = !areaMeasureMode;
   if (areaMeasureMode && measureMode) {
     measureMode = false;
-    measureToggle.textContent = '📏 距離計測: OFF';
+    measureToggle.textContent = '📏 距離計測';
     measureToggle.classList.remove('active');
     clearMeasurement();
   }
   if (areaMeasureMode && lineMeasureMode) {
     lineMeasureMode = false;
-    lineMeasureToggle.textContent = '📐 線計測: OFF';
+    lineMeasureToggle.textContent = '📐 線計測';
     lineMeasureToggle.classList.remove('active');
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
   if (areaMeasureMode && faceMeasureMode) {
     faceMeasureMode = false;
-    faceMeasureToggle.textContent = '⬜ 面選択計測: OFF';
+    faceMeasureToggle.textContent = '⬜ 面選択計測';
     faceMeasureToggle.classList.remove('active');
     clearFaceMeasurement();
   }
-  areaMeasureToggle.textContent = `🟩 面積計測: ${areaMeasureMode ? 'ON' : 'OFF'}`;
+  areaMeasureToggle.textContent = '🟩 面積計測';
   areaMeasureToggle.classList.toggle('active', areaMeasureMode);
   if (!areaMeasureMode) clearAreaMeasurement();
 });
@@ -3081,7 +5731,8 @@ function handleAreaMeasureClick(e) {
     }
   }
 
-  const result = computeSnapCandidate(e);
+  // 2026-08-05追記: 🟩面積計測は拡張スナップ（隣接要素の頂点も候補にする）を使う
+  const result = computeSnapCandidateWide(e);
   if (!result) return;
 
   if (areaPoints.length >= 3) {
@@ -3146,7 +5797,7 @@ function closeAreaPolygon() {
   label.position.y += 0.15;
   scene.add(label);
   areaObjects.push(label);
-  registerMeasureLabel(label, area);
+  registerMeasureLabel(label, area, 'm²');
 
   // Shiftキーで複数のポリゴンを確定した場合は、これまでの面積と合算してコピー・トースト表示する
   areaMeasureEntries.push(area);
@@ -3283,8 +5934,10 @@ function buildFaceAdjacency(geometry) {
 
 // クリックした三角形(object, faceIndex)を起点に、連結する同一平面の三角形群をBFSで集めて
 // ワールド座標での合計面積と、ハイライト表示用の三角形一覧を返す
-function collectFaceRegion(object, faceIndex) {
-  const geometry = object.geometry;
+// geometry単体に対してBFSで同一平面の三角形群を集め、面積・ハイライト用頂点を返す。
+// matrixWorldを渡した座標系で面積計算する（衝突判定面積計測ではCSG演算結果のgeometryに対して
+// 直接呼ぶため、object.geometryを前提にしないgeometry単位の実装として切り出している）
+function collectFaceRegionFromGeometry(geometry, faceIndex, matrixWorld) {
   const data = buildFaceAdjacency(geometry);
   const seedNormal = data.normals[faceIndex];
   if (!seedNormal || seedNormal.lengthSq() < 1e-10) return null;
@@ -3309,20 +5962,24 @@ function collectFaceRegion(object, faceIndex) {
   }
 
   // ワールド変換後の座標で面積・ハイライト用頂点を再計算する（拡大縮小されたモデルにも対応するため）
-  object.updateMatrixWorld(true);
   const posAttr = geometry.attributes.position;
   let worldArea = 0;
   const highlightPositions = [];
   for (const t of regionTris) {
     const [ia, ib, ic] = data.getTriIdx(t);
-    const a = new THREE.Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(object.matrixWorld);
-    const b = new THREE.Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(object.matrixWorld);
-    const c = new THREE.Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(object.matrixWorld);
+    const a = new THREE.Vector3().fromBufferAttribute(posAttr, ia).applyMatrix4(matrixWorld);
+    const b = new THREE.Vector3().fromBufferAttribute(posAttr, ib).applyMatrix4(matrixWorld);
+    const c = new THREE.Vector3().fromBufferAttribute(posAttr, ic).applyMatrix4(matrixWorld);
     worldArea += new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).length() / 2;
     highlightPositions.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
   }
 
   return { area: worldArea, highlightPositions };
+}
+
+function collectFaceRegion(object, faceIndex) {
+  object.updateMatrixWorld(true);
+  return collectFaceRegionFromGeometry(object.geometry, faceIndex, object.matrixWorld);
 }
 
 let faceMeasureEntries = []; // Shiftキーで複数選択した各面の面積（合算表示用）
@@ -3382,7 +6039,7 @@ function handleFaceMeasureClick(e) {
   scene.add(label);
   faceMeasureObjects.push(label);
   faceMeasureTotalLabel = label;
-  registerMeasureLabel(label, total);
+  registerMeasureLabel(label, total, 'm²');
 
   copyMeasureResult(areaText, total.toFixed(3));
 }
@@ -3391,24 +6048,24 @@ faceMeasureToggle.addEventListener('click', () => {
   faceMeasureMode = !faceMeasureMode;
   if (faceMeasureMode && measureMode) {
     measureMode = false;
-    measureToggle.textContent = '📏 距離計測: OFF';
+    measureToggle.textContent = '📏 距離計測';
     measureToggle.classList.remove('active');
     clearMeasurement();
   }
   if (faceMeasureMode && lineMeasureMode) {
     lineMeasureMode = false;
-    lineMeasureToggle.textContent = '📐 線計測: OFF';
+    lineMeasureToggle.textContent = '📐 線計測';
     lineMeasureToggle.classList.remove('active');
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
   }
   if (faceMeasureMode && areaMeasureMode) {
     areaMeasureMode = false;
-    areaMeasureToggle.textContent = '🟩 面積計測: OFF';
+    areaMeasureToggle.textContent = '🟩 面積計測';
     areaMeasureToggle.classList.remove('active');
     clearAreaMeasurement();
   }
-  faceMeasureToggle.textContent = `⬜ 面選択計測: ${faceMeasureMode ? 'ON' : 'OFF'}`;
+  faceMeasureToggle.textContent = '⬜ 面選択計測';
   faceMeasureToggle.classList.toggle('active', faceMeasureMode);
   if (!faceMeasureMode) clearFaceMeasurement();
 });
@@ -3440,8 +6097,11 @@ function makeDistanceLabel(text) {
 }
 
 // 計測ラベルに数値を紐づけて、電卓へのクリック転記対象として登録する
-function registerMeasureLabel(label, value) {
+// 2026-08-03変更（pptxスライド10指示）: 単位も一緒に記録し、電卓へ転記された際に
+// calcLastUnit（「一覧表に転記」時に使う単位）へ反映できるようにした
+function registerMeasureLabel(label, value, unit) {
   label.userData.calcValue = value;
+  label.userData.calcUnit = unit || '';
   measureLabelSprites.push(label);
 }
 
@@ -3474,8 +6134,12 @@ const calcToggle = document.getElementById('calcToggle');
 const calcPanel = document.getElementById('calcPanel');
 const calcDisplay = document.getElementById('calcDisplay');
 const calcCloseBtn = document.getElementById('calcCloseBtn');
+const calcTransferBtn = document.getElementById('calcTransferBtn');
 let calcExpr = '';
 let calcJustEvaluated = false;
+// 2026-08-03追加（pptxスライド10指示）: 「一覧表に転記」時に使う単位。直近に計測ラベルから
+// 電卓へ転記した値の単位を保持する（「単位は最後に取得したものを使用」の指示に対応）。
+let calcLastUnit = '';
 
 // 四則演算・括弧・小数点のみを扱う簡易パーサー（evalを使わない安全な実装）
 function evalCalcExpression(expr) {
@@ -3559,6 +6223,7 @@ function transferMeasureLabelToCalc(e) {
   const hits = raycaster.intersectObjects(liveLabels, false);
   if (!hits.length || hits[0].object.userData.calcValue == null) return false;
   calcInputValue(hits[0].object.userData.calcValue);
+  calcLastUnit = hits[0].object.userData.calcUnit || ''; // 2026-08-03追加: 「一覧表に転記」の単位に使う
   showMeasureToast(`電卓を ${Number(hits[0].object.userData.calcValue).toFixed(3)} に更新しました`);
   return true;
 }
@@ -3592,6 +6257,18 @@ calcToggle.addEventListener('click', () => {
 });
 calcCloseBtn.addEventListener('click', () => calcPanel.classList.remove('show'));
 
+// 2026-08-04追加（坂東さん指示「電卓自体にもコピーボタンを配置」対応）:
+// 現在の表示値（calcDisplay.textContent、四則演算記号は×÷表記に変換済みのものをそのまま使う。
+// 演算子を含む式の途中でも押せてしまうが、コピーしたい値は基本的に「=」を押した後の結果値の
+// はずなので、途中式のままコピーされても実害は小さいと判断し特別なガードは設けていない）を
+// クリップボードへコピーする。
+const calcCopyBtn = document.getElementById('calcCopyBtn');
+calcCopyBtn.addEventListener('click', async () => {
+  const text = calcDisplay.textContent || '0';
+  const ok = await copyToClipboardText(text);
+  showMeasureToast(ok ? `${text} をコピーしました` : 'コピーに失敗しました');
+});
+
 calcPanel.querySelector('.calc-buttons').addEventListener('click', (e) => {
   const btn = e.target.closest('.calc-btn');
   if (!btn) return;
@@ -3600,6 +6277,54 @@ calcPanel.querySelector('.calc-buttons').addEventListener('click', (e) => {
   else if (v === 'back') calcBackspace();
   else if (v === '=') calcEvaluate();
   else calcInput(v);
+});
+
+// 2026-08-03追加（pptxスライド10「電卓仕様の変更」指示）: 電卓の現在の表示値を一覧表の最下行に
+// 新規追加する（既存の「手動追加行」＝addManualRowBtnハンドラと同じ行の形・仕組みを踏襲するが、
+// 挿入位置は「選択中の行の直後」ではなく常に最下行、値はあらかじめ電卓の表示値で埋める点が異なる）。
+// 単位は直近に計測ラベルから電卓へ転記した単位（calcLastUnit）を初期値にし、名称は指示通り
+// 空欄のまま手入力可能にする。
+calcTransferBtn.addEventListener('click', () => {
+  const qtyBody = document.getElementById('qtyBody');
+  const table = qtyBody.querySelector('table.qty-table');
+  if (!table) { alert('先に「📋 一覧表作成」で一覧表を作成してください'); return; }
+  let value = 0;
+  if (calcExpr && calcExpr !== 'エラー') {
+    try { value = evalCalcExpression(calcExpr); } catch (err) { value = 0; }
+  }
+  const tbody = table.querySelector('tbody');
+  const groupKey = `手動||calc-${++manualRowSeq}`;
+  const rowKey = `${groupKey}||値`;
+  // 2026-08-03改訂（タスクA詳細化、pptxスライド3の列削減指示に合わせる）: 一覧表の列構成が
+  // [チェック/材質・名称/項目/数量/単位]の5列に簡素化されたため、この行も同じ5列に合わせた
+  // （旧qty-merge/qty-cat/qty-price/qty-maker/qty-hikidashiの各セルは削除）。
+  const rowHtml = `<tr class="qty-row qty-manual-row" data-group="${escHtml(groupKey)}">`
+    + `<td class="qty-check"><input type="checkbox" class="qty-select" data-group="${escHtml(groupKey)}" onclick="event.stopPropagation()"></td>`
+    + `<td class="qty-group"><input type="text" class="qty-manual-input qty-manual-label" placeholder="名称"></td>`
+    + `<td class="qty-param"><input type="text" class="qty-manual-input qty-manual-param" placeholder="項目" value="値"></td>`
+    + `<td class="qty-value"><input type="number" step="any" class="qty-manual-input qty-manual-value" value="${value}"></td>`
+    + `<td class="qty-unit"><input type="text" class="qty-manual-input qty-manual-unit" value="${escHtml(calcLastUnit)}" placeholder="単位"></td>`
+    + `</tr>`;
+  tbody.insertAdjacentHTML('beforeend', rowHtml);
+  const newTr = tbody.lastElementChild;
+  groupKeyToRows.set(groupKey, [newTr]);
+
+  const syncManualRowMeta = () => {
+    const label = newTr.querySelector('.qty-manual-label').value.trim() || '(手動入力)';
+    const paramName = newTr.querySelector('.qty-manual-param').value.trim() || '値';
+    const v = parseFloat(newTr.querySelector('.qty-manual-value').value) || 0;
+    const unit = newTr.querySelector('.qty-manual-unit').value.trim();
+    groupKeyToMeta.set(groupKey, { category: '手動', label, ids: [], params: { [paramName]: v }, maker: '', hikidashi: '', manual: true, manualUnit: unit });
+    qtyRowMeta.set(rowKey, { label, category: '手動', paramName, unit, value: v, hikidashi: '', ids: [] });
+  };
+  syncManualRowMeta();
+  newTr.querySelectorAll('.qty-manual-input').forEach(inp => {
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('input', syncManualRowMeta);
+  });
+  wireQtyRowInteractions(newTr, groupKey);
+  newTr.scrollIntoView({ block: 'nearest' });
+  newTr.querySelector('.qty-manual-label').focus();
 });
 
 // テンキー（Numpad）操作: 電卓パレットが開いている間だけキー入力を横取りする
@@ -3772,7 +6497,25 @@ difySettingsOverlay.addEventListener('click', e => {
     const res = await fetch(fileUrl);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const buffer = await res.arrayBuffer();
-    const name = decodeURIComponent(fileUrl.split('/').pop().split('?')[0] || 'model.ifc');
+    // フォールバック用: URL末尾（＝Storageのオブジェクトキー storage_path）から取ったファイル名。
+    // fuUpload()（index.html）がstorage_pathにタイムスタンプ付与＋非ASCII文字の`_`置換を行っているため、
+    // 日本語ファイル名だとここは壊れた名前になる（詳細: engineering/debug-log/2026-07-29-ifc-viewer-json-filename.md 追記4）。
+    let name = decodeURIComponent(fileUrl.split('/').pop().split('?')[0] || 'model.ifc');
+    // property_files.name列には元の日本語ファイル名がそのまま保存されている（storage_pathのみ壊れている）ため、
+    // storage_pathで検索してヒットすればそちらを優先する。ヒットしない場合（DB未登録等）は上記フォールバックを使う。
+    const pfMatch = fileUrl.match(/property-files\/([^?]+)/);
+    const storagePath = pfMatch ? pfMatch[1] : null;
+    if (storagePath) {
+      try {
+        const pfRes = await fetch(`${SB}/property_files?storage_path=eq.${encodeURIComponent(storagePath)}&select=name&limit=1`, { headers: H });
+        if (pfRes.ok) {
+          const rows = await pfRes.json();
+          if (rows && rows[0] && rows[0].name) name = rows[0].name;
+        }
+      } catch (pfErr) {
+        console.error('[loadFromUrlParam] property_files lookup failed, fallback to URL-derived name', pfErr);
+      }
+    }
     await loadFile({ name, arrayBuffer: async () => buffer });
     await loadSiblingDxfIfExists(fileUrl);
   } catch (err) {

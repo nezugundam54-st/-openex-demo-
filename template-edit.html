@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テンプレート設定</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #ffffff;
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "メイリオ", Meiryo, "Yu Gothic UI", Arial, sans-serif;
+    color: #303133;
+    padding: 20px 24px 90px 24px;
+  }
+
+  /* ===== ヘッダー（パンくず・タイトル） ===== */
+  .breadcrumb { font-size: 13px; margin-bottom: 10px; }
+  .breadcrumb .crumb-link { color: #1a6fc4; cursor: pointer; }
+  .breadcrumb .crumb-sep { color: #c0c4cc; margin: 0 6px; }
+  .breadcrumb .crumb-current { color: #303133; font-weight: bold; }
+  h1.page-title { font-size: 22px; font-weight: bold; margin-bottom: 20px; }
+
+  /* ===== 上部：テンプレート名／備考／下請用 ===== */
+  .top-fields { display: flex; flex-direction: row; margin-bottom: 18px; align-items: flex-start; }
+  .field-box { display: flex; flex-direction: column; width: 300px; margin-right: 50px; }
+  .field-label { font-size: 13px; text-align: center; margin-bottom: 5px; }
+  .field-input {
+    height: 32px;
+    border: 1px solid #DCDFE6;
+    border-radius: 4px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #303133;
+  }
+  .field-box.subcontract { width: auto; }
+  .field-box.subcontract .field-label { text-align: left; }
+  .switch {
+    width: 40px; height: 20px;
+    border-radius: 10px;
+    background-color: #8e8e8e;
+    position: relative;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: background-color .15s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: left .15s;
+  }
+  .switch.on { background-color: #1890ff; }
+  .switch.on::after { left: 22px; }
+  .status-note { font-size: 12px; color: #909399; margin-left: auto; }
+
+  /* ===== テーブル ===== */
+  .table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #7f7f7f;
+  }
+  table.main-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11px;
+    color: #000000;
+    background: #ffffff;
+    width: 100%;
+  }
+  table.main-table th, table.main-table td {
+    border-right: 1px solid #7f7f7f;
+    border-bottom: 1px solid #7f7f7f;
+    background: #ffffff;
+    height: 26px;
+    padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.main-table thead th { font-size: 13px; font-weight: bold; text-align: center; height: 22px; }
+
+  th.group {
+    background-color: #606266 !important;
+    color: #ffffff !important;
+    position: relative;
+  }
+  .fold-btn {
+    width: 22px; height: 20px;
+    position: absolute;
+    left: 2px; top: 1px;
+    border: 1px solid #9a9a9a;
+    background-color: rgba(255,255,255,.12);
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .w-arrow  { width: 26px; min-width: 26px; max-width: 26px; }
+  .w-name   { width: 230px; min-width: 230px; }
+  .w-spec   { width: 100px; min-width: 100px; }
+  .w-qty    { width: 65px; min-width: 65px; }
+  .w-unit   { width: 65px; min-width: 65px; }
+  .w-price  { width: 90px; min-width: 90px; }
+  .w-rate   { width: 55px; min-width: 55px; }
+  .w-num    { width: 75px; min-width: 75px; }
+  .w-text   { width: 120px; min-width: 120px; }
+  .w-order  { width: 95px; min-width: 95px; }
+  .w-ph     { width: 25px; min-width: 25px; max-width: 25px; }
+
+  table.main-table td.al { text-align: left; padding: 0 4px; }
+  table.main-table td.ar { text-align: right; padding: 0 4px; }
+  table.main-table td.ac { text-align: center; }
+  table.main-table td.money { background-color: #d9d9d9; }
+
+  .cn-indent { display: inline-block; }
+  .bold-text { font-weight: bold; }
+  .folder { display: inline-block; width: 15px; height: 10px; vertical-align: -1px; margin-right: 2px; flex-shrink: 0; }
+  .name-cell { display: flex; align-items: center; width: 100%; height: 100%; padding: 0 2px; }
+  .name-cell .name-text-wrap { flex: 1; min-width: 0; display: flex; align-items: center; overflow: hidden; }
+  .cell-input {
+    width: 100%; height: 100%; border: none; outline: none; background: transparent;
+    font-size: 11px; font-family: inherit; color: #000000;
+  }
+  .cell-input.ar { text-align: right; }
+  .cell-input.ac { text-align: center; }
+  .cell-input:focus { background: #fffde7; }
+  .name-input { font-size: 11px; }
+  .name-input.bold-text { font-weight: bold; }
+
+  .arrow {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-right: 1px solid #606266;
+    border-bottom: 1px solid #606266;
+    transform: rotate(45deg);
+    margin: 0 6px 0 4px;
+    cursor: pointer;
+    transition: transform .15s;
+    flex-shrink: 0;
+  }
+  tr.collapsed .arrow { transform: rotate(-45deg); }
+
+  tr.selected-row td:not(.money) { background-color: #B3E7FA !important; }
+  tbody tr:hover td:not(.money):not(.selected-row td) { cursor: pointer; }
+
+  tr.total-label-row td { background-color: #D9D9D9 !important; font-weight: bold; }
+  tr.total-row td { font-weight: bold; }
+  .sub-label { color: #909399; font-size: 10px; }
+
+  .more-btn {
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    border: none;
+    background: transparent;
+    color: #606266;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    letter-spacing: -1px;
+  }
+  .more-menu {
+    position: absolute;
+    z-index: 50;
+    background: #ffffff;
+    border: 1px solid #cfd3d8;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    padding: 4px 0;
+    font-size: 12px;
+    min-width: 160px;
+    display: none;
+  }
+  .more-menu.open { display: block; }
+  .more-menu-item {
+    padding: 6px 14px;
+    white-space: nowrap;
+    cursor: pointer;
+    color: #303133;
+  }
+  .more-menu-item:hover { background: #f5f7fa; }
+  .more-menu-item.disabled { color: #c0c4cc; pointer-events: none; }
+
+  .ph { display: none; }
+  table.fold-tonya    .g-tonya    { display: none; } table.fold-tonya    .ph-tonya    { display: table-cell; }
+  table.fold-shokunin .g-shokunin { display: none; } table.fold-shokunin .ph-shokunin { display: table-cell; }
+  table.fold-kotsuzai .g-kotsuzai { display: none; } table.fold-kotsuzai .ph-kotsuzai { display: table-cell; }
+  table.fold-kyaku    .g-kyaku    { display: none; } table.fold-kyaku    .ph-kyaku    { display: table-cell; }
+  table.fold-biko     .g-biko     { display: none; } table.fold-biko     .ph-biko     { display: table-cell; }
+  table.fold-arari    .g-arari    { display: none; } table.fold-arari    .ph-arari    { display: table-cell; }
+  table.fold-hachu    .g-hachu    { display: none; } table.fold-hachu    .ph-hachu    { display: table-cell; }
+  table.fold-memo     .g-memo     { display: none; } table.fold-memo     .ph-memo     { display: table-cell; }
+  table.main-table td.ph { background-color: #d9d9d9; }
+
+  /* ===== 下部操作バー ===== */
+  .control-strip {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #e4e7ed;
+    padding: 14px 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .function-button {
+    height: 35px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 12px;
+    background-color: #1d73cc;
+    color: #fff;
+    font-size: 12px;
+    margin: 2px 5px;
+    cursor: pointer;
+  }
+  .function-button2 {
+    height: 35px;
+    padding: 0 16px;
+    border: 1px solid #1d73cc;
+    border-radius: 12px;
+    background-color: #f1faff;
+    color: #1d73cc;
+    font-size: 12px;
+    margin: 2px 5px;
+    cursor: pointer;
+    position: relative;
+  }
+  .function-button2.disabled { opacity: .45; cursor: default; }
+  .mini-popover {
+    position: absolute;
+    bottom: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #cfd3d8;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    padding: 8px;
+    display: none;
+    white-space: nowrap;
+  }
+  .mini-popover.open { display: flex; }
+</style>
+</head>
+<body>
+  <div class="breadcrumb">
+    <span class="crumb-link" onclick="goBackToList()">設定</span><span class="crumb-sep">&gt;</span><span class="crumb-link" onclick="goBackToList()">見積管理・テンプレート</span><span class="crumb-sep">&gt;</span><span class="crumb-current" id="crumbCurrent">新規テンプレート</span>
+  </div>
+  <h1 class="page-title">テンプレート設定</h1>
+
+  <div class="top-fields">
+    <div class="field-box">
+      <div class="field-label">テンプレート名</div>
+      <input class="field-input" id="templateName" value="">
+    </div>
+    <div class="field-box">
+      <div class="field-label">備考</div>
+      <input class="field-input" id="remarkInput" value="">
+    </div>
+    <div class="field-box subcontract">
+      <div class="field-label">下請用</div>
+      <div class="switch" id="subcontractSwitch"></div>
+    </div>
+    <div class="status-note" id="statusNote"></div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="main-table" id="masterTable">
+      <thead>
+        <tr>
+          <th class="w-arrow" rowspan="2"></th>
+          <th class="group" colspan="5">内訳表</th>
+          <th class="group g-tonya" colspan="3"><button class="fold-btn" data-group="tonya">−</button>問屋材仕入れ</th>
+          <th class="group ph ph-tonya w-ph" rowspan="2"><button class="fold-btn" data-group="tonya">＋</button></th>
+          <th class="group g-shokunin" colspan="2"><button class="fold-btn" data-group="shokunin">−</button>職人手間</th>
+          <th class="group ph ph-shokunin w-ph" rowspan="2"><button class="fold-btn" data-group="shokunin">＋</button></th>
+          <th class="group g-kotsuzai" colspan="2"><button class="fold-btn" data-group="kotsuzai">−</button>骨材料 等</th>
+          <th class="group ph ph-kotsuzai w-ph" rowspan="2"><button class="fold-btn" data-group="kotsuzai">＋</button></th>
+          <th class="group g-kyaku" colspan="3"><button class="fold-btn" data-group="kyaku">−</button>客出し</th>
+          <th class="group ph ph-kyaku w-ph" rowspan="2"><button class="fold-btn" data-group="kyaku">＋</button></th>
+          <th class="group g-biko"><button class="fold-btn" data-group="biko">−</button>備考</th>
+          <th class="group ph ph-biko w-ph" rowspan="2"><button class="fold-btn" data-group="biko">＋</button></th>
+          <th class="group g-arari" colspan="2"><button class="fold-btn" data-group="arari">−</button>粗利額</th>
+          <th class="group ph ph-arari w-ph" rowspan="2"><button class="fold-btn" data-group="arari">＋</button></th>
+          <th class="group g-hachu" colspan="2"><button class="fold-btn" data-group="hachu">−</button>発注先</th>
+          <th class="group ph ph-hachu w-ph" rowspan="2"><button class="fold-btn" data-group="hachu">＋</button></th>
+          <th class="group g-memo"><button class="fold-btn" data-group="memo">−</button>社内メモ</th>
+          <th class="group ph ph-memo w-ph" rowspan="2"><button class="fold-btn" data-group="memo">＋</button></th>
+        </tr>
+        <tr>
+          <th class="w-name">名称</th>
+          <th class="w-spec">仕様</th>
+          <th class="w-qty">数量</th>
+          <th class="w-unit">単位</th>
+          <th class="w-price">定価</th>
+          <th class="w-rate g-tonya">掛率</th>
+          <th class="w-num g-tonya">単価</th>
+          <th class="w-num g-tonya">金額</th>
+          <th class="w-num g-shokunin">単価</th>
+          <th class="w-num g-shokunin">金額</th>
+          <th class="w-num g-kotsuzai">単価</th>
+          <th class="w-num g-kotsuzai">金額</th>
+          <th class="w-rate g-kyaku">原価率</th>
+          <th class="w-num g-kyaku">単価</th>
+          <th class="w-num g-kyaku">金額</th>
+          <th class="w-text g-biko">備考</th>
+          <th class="w-num g-arari">粗利額</th>
+          <th class="w-num g-arari">粗利率</th>
+          <th class="w-order g-hachu">発注先問屋</th>
+          <th class="w-order g-hachu">発注先職人</th>
+          <th class="w-text g-memo">備考</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+      <tbody id="totalsTbody"></tbody>
+    </table>
+  </div>
+
+  <div class="control-strip">
+    <button class="function-button2" id="btnOperationMenu">操作メニュー</button>
+    <button class="function-button2 disabled" title="未実装">CSV入出力</button>
+    <button class="function-button2 disabled" title="未実装">マスタから引用</button>
+    <button class="function-button2 disabled" title="未実装">履歴から引用</button>
+    <button class="function-button2 disabled" title="未実装">カタログ検索</button>
+    <button class="function-button2 disabled" title="未実装">見積書式</button>
+    <button class="function-button2" id="btnBackToList">一覧へ戻る</button>
+    <button class="function-button2" id="btnSaveAs">名前を付けて保存</button>
+    <button class="function-button" id="btnRegister">登録</button>
+  </div>
+
+<script>
+  // ========== Supabase 設定（fils_demo共通） ==========
+  const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const API = `${SUPABASE_URL}/rest/v1`;
+  const HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  };
+
+  function escHtml(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function toNum(v) { if (v === '' || v == null) return null; const n = parseFloat(v); return isNaN(n) ? null : n; }
+  function fmtNum(n) { return (n == null || n === '') ? '' : Number(n).toLocaleString('ja-JP'); }
+  function showToast(msg, isError) {
+    let t = document.getElementById('globalToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'globalToast';
+      t.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:6px;font-size:13px;z-index:2000;opacity:0;transition:opacity .3s;pointer-events:none;color:#fff;';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.background = isError ? '#c62828' : '#388e3c';
+    t.style.opacity = '1';
+    setTimeout(() => t.style.opacity = '0', 2600);
+  }
+
+  const folderSvg = '<svg class="folder" viewBox="0 0 15 10" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M0.5 1.5 L5 1.5 L6 3 L14.5 3 L14.5 9.5 L0.5 9.5 Z" fill="#f5c04a" stroke="#b8860b" stroke-width="0.8"/>' +
+    '<path d="M2 4.5 L14.5 4.5 L13 9.5 L0.5 9.5 Z" fill="#ffd97a" stroke="#b8860b" stroke-width="0.8"/></svg>';
+
+  // ========== 状態 ==========
+  let _templateId = null;
+  let _idSeq = 0;
+  function newLocalId() { return 'n' + Date.now() + '_' + (++_idSeq); }
+
+  const tbody = document.getElementById('tbody');
+  const totalsTbody = document.getElementById('totalsTbody');
+
+  // ---- 行DOM生成 ----
+  function makeFolderTr(level, parentId, name) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = newLocalId();
+    tr.dataset.level = level;
+    if (parentId) tr.dataset.parentId = parentId;
+    tr.dataset.rowType = level === 1 ? 'cat' : 'subcat';
+    const indent = (level - 1) * 14;
+    tr.innerHTML =
+      '<td class="ac w-arrow"><span class="arrow" data-toggle="' + tr.dataset.id + '"></span></td>' +
+      '<td class="al w-name">' +
+        '<div class="name-cell">' +
+          '<span class="cn-indent" style="width:' + indent + 'px;"></span>' +
+          folderSvg +
+          '<input class="cell-input name-input bold-text" value="' + escHtml(name || '') + '" placeholder="（フォルダ名）">' +
+          '<button class="more-btn" data-more="' + tr.dataset.id + '">…</button>' +
+        '</div>' +
+      '</td>' +
+      folderBlankCells();
+    return tr;
+  }
+  function folderBlankCells() {
+    return (
+      '<td class="w-spec"></td><td class="w-qty"></td><td class="w-unit"></td><td class="w-price"></td>' +
+      '<td class="g-tonya"></td><td class="g-tonya"></td><td class="money g-tonya"></td><td class="ph ph-tonya"></td>' +
+      '<td class="g-shokunin"></td><td class="money g-shokunin"></td><td class="ph ph-shokunin"></td>' +
+      '<td class="g-kotsuzai"></td><td class="money g-kotsuzai"></td><td class="ph ph-kotsuzai"></td>' +
+      '<td class="g-kyaku"></td><td class="g-kyaku"></td><td class="money g-kyaku"></td><td class="ph ph-kyaku"></td>' +
+      '<td class="g-biko"></td><td class="ph ph-biko"></td>' +
+      '<td class="money g-arari"></td><td class="money g-arari"></td><td class="ph ph-arari"></td>' +
+      '<td class="g-hachu"></td><td class="g-hachu"></td><td class="ph ph-hachu"></td>' +
+      '<td class="g-memo"></td><td class="ph ph-memo"></td>'
+    );
+  }
+  function makeLeafTr(parentId, data) {
+    data = data || {};
+    const tr = document.createElement('tr');
+    tr.dataset.id = newLocalId();
+    tr.dataset.rowType = 'row';
+    if (parentId) tr.dataset.parentId = parentId;
+    const indent = parentLevelIndent(parentId);
+    const inp = (cls, val, ph) => '<input class="cell-input ' + cls + '" value="' + escHtml(val != null ? val : '') + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>';
+    tr.innerHTML =
+      '<td class="w-arrow"></td>' +
+      '<td class="al w-name">' +
+        '<div class="name-cell">' +
+          '<span class="cn-indent" style="width:' + indent + 'px;"></span>' +
+          inp('name-input', data.name, '（名称）') +
+          '<button class="more-btn" data-more="' + tr.dataset.id + '">…</button>' +
+        '</div>' +
+      '</td>' +
+      '<td class="al w-spec">' + inp('', data.spec) + '</td>' +
+      '<td class="ar w-qty">' + inp('ar qty-input', data.qty) + '</td>' +
+      '<td class="ac w-unit">' + inp('ac', data.unit != null ? data.unit : '式') + '</td>' +
+      '<td class="ar w-price">' + inp('ar', data.list_price) + '</td>' +
+      '<td class="ar g-tonya">' + inp('ar rate-input', data.rate) + '</td>' +
+      '<td class="ar g-tonya">' + inp('ar cost-input', data.cost) + '</td>' +
+      '<td class="ar money g-tonya out-tonya-amt">0</td>' +
+      '<td class="ph ph-tonya"></td>' +
+      '<td class="ar g-shokunin">' + inp('ar craftsman-input', data.craftsman_unit_price) + '</td>' +
+      '<td class="ar money g-shokunin out-shokunin-amt">0</td>' +
+      '<td class="ph ph-shokunin"></td>' +
+      '<td class="ar g-kotsuzai">' + inp('ar bone-input', data.bone_unit_price) + '</td>' +
+      '<td class="ar money g-kotsuzai out-kotsuzai-amt">0</td>' +
+      '<td class="ph ph-kotsuzai"></td>' +
+      '<td class="ar g-kyaku out-costrate">-%</td>' +
+      '<td class="ar g-kyaku">' + inp('ar custprice-input', data.unit_price) + '</td>' +
+      '<td class="ar money g-kyaku out-kyaku-amt">0</td>' +
+      '<td class="ph ph-kyaku"></td>' +
+      '<td class="al g-biko">' + inp('', data.memo) + '</td>' +
+      '<td class="ph ph-biko"></td>' +
+      '<td class="ar money g-arari out-arari-amt">0</td>' +
+      '<td class="ar money g-arari out-arari-rate">-%</td>' +
+      '<td class="ph ph-arari"></td>' +
+      '<td class="al g-hachu">' + inp('', data.order_wholesale_name) + '</td>' +
+      '<td class="al g-hachu">' + inp('', data.order_craftsman_name) + '</td>' +
+      '<td class="ph ph-hachu"></td>' +
+      '<td class="al g-memo">' + inp('', data.note) + '</td>' +
+      '<td class="ph ph-memo"></td>';
+    return tr;
+  }
+  function parentLevelIndent(parentId) {
+    if (!parentId) return 0;
+    const p = tbody.querySelector('tr[data-id="' + parentId + '"]');
+    const lvl = p ? parseInt(p.dataset.level || '1', 10) : 1;
+    return lvl * 14;
+  }
+
+  // ---- 金額計算 ----
+  function calcRow(tr) {
+    if (tr.dataset.rowType !== 'row') return;
+    const qty = toNum(tr.querySelector('.qty-input').value) || 0;
+    const rate = toNum(tr.querySelector('.rate-input').value);
+    const cost = toNum(tr.querySelector('.cost-input').value) || 0;
+    const craftsman = toNum(tr.querySelector('.craftsman-input').value) || 0;
+    const bone = toNum(tr.querySelector('.bone-input').value) || 0;
+    const custPrice = toNum(tr.querySelector('.custprice-input').value) || 0;
+
+    const tonyaAmt = cost * qty;
+    const shokuninAmt = craftsman * qty;
+    const kotsuzaiAmt = bone * qty;
+    const custAmt = custPrice * qty;
+    const genkaSum = tonyaAmt + shokuninAmt + kotsuzaiAmt;
+    const costRate = custAmt ? (genkaSum / custAmt * 100) : null;
+    const arariAmt = custAmt - genkaSum;
+    const arariRate = custAmt ? (arariAmt / custAmt * 100) : null;
+
+    tr.querySelector('.out-tonya-amt').textContent = fmtNum(tonyaAmt);
+    tr.querySelector('.out-shokunin-amt').textContent = fmtNum(shokuninAmt);
+    tr.querySelector('.out-kotsuzai-amt').textContent = fmtNum(kotsuzaiAmt);
+    tr.querySelector('.out-kyaku-amt').textContent = fmtNum(custAmt);
+    tr.querySelector('.out-costrate').textContent = costRate != null ? costRate.toFixed(1) + '%' : '-%';
+    tr.querySelector('.out-arari-amt').textContent = fmtNum(arariAmt);
+    tr.querySelector('.out-arari-rate').textContent = arariRate != null ? arariRate.toFixed(1) + '%' : '-%';
+
+    tr._calc = { tonyaAmt, shokuninAmt, kotsuzaiAmt, custAmt };
+    recalcTotals();
+  }
+
+  // ---- 総計（簡易計算。実際のreplus端数調整アルゴリズムの完全再現ではない） ----
+  function recalcTotals() {
+    let tonya = 0, shokunin = 0, kotsuzai = 0, kyaku = 0;
+    tbody.querySelectorAll('tr[data-row-type="row"], tr').forEach(tr => {
+      if (tr.dataset.rowType === 'row' && tr._calc) {
+        tonya += tr._calc.tonyaAmt; shokunin += tr._calc.shokuninAmt; kotsuzai += tr._calc.kotsuzaiAmt; kyaku += tr._calc.custAmt;
+      }
+    });
+    const shokeihiRate = toNum(document.getElementById('shokeihiQty')?.value) || 0;
+    const shokeihiKyaku = kyaku * shokeihiRate / 100;
+    const kaikeiTonya = tonya, kaikeiShokunin = shokunin, kaikeiKotsuzai = kotsuzai, kaikeiKyaku = kyaku + shokeihiKyaku;
+    const hasuuChosei = toNum(document.getElementById('hasuuInput')?.value) || 0;
+    const zeiRate = toNum(document.getElementById('zeiQty')?.value);
+    const zeiRateVal = zeiRate != null ? zeiRate : 10;
+    const preZeiKyaku = kaikeiKyaku + hasuuChosei;
+    const zeiTonya = kaikeiTonya * zeiRateVal / 100;
+    const zeiShokunin = kaikeiShokunin * zeiRateVal / 100;
+    const zeiKyaku = preZeiKyaku * zeiRateVal / 100;
+    const soukeiTonya = kaikeiTonya + zeiTonya;
+    const soukeiShokunin = kaikeiShokunin + zeiShokunin;
+    const soukeiKyaku = preZeiKyaku + zeiKyaku;
+    const genkaSum = soukeiTonya + soukeiShokunin + kotsuzai;
+    const arariAmt = soukeiKyaku - genkaSum;
+    const arariRate = soukeiKyaku ? (arariAmt / soukeiKyaku * 100) : null;
+
+    setTotalCell('工事合計', 'tonya', fmtNum(tonya)); setTotalCell('工事合計', 'shokunin', fmtNum(shokunin)); setTotalCell('工事合計', 'kyaku', fmtNum(kyaku));
+    setTotalCell('諸経費', 'kyaku', fmtNum(shokeihiKyaku));
+    setTotalCell('改計', 'tonya', fmtNum(kaikeiTonya)); setTotalCell('改計', 'shokunin', fmtNum(kaikeiShokunin)); setTotalCell('改計', 'kyaku', fmtNum(kaikeiKyaku));
+    setTotalCell('消費税', 'tonya', fmtNum(zeiTonya)); setTotalCell('消費税', 'shokunin', fmtNum(zeiShokunin)); setTotalCell('消費税', 'kyaku', fmtNum(zeiKyaku));
+    setTotalCell('総合計', 'tonya', fmtNum(soukeiTonya)); setTotalCell('総合計', 'shokunin', fmtNum(soukeiShokunin)); setTotalCell('総合計', 'kyaku', fmtNum(soukeiKyaku));
+    setTotalCell('総合計', 'arari', fmtNum(arariAmt)); setTotalCell('総合計', 'arariRate', arariRate != null ? arariRate.toFixed(1) + '%' : '-%');
+  }
+  function setTotalCell(label, field, val) {
+    const tr = totalsTbody.querySelector('tr[data-label="' + label + '"]');
+    if (!tr) return;
+    const cell = tr.querySelector('.out-' + field);
+    if (cell) cell.textContent = val;
+  }
+
+  function buildTotalsRow(label, opts) {
+    opts = opts || {};
+    const tr = document.createElement('tr');
+    tr.className = opts.isLabel ? 'total-label-row' : 'total-row';
+    tr.dataset.label = label;
+    const qtyCell = opts.qtyId ? '<input id="' + opts.qtyId + '" class="cell-input ar" value="' + (opts.qtyDefault || '') + '" style="width:100%;">' : (opts.qty || '');
+    tr.innerHTML =
+      '<td class="w-arrow"></td>' +
+      '<td class="al w-name">' + label + '</td>' +
+      '<td class="w-spec"></td>' +
+      '<td class="ar w-qty">' + qtyCell + '</td>' +
+      '<td class="ac w-unit">' + (opts.unit || '') + '</td>' +
+      '<td class="ar w-price"></td>' +
+      '<td class="ar g-tonya"></td>' +
+      '<td class="ar g-tonya"></td>' +
+      '<td class="ar money g-tonya out-tonya">0</td>' +
+      '<td class="ph ph-tonya"></td>' +
+      '<td class="ar g-shokunin">' + (opts.shokuninLabel ? '<span class="sub-label">' + opts.shokuninLabel + '</span>' : '') + '</td>' +
+      '<td class="ar money g-shokunin out-shokunin">0</td>' +
+      '<td class="ph ph-shokunin"></td>' +
+      '<td class="ar g-kotsuzai">' + (opts.kotsuzaiLabel ? '<span class="sub-label">' + opts.kotsuzaiLabel + '</span>' : '') + '</td>' +
+      '<td class="ar money g-kotsuzai">0</td>' +
+      '<td class="ph ph-kotsuzai"></td>' +
+      '<td class="ar g-kyaku"></td>' +
+      '<td class="ar g-kyaku"></td>' +
+      '<td class="ar money g-kyaku out-kyaku">0</td>' +
+      '<td class="ph ph-kyaku"></td>' +
+      '<td class="al g-biko"></td>' +
+      '<td class="ph ph-biko"></td>' +
+      '<td class="ar money g-arari out-arari">0</td>' +
+      '<td class="ar money g-arari out-arariRate">-%</td>' +
+      '<td class="ph ph-arari"></td>' +
+      '<td class="g-hachu"></td>' +
+      '<td class="g-hachu"></td>' +
+      '<td class="ph ph-hachu"></td>' +
+      '<td class="al g-memo"></td>' +
+      '<td class="ph ph-memo"></td>';
+    return tr;
+  }
+  function buildTotalsSection() {
+    totalsTbody.innerHTML = '';
+    totalsTbody.appendChild(buildTotalsRow('総計', { isLabel: true }));
+    totalsTbody.appendChild(buildTotalsRow('工事合計'));
+    totalsTbody.appendChild(buildTotalsRow('諸経費', { qtyId: 'shokeihiQty', qtyDefault: '0', unit: '%', shokuninLabel: '職人諸経費', kotsuzaiLabel: 'その他' }));
+    totalsTbody.appendChild(buildTotalsRow('改計'));
+    totalsTbody.appendChild(buildTotalsRow('端数調整', { qtyId: 'hasuuInput', qtyDefault: '0' }));
+    totalsTbody.appendChild(buildTotalsRow('消費税', { qtyId: 'zeiQty', qtyDefault: '10', unit: '%' }));
+    totalsTbody.appendChild(buildTotalsRow('総合計'));
+    totalsTbody.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalcTotals));
+  }
+  buildTotalsSection();
+
+  // ========== ツリー開閉 ==========
+  function toggleChildren(id, collapse) {
+    tbody.querySelectorAll('tr[data-parent-id="' + id + '"]').forEach(tr => {
+      tr.style.display = collapse ? 'none' : '';
+      if (collapse) {
+        toggleChildren(tr.dataset.id, true);
+      } else if (!tr.classList.contains('collapsed')) {
+        toggleChildren(tr.dataset.id, false);
+      }
+    });
+  }
+
+  // ========== 行追加・削除 ==========
+  function descendantIds(id) {
+    const out = [];
+    tbody.querySelectorAll('tr[data-parent-id="' + id + '"]').forEach(tr => {
+      out.push(tr.dataset.id);
+      out.push(...descendantIds(tr.dataset.id));
+    });
+    return out;
+  }
+  function deleteRow(id) {
+    const tr = tbody.querySelector('tr[data-id="' + id + '"]');
+    if (!tr) return;
+    descendantIds(id).forEach(did => { const d = tbody.querySelector('tr[data-id="' + did + '"]'); if (d) d.remove(); });
+    tr.remove();
+    recalcTotals();
+  }
+  function addTopFolder() {
+    const tr = makeFolderTr(1, null, '');
+    tbody.appendChild(tr);
+    tr.querySelector('.name-input').focus();
+  }
+  function addChildFolder(id) {
+    const anchor = tbody.querySelector('tr[data-id="' + id + '"]');
+    if (!anchor) return;
+    const level = parseInt(anchor.dataset.level || '1', 10);
+    let parentForNew, insertAfter;
+    if (level === 1) {
+      parentForNew = id;
+    } else {
+      parentForNew = anchor.dataset.parentId || null;
+    }
+    const desc = descendantIds(id);
+    insertAfter = desc.length ? tbody.querySelector('tr[data-id="' + desc[desc.length - 1] + '"]') : anchor;
+    const tr = makeFolderTr(2, parentForNew, '');
+    insertAfter.after(tr);
+    tr.querySelector('.name-input').focus();
+  }
+  function addSiblingLeaf(id) {
+    const anchor = tbody.querySelector('tr[data-id="' + id + '"]');
+    if (!anchor) return;
+    let parentId, insertAfter;
+    if (anchor.dataset.rowType === 'row') {
+      parentId = anchor.dataset.parentId || null;
+      insertAfter = anchor;
+    } else {
+      parentId = anchor.dataset.id;
+      const desc = descendantIds(id);
+      insertAfter = desc.length ? tbody.querySelector('tr[data-id="' + desc[desc.length - 1] + '"]') : anchor;
+    }
+    const tr = makeLeafTr(parentId, {});
+    insertAfter.after(tr);
+    wireRowEvents(tr);
+    tr.querySelector('.name-input').focus();
+  }
+
+  function wireRowEvents(tr) {
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => calcRow(tr)));
+    calcRow(tr);
+  }
+
+  // ========== 「…」メニュー ==========
+  let currentMenu = null;
+  function closeMoreMenu() { if (currentMenu) { currentMenu.remove(); currentMenu = null; } }
+  function openMoreMenu(anchorEl, id) {
+    closeMoreMenu();
+    const tr = tbody.querySelector('tr[data-id="' + id + '"]');
+    if (!tr) return;
+    const isFolder = tr.dataset.rowType !== 'row';
+    const items = [
+      { label: '行追加', action: () => addSiblingLeaf(id) },
+      { label: '階層追加', action: () => addChildFolder(id), disabled: !isFolder },
+      { label: '大項目追加', action: addTopFolder },
+      { label: '削除', action: () => deleteRow(id) },
+      { label: '切り取り', disabled: true },
+      { label: 'コピー', disabled: true },
+      { label: '貼り付け', disabled: true },
+      { label: '元に戻す', disabled: true },
+      { label: 'コメント編集', disabled: true },
+      { label: '備考登録', disabled: true },
+      { label: '発注先設定', disabled: true },
+      { label: '検索', disabled: true },
+      { label: 'マスタへ追加', disabled: true },
+    ];
+    const menu = document.createElement('div');
+    menu.className = 'more-menu open';
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'more-menu-item' + (item.disabled ? ' disabled' : '');
+      div.textContent = item.label + (item.disabled ? '（未実装）' : '');
+      if (!item.disabled) {
+        div.addEventListener('click', ev => { ev.stopPropagation(); closeMoreMenu(); item.action(); });
+      }
+      menu.appendChild(div);
+    });
+    document.body.appendChild(menu);
+    const r = anchorEl.getBoundingClientRect();
+    const menuH = items.length * 30 + 16;
+    const openUpward = r.bottom + menuH > window.innerHeight;
+    menu.style.left = (window.scrollX + r.left) + 'px';
+    if (openUpward) {
+      menu.style.top = (window.scrollY + r.top - menuH - 2) + 'px';
+    } else {
+      menu.style.top = (window.scrollY + r.bottom + 2) + 'px';
+    }
+    currentMenu = menu;
+  }
+  document.addEventListener('click', () => closeMoreMenu());
+
+  tbody.addEventListener('click', e => {
+    const moreBtn = e.target.closest('[data-more]');
+    if (moreBtn) { e.stopPropagation(); openMoreMenu(moreBtn, moreBtn.dataset.more); return; }
+    const t = e.target.closest('[data-toggle]');
+    if (t) {
+      e.stopPropagation();
+      const id = t.dataset.toggle;
+      const tr = t.closest('tr');
+      const collapse = !tr.classList.contains('collapsed');
+      tr.classList.toggle('collapsed', collapse);
+      toggleChildren(id, collapse);
+      return;
+    }
+    if (e.target.tagName === 'INPUT') return;
+    const row = e.target.closest('tr');
+    if (row) {
+      tbody.querySelectorAll('tr.selected-row').forEach(r => r.classList.remove('selected-row'));
+      row.classList.add('selected-row');
+    }
+  });
+
+  document.querySelectorAll('.fold-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('masterTable').classList.toggle('fold-' + btn.dataset.group);
+    });
+  });
+
+  document.getElementById('subcontractSwitch').addEventListener('click', (e) => {
+    e.target.classList.toggle('on');
+  });
+
+  // ========== 読み込み ==========
+  async function loadTemplate(id) {
+    _templateId = id;
+    try {
+      const [tRes, rRes] = await Promise.all([
+        fetch(`${API}/estimate_templates?id=eq.${id}`, { headers: HEADERS }),
+        fetch(`${API}/estimate_template_rows?template_id=eq.${id}&order=sort_order.asc`, { headers: HEADERS }),
+      ]);
+      if (!tRes.ok) throw new Error('テンプレート取得失敗');
+      const templates = await tRes.json();
+      if (!templates[0]) { showToast('テンプレートが見つかりません', true); return; }
+      const t = templates[0];
+      document.getElementById('templateName').value = t.name || '';
+      document.getElementById('remarkInput').value = t.remark || '';
+      document.getElementById('subcontractSwitch').classList.toggle('on', t.division === 'shitauke');
+      document.getElementById('crumbCurrent').textContent = t.name || '（無題）';
+
+      if (!rRes.ok) throw new Error('明細取得失敗');
+      const rows = await rRes.json();
+      tbody.innerHTML = '';
+      // folder_id(旧行のDB上のid) → 新しく割り当てるローカルidのマップ
+      const idMap = {};
+      rows.forEach(row => {
+        const localParentId = row.parent_id ? idMap[row.parent_id] : null;
+        if (row.row_type === 'cat' || row.row_type === 'subcat') {
+          const level = row.row_type === 'cat' ? 1 : 2;
+          const tr = makeFolderTr(level, localParentId, row.name);
+          tbody.appendChild(tr);
+          if (row.folder_id) idMap[row.folder_id] = tr.dataset.id;
+        } else {
+          const tr = makeLeafTr(localParentId, row);
+          tbody.appendChild(tr);
+          wireRowEvents(tr);
+        }
+      });
+      if (rows.length === 0) addTopFolder();
+      recalcTotals();
+    } catch (e) {
+      showToast('読み込みに失敗しました: ' + e.message, true);
+    }
+  }
+
+  // ========== 収集・保存 ==========
+  // PostgRESTの一括INSERTは配列内の全オブジェクトが同一キー集合である必要があるため
+  // （異なるとPGRST102エラー）、フォルダ行・明細行とも常に同じ列を全部含める（不要な列はnull）。
+  function collectRows(templateId) {
+    const out = [];
+    let order = 0;
+    [...tbody.children].forEach(tr => {
+      const base = {
+        template_id: templateId,
+        row_type: null, folder_id: null, parent_id: tr.dataset.parentId || null, level: null,
+        name: null, spec: null, qty: null, unit: null, list_price: null, rate: null, cost: null,
+        craftsman_unit_price: null, bone_unit_price: null, unit_price: null,
+        memo: null, note: null, order_wholesale_name: null, order_craftsman_name: null,
+        sort_order: order++,
+      };
+      if (tr.dataset.rowType === 'cat' || tr.dataset.rowType === 'subcat') {
+        out.push({
+          ...base,
+          row_type: tr.dataset.rowType,
+          folder_id: tr.dataset.id,
+          level: parseInt(tr.dataset.level, 10),
+          name: tr.querySelector('.name-input').value.trim() || null,
+        });
+      } else {
+        const g = sel => { const el = tr.querySelector(sel); return el ? el.value.trim() : ''; };
+        out.push({
+          ...base,
+          row_type: 'row',
+          name: g('.name-input') || null,
+          spec: g('td.w-spec input') || null,
+          qty: toNum(g('.qty-input')),
+          unit: g('td.w-unit input') || null,
+          list_price: toNum(g('td.w-price input')),
+          rate: toNum(g('.rate-input')),
+          cost: toNum(g('.cost-input')),
+          craftsman_unit_price: toNum(g('.craftsman-input')),
+          bone_unit_price: toNum(g('.bone-input')),
+          unit_price: toNum(g('.custprice-input')),
+          memo: g('td.g-biko input') || null,
+          note: g('td.g-memo input') || null,
+          order_wholesale_name: tr.querySelectorAll('td.g-hachu input')[0] ? tr.querySelectorAll('td.g-hachu input')[0].value.trim() || null : null,
+          order_craftsman_name: tr.querySelectorAll('td.g-hachu input')[1] ? tr.querySelectorAll('td.g-hachu input')[1].value.trim() || null : null,
+        });
+      }
+    });
+    return out;
+  }
+
+  async function saveTemplate(asNew) {
+    const name = document.getElementById('templateName').value.trim();
+    if (!name) { showToast('テンプレート名を入力してください', true); return false; }
+    const remark = document.getElementById('remarkInput').value.trim();
+    const division = document.getElementById('subcontractSwitch').classList.contains('on') ? 'shitauke' : 'motouri';
+    const now = new Date().toISOString();
+    try {
+      let targetId = asNew ? null : _templateId;
+      if (targetId) {
+        const res = await fetch(`${API}/estimate_templates?id=eq.${targetId}`, {
+          method: 'PATCH', headers: HEADERS, body: JSON.stringify({ name, remark, division, updated_at: now }),
+        });
+        if (!res.ok) throw new Error('更新失敗');
+      } else {
+        const res = await fetch(`${API}/estimate_templates`, {
+          method: 'POST', headers: HEADERS, body: JSON.stringify({ name, remark, division, sort_order: 0, created_at: now, updated_at: now }),
+        });
+        if (!res.ok) throw new Error('作成失敗');
+        const created = await res.json();
+        targetId = created[0].id;
+      }
+      // 明細を全削除→再挿入（順序厳守：削除前に収集を済ませてからDELETE→INSERT）
+      const rows = collectRows(targetId);
+      await fetch(`${API}/estimate_template_rows?template_id=eq.${targetId}`, { method: 'DELETE', headers: HEADERS });
+      if (rows.length) {
+        const res2 = await fetch(`${API}/estimate_template_rows`, { method: 'POST', headers: { ...HEADERS, Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
+        if (!res2.ok) throw new Error('明細保存失敗');
+      }
+      _templateId = targetId;
+      const np = new URLSearchParams(location.search);
+      np.set('template_id', targetId);
+      history.replaceState(null, '', '?' + np.toString());
+      document.getElementById('crumbCurrent').textContent = name;
+      showToast('保存しました');
+      return true;
+    } catch (e) {
+      showToast('保存に失敗しました: ' + e.message, true);
+      return false;
+    }
+  }
+
+  document.getElementById('btnOperationMenu').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const row = tbody.querySelector('tr.selected-row');
+    if (!row) { showToast('行を選択してください', true); return; }
+    openMoreMenu(e.currentTarget, row.dataset.id);
+  });
+  document.getElementById('btnRegister').addEventListener('click', () => saveTemplate(false));
+  document.getElementById('btnSaveAs').addEventListener('click', async () => {
+    const name = prompt('保存後のテンプレート名を入力してください', document.getElementById('templateName').value.trim() + 'のコピー');
+    if (!name) return;
+    document.getElementById('templateName').value = name;
+    await saveTemplate(true);
+  });
+
+  function goBackToList() {
+    sessionStorage.setItem('openex_nav_target', 'estimate-template');
+    window.location.href = 'index.html';
+  }
+  document.getElementById('btnBackToList').addEventListener('click', goBackToList);
+
+  // 下部固定バーは折り返し(2段)になると高さが変わり、テーブル末尾のセルに重なってクリック/入力できなくなるため、実測して本文下側の余白を確保する。
+  // また、行追加時のfocus()によるブラウザ自動スクロールが固定バーの裏に要素を止めてしまわないよう、scroll-padding-bottomも同期する
+  function adjustBodyPaddingForControlStrip() {
+    const cs = document.querySelector('.control-strip');
+    if (!cs) return;
+    const h = cs.offsetHeight + 20;
+    document.body.style.paddingBottom = h + 'px';
+    document.documentElement.style.scrollPaddingBottom = h + 'px';
+  }
+  window.addEventListener('resize', adjustBodyPaddingForControlStrip);
+  adjustBodyPaddingForControlStrip();
+
+  // ========== 初期化 ==========
+  (async function init() {
+    const p = new URLSearchParams(location.search);
+    _templateId = p.get('template_id') || null;
+    if (_templateId) {
+      await loadTemplate(_templateId);
+    } else {
+      document.getElementById('statusNote').textContent = '（未保存の新規テンプレート）';
+      addTopFolder();
+    }
+  })();
+</script>
+</body>
+</html>

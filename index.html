@@ -503,7 +503,67 @@
     .blchat-dd-new:hover { background: #f0f5ff; }
 
     /* ===== マスタ設定ページ ===== */
-    #page-estimate-master { background: #f0f2f5; }
+    #page-estimate-master { background: #ffffff; }
+    /* ---- マスタ一覧（estimate-master-list.html デザイン準拠, .eml-* ） ---- */
+    .eml-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 32px 60px; }
+    .eml-breadcrumb { font-size: 13px; margin-bottom: 10px; }
+    .eml-breadcrumb .eml-crumb-link { color: #1d73cc; cursor: pointer; }
+    .eml-breadcrumb .eml-crumb-sep { color: #c0c4cc; margin: 0 6px; }
+    .eml-breadcrumb .eml-crumb-current { color: #303133; font-weight: bold; }
+    .eml-page-title { font-size: 20px; font-weight: bold; margin-bottom: 24px; }
+    .eml-function-area { display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .eml-functionClick {
+      min-width: 120px; height: 35px; padding: 0 16px;
+      border: none; border-radius: 12px; background-color: #1d73cc; color: #ffffff;
+      font-size: 12px; font-weight: bold; font-family: inherit; cursor: pointer;
+    }
+    .eml-functionClick:hover { background-color: #185ea3; }
+    .eml-table {
+      width: 100%; max-width: 100%;
+      border-collapse: separate; border-spacing: 0;
+      border: 1px solid #B9B9B9; border-radius: 5px; overflow: hidden; font-size: 13px;
+    }
+    .eml-table th, .eml-table td {
+      border-bottom: 1px solid #B9B9B9; border-right: 1px solid #B9B9B9;
+      height: 30px; padding: 0 10px;
+    }
+    .eml-table th:last-child, .eml-table td:last-child { border-right: none; }
+    .eml-table thead th { background-color: #E6E6E6; color: #000000; font-size: 12px; font-weight: bold; text-align: center; }
+    .eml-table tbody td { text-align: center; background: #ffffff; }
+    .eml-table tbody td.al { text-align: left; }
+    .eml-table tbody tr:hover td { background-color: #f5f7fa; }
+    .eml-w-no     { width: 50px; min-width: 50px; }
+    .eml-w-type   { width: auto; }
+    .eml-w-day    { width: 12%; min-width: 100px; }
+    .eml-w-user   { width: 12%; min-width: 90px; }
+    .eml-w-remark { width: 30%; }
+    .eml-w-more   { width: 50px; min-width: 50px; }
+    .eml-type-link { color: #1d73cc; cursor: pointer; }
+    .eml-type-link:hover { text-decoration: underline; }
+    .eml-empty { text-align: center; padding: 48px; color: #bbb; font-size: 13px; background: #fff; }
+    /* 「…」メニュー（bl-more-menu/cs-more-menu と同じ開閉パターンで実装） */
+    .eml-more-cell { position: relative; }
+    .eml-more-btn { width: 22px; height: 22px; border: none; background: transparent; color: #606266; font-size: 16px; line-height: 1; cursor: pointer; letter-spacing: -1px; }
+    .eml-more-btn:hover { background: #f0f0f0; border-radius: 4px; }
+    .eml-more-menu { display: none; position: absolute; right: 0; top: calc(100% + 2px); z-index: 50; background: #ffffff; border: 1px solid #cfd3d8; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.18); padding: 4px 0; font-size: 12px; min-width: 110px; text-align: left; }
+    .eml-more-menu.open { display: block; }
+    .eml-more-menu-item { padding: 6px 16px; white-space: nowrap; cursor: pointer; color: #303133; }
+    .eml-more-menu-item:hover { background: #f5f7fa; }
+    .eml-more-menu-item.danger { color: #e53935; }
+    .eml-more-menu-item.danger:hover { background: #fef2f2; }
+    /* ---- テンプレート一覧（元請/下請カード見出し・並び替え矢印, .etl-* ） ---- */
+    .etl-card-title {
+      width: 220px; padding: 5px 10px; margin-bottom: 8px;
+      border: 1px solid #B9B9B9; border-radius: 3px; font-size: 14px; font-weight: bold;
+    }
+    .etl-name-cell { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .etl-arrows { display: flex; flex-direction: column; }
+    .etl-arrow-btn {
+      background: none; border: none; cursor: pointer; padding: 0; line-height: 1;
+      color: #606266; font-size: 11px;
+    }
+    .etl-arrow-btn:disabled { color: #d0d4d9; cursor: default; }
+    /* ---- テンプレート設定ページ（既存デザイン, .em-master-* のまま） ---- */
     .em-master-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 32px 60px; }
     .em-master-breadcrumb { font-size: 12px; color: #888; margin-bottom: 20px; display: flex; align-items: center; gap: 4px; }
     .em-master-breadcrumb a { color: #00a99d; text-decoration: none; cursor: pointer; }
@@ -3147,54 +3207,103 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
 </div>
 <!-- ===== マスタ設定ページ ===== -->
 <div id="page-estimate-master" class="page">
-  <div class="em-master-wrap">
-    <div class="em-master-breadcrumb"><a onclick="goSubPage('settings','settings')">設定</a><span>›</span><span>見積管理・マスタ</span></div>
-    <div class="em-master-header">
-      <div class="em-master-header-left">
-        <h1 class="em-master-title">マスタ設定</h1>
-        <button class="em-master-btn-new" onclick="emMasterNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新規作成</button>
-      </div>
-      <button class="em-master-btn-import" onclick="emMasterImport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>インポート</button>
+  <div class="eml-wrap">
+    <div class="eml-breadcrumb">
+      <span class="eml-crumb-link" onclick="goSubPage('settings','settings')">設定</span><span class="eml-crumb-sep">&gt;</span><span class="eml-crumb-current">見積管理・マスタ</span>
     </div>
-    <div class="em-master-card">
-      <div class="em-master-card-title">マスタ一覧</div>
-      <table class="em-master-table">
-        <thead><tr>
-          <th class="em-master-col-no">No</th>
-          <th class="em-master-col-type">マスタ名</th>
-          <th class="em-master-col-date">更新日</th>
-          <th class="em-master-col-user">更新者</th>
-          <th class="em-master-col-ops">操作</th>
-        </tr></thead>
-        <input type="file" id="emImportFileInput" accept=".csv" style="display:none">
-        <tbody id="emMasterTbody"><tr><td colspan="5" class="em-master-empty">データがありません</td></tr></tbody>
-      </table>
+    <h1 class="eml-page-title">見積管理・マスタ</h1>
+
+    <div class="eml-function-area">
+      <button class="eml-functionClick" onclick="emMasterNew()">新規登録</button>
+      <button class="eml-functionClick" onclick="emMasterImport()">インポート</button>
     </div>
+
+    <table class="eml-table">
+      <thead>
+        <tr>
+          <th class="eml-w-no">No.</th>
+          <th class="eml-w-type">マスタ名</th>
+          <th class="eml-w-day">更新日</th>
+          <th class="eml-w-user">更新者</th>
+          <th class="eml-w-remark">備考</th>
+          <th class="eml-w-more"></th>
+        </tr>
+      </thead>
+      <tbody id="emMasterTbody"><tr><td colspan="6" class="eml-empty">データがありません</td></tr></tbody>
+    </table>
   </div>
 </div>
 
-<!-- ===== テンプレート設定ページ ===== -->
+<!-- ===== テンプレート設定ページ（estimate-template-list 画像準拠, .eml-* 流用） ===== -->
 <div id="page-estimate-template" class="page">
-  <div class="em-master-wrap">
-    <div class="em-master-breadcrumb"><a onclick="goSubPage('settings','settings')">設定</a><span>›</span><span>見積管理・テンプレート</span></div>
-    <div class="em-master-header">
-      <div class="em-master-header-left">
-        <h1 class="em-master-title">テンプレート設定</h1>
-        <button class="em-master-btn-new" onclick="etTemplateNew()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新規作成</button>
-      </div>
-      <button class="em-master-btn-import" onclick="etImport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>インポート</button>
+  <div class="eml-wrap">
+    <div class="eml-breadcrumb">
+      <span class="eml-crumb-link" onclick="goSubPage('settings','settings')">設定</span><span class="eml-crumb-sep">&gt;</span><span class="eml-crumb-current">見積管理・テンプレート</span>
     </div>
-    <div class="em-master-card">
-      <div class="em-master-card-title">テンプレート一覧</div>
-      <table class="em-master-table">
-        <thead><tr>
-          <th class="em-master-col-no">No</th>
-          <th class="em-master-col-type">テンプレート名</th>
-          <th class="em-master-col-date">更新日</th>
-          <th class="em-master-col-ops">操作</th>
-        </tr></thead>
-        <tbody id="etTemplateTbody"><tr><td colspan="4" class="em-master-empty">データがありません</td></tr></tbody>
-      </table>
+    <h1 class="eml-page-title">テンプレート設定</h1>
+
+    <div class="eml-function-area" style="justify-content:space-between;">
+      <div style="display:flex;gap:10px;">
+        <button class="eml-functionClick" onclick="etTemplateNewOpen()">新規登録</button>
+        <button class="eml-functionClick" onclick="etImport()">インポート</button>
+      </div>
+      <div style="font-size:12px;color:#606266;">※登録最大件数、各15件</div>
+    </div>
+
+    <div class="etl-card-title">元請テンプレート</div>
+    <table class="eml-table" style="margin-bottom:24px;">
+      <thead>
+        <tr>
+          <th class="eml-w-no">No.</th>
+          <th class="eml-w-type">テンプレート名</th>
+          <th class="eml-w-day">更新日</th>
+          <th class="eml-w-user">更新者</th>
+          <th class="eml-w-remark">備考</th>
+          <th class="eml-w-more"></th>
+        </tr>
+      </thead>
+      <tbody id="etMotoukeTbody"><tr><td colspan="6" class="eml-empty">読み込み中...</td></tr></tbody>
+    </table>
+
+    <div class="etl-card-title">下請テンプレート</div>
+    <table class="eml-table">
+      <thead>
+        <tr>
+          <th class="eml-w-no">No.</th>
+          <th class="eml-w-type">テンプレート名</th>
+          <th class="eml-w-day">更新日</th>
+          <th class="eml-w-user">更新者</th>
+          <th class="eml-w-remark">備考</th>
+          <th class="eml-w-more"></th>
+        </tr>
+      </thead>
+      <tbody id="etShitaukeTbody"><tr><td colspan="6" class="eml-empty">読み込み中...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== テンプレート新規登録モーダル ===== -->
+<div id="etNewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:8px;width:460px;max-width:94vw;box-shadow:0 4px 24px rgba(0,0,0,.18);overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid #eee;font-size:16px;font-weight:bold;">テンプレート新規登録</div>
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:12px;color:#606266;margin-bottom:4px;">テンプレート名 *</div>
+        <input id="etNewName" class="field-input" style="width:100%;height:32px;border:1px solid #DCDFE6;border-radius:4px;padding:0 10px;font-size:13px;">
+      </div>
+      <div>
+        <div style="font-size:12px;color:#606266;margin-bottom:4px;">備考</div>
+        <input id="etNewRemark" class="field-input" style="width:100%;height:32px;border:1px solid #DCDFE6;border-radius:4px;padding:0 10px;font-size:13px;">
+      </div>
+      <div>
+        <div style="font-size:12px;color:#606266;margin-bottom:6px;">区分</div>
+        <label style="margin-right:20px;font-size:13px;cursor:pointer;"><input type="radio" name="etNewDivision" value="motouri" checked> 元請テンプレート</label>
+        <label style="font-size:13px;cursor:pointer;"><input type="radio" name="etNewDivision" value="shitauke"> 下請テンプレート</label>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+      <button class="eml-functionClick" style="background:#f1faff;color:#1d73cc;border:1px solid #1d73cc;" onclick="etNewModalClose()">キャンセル</button>
+      <button class="eml-functionClick" onclick="etNewModalSubmit()">登録</button>
     </div>
   </div>
 </div>
@@ -3777,14 +3886,14 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
     sessionStorage.removeItem('openex_master_reload');
     const tbody = document.getElementById('emMasterTbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="em-master-empty">読み込み中...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="eml-empty">読み込み中...</td></tr>';
     try {
       const res = await fetch(`${API}/master_items?order=sort_order.asc,created_at.asc`, { headers: HEADERS });
       if (!res.ok) throw new Error();
       _emMasterRows = await res.json();
       emRenderMaster();
     } catch {
-      tbody.innerHTML = '<tr><td colspan="6" class="em-master-empty">取得に失敗しました</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="eml-empty">取得に失敗しました</td></tr>';
     }
   }
 
@@ -3792,34 +3901,45 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
     const tbody = document.getElementById('emMasterTbody');
     if (!tbody) return;
     if (!_emMasterRows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="em-master-empty">データがありません</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="eml-empty">データがありません</td></tr>';
       return;
     }
     tbody.innerHTML = _emMasterRows.map((row, i) => {
       const updDate = row.updated_at ? row.updated_at.slice(0,10).replace(/-/g,'/') : '—';
-      return `<tr class="em-master-row" ondblclick="emMasterEdit('${row.id}')" title="ダブルクリックで編集" style="cursor:pointer;">
+      return `<tr>
         <td>${i + 1}</td>
-        <td>${escHtml(row.name || '—')}</td>
+        <td class="al"><span class="eml-type-link" onclick="emMasterEdit('${row.id}')">${escHtml(row.name || '—')}</span></td>
         <td>${updDate}</td>
         <td>${escHtml(row.updated_by || '—')}</td>
-        <td class="em-master-col-ops">
-          <div class="em-master-ops">
-            <button class="em-master-op-btn" onclick="event.stopPropagation();emMasterCopy('${row.id}')" title="複製">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            </button>
-            <button class="em-master-op-btn" onclick="event.stopPropagation();emMasterDownload('${row.id}')" title="ダウンロード">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-            <button class="em-master-op-btn del" onclick="event.stopPropagation();emMasterDelete('${row.id}')" title="削除">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
+        <td class="al">${escHtml(row.memo || '')}</td>
+        <td class="eml-more-cell">
+          <button class="eml-more-btn" onclick="event.stopPropagation();emMasterToggleMenu(this)">…</button>
+          <div class="eml-more-menu">
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();emMasterToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));emMasterEdit('${row.id}')">編集</div>
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();emMasterToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));emMasterCopy('${row.id}')">複製</div>
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();emMasterToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));emMasterDownload('${row.id}')">ダウンロード</div>
+            <div class="eml-more-menu-item danger" onclick="event.stopPropagation();emMasterToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));emMasterDelete('${row.id}')">削除</div>
           </div>
         </td>
       </tr>`;
     }).join('');
   }
 
-  function emMasterNew()    { window.location.href = 'estimate-master-replus.html'; }
+  function emMasterToggleMenu(btn) {
+    const menu = btn.nextElementSibling;
+    document.querySelectorAll('.eml-more-menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+    const willOpen = !menu.classList.contains('open');
+    menu.classList.toggle('open');
+    if (willOpen) {
+      setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+          if (!btn.contains(e.target)) { menu.classList.remove('open'); document.removeEventListener('click', closeMenu); }
+        });
+      }, 0);
+    }
+  }
+
+  function emMasterNew()    { window.location.href = 'estimate-master-edit.html'; }
   function emMasterImport() {
     // まず隠しファイルinputでファイルダイアログを開く
     var trigger = document.getElementById('emImportFileTrigger');
@@ -3989,7 +4109,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
     }
   }
 
-    function emMasterEdit(id) { window.location.href = 'estimate-master-replus.html?master_id=' + encodeURIComponent(id); }
+    function emMasterEdit(id) { window.location.href = 'estimate-master-edit.html?master_id=' + encodeURIComponent(id); }
   function emMasterCopy(id) { showToast('複製（今後実装予定）', 'info'); }
 
   async function emMasterDownload(id) {
@@ -4044,44 +4164,174 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
   }
 
   // ===== テンプレート設定 =====
+  // 元請/下請の2表に分けて表示する（estimate_templates.division: 'motouri'|'shitauke'、
+  // 未設定（既存データ）は元請扱い）。division/updated_by/remark/sort_orderの各列は
+  // 2026-07-28時点でestimate_templatesテーブルに未追加のため、下記SQLをSupabase SQL Editorで
+  // 実行してから利用する。列が無い状態でも取得自体は失敗しない想定（該当フィールドはundefinedになるだけ）。
+  //   alter table estimate_templates add column if not exists division text default 'motouri';
+  //   alter table estimate_templates add column if not exists updated_by text;
+  //   alter table estimate_templates add column if not exists remark text;
+  //   alter table estimate_templates add column if not exists sort_order integer default 0;
+  let _etMotoukeRows = [];
+  let _etShitaukeRows = [];
+
   async function etLoadTemplate() {
     sessionStorage.removeItem('openex_template_reload');
-    const tbody = document.getElementById('etTemplateTbody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" class="em-master-empty">読み込み中...</td></tr>';
+    const motoTbody = document.getElementById('etMotoukeTbody');
+    const shitaTbody = document.getElementById('etShitaukeTbody');
+    if (motoTbody) motoTbody.innerHTML = '<tr><td colspan="6" class="eml-empty">読み込み中...</td></tr>';
+    if (shitaTbody) shitaTbody.innerHTML = '<tr><td colspan="6" class="eml-empty">読み込み中...</td></tr>';
     try {
-      const res = await fetch(`${API}/estimate_templates?order=updated_at.desc`, { headers: HEADERS });
+      const res = await fetch(`${API}/estimate_templates?order=sort_order.asc,created_at.asc`, { headers: HEADERS });
       if (!res.ok) throw new Error();
       const rows = await res.json();
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="em-master-empty">データがありません</td></tr>';
-        return;
-      }
-      tbody.innerHTML = rows.map((row, i) => {
-        const updDate = row.updated_at ? row.updated_at.slice(0,10).replace(/-/g,'/') : '—';
-        return `<tr class="em-master-row" ondblclick="etTemplateEdit('${row.id}')" title="ダブルクリックで編集" style="cursor:pointer;">
-          <td>${i + 1}</td>
-          <td>${escHtml(row.name || '—')}</td>
-          <td>${updDate}</td>
-          <td class="em-master-col-ops">
-            <div class="em-master-ops">
-              <button class="em-master-op-btn" onclick="event.stopPropagation();etTemplateEdit('${row.id}')" title="編集">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="em-master-op-btn del" onclick="event.stopPropagation();etTemplateDelete('${row.id}')" title="削除">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              </button>
-            </div>
-          </td>
-        </tr>`;
-      }).join('');
+      _etMotoukeRows  = rows.filter(r => (r.division || 'motouri') !== 'shitauke');
+      _etShitaukeRows = rows.filter(r => r.division === 'shitauke');
+      etRenderTemplateTable(_etMotoukeRows, 'etMotoukeTbody', 'etTemplateMoveMotouke');
+      etRenderTemplateTable(_etShitaukeRows, 'etShitaukeTbody', 'etTemplateMoveShitauke');
     } catch {
-      tbody.innerHTML = '<tr><td colspan="4" class="em-master-empty">取得に失敗しました</td></tr>';
+      if (motoTbody) motoTbody.innerHTML = '<tr><td colspan="6" class="eml-empty">取得に失敗しました</td></tr>';
+      if (shitaTbody) shitaTbody.innerHTML = '<tr><td colspan="6" class="eml-empty">取得に失敗しました</td></tr>';
     }
   }
 
-  function etTemplateNew()    { window.location.href = 'estimate-template.html'; }
-  function etTemplateEdit(id) { window.location.href = `estimate-template.html?template_id=${id}`; }
+  function etRenderTemplateTable(list, tbodyId, moveFn) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="eml-empty">データがありません</td></tr>';
+      return;
+    }
+    tbody.innerHTML = list.map((row, i) => {
+      const updDate = row.updated_at ? row.updated_at.slice(0,10).replace(/-/g,'/') : '—';
+      return `<tr>
+        <td>${i + 1}</td>
+        <td class="al">
+          <div class="etl-name-cell">
+            <span class="eml-type-link" onclick="etTemplateEdit('${row.id}')">${escHtml(row.name || '—')}</span>
+            <span class="etl-arrows">
+              <button class="etl-arrow-btn" ${i === 0 ? 'disabled' : ''} onclick="event.stopPropagation();${moveFn}(${i},-1)">▲</button>
+              <button class="etl-arrow-btn" ${i === list.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation();${moveFn}(${i},1)">▼</button>
+            </span>
+          </div>
+        </td>
+        <td>${updDate}</td>
+        <td>${escHtml(row.updated_by || '—')}</td>
+        <td class="al">${escHtml(row.remark || '')}</td>
+        <td class="eml-more-cell">
+          <button class="eml-more-btn" onclick="event.stopPropagation();etTemplateToggleMenu(this)">…</button>
+          <div class="eml-more-menu">
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();etTemplateToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));etTemplateEdit('${row.id}')">編集</div>
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();etTemplateToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));etTemplateCopy('${row.id}')">コピー</div>
+            <div class="eml-more-menu-item" onclick="event.stopPropagation();etTemplateToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));etTemplateDownload('${row.id}')">ダウンロード</div>
+            <div class="eml-more-menu-item danger" onclick="event.stopPropagation();etTemplateToggleMenu(this.closest('.eml-more-cell').querySelector('.eml-more-btn'));etTemplateDelete('${row.id}')">削除</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function etTemplateToggleMenu(btn) {
+    const menu = btn.nextElementSibling;
+    document.querySelectorAll('.eml-more-menu.open').forEach(m => { if (m !== menu) m.classList.remove('open'); });
+    const willOpen = !menu.classList.contains('open');
+    menu.classList.toggle('open');
+    if (willOpen) {
+      setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+          if (!btn.contains(e.target)) { menu.classList.remove('open'); document.removeEventListener('click', closeMenu); }
+        });
+      }, 0);
+    }
+  }
+
+  // 並び替え（sort_orderを隣同士でスワップしてPATCH）
+  async function _etMoveRow(list, index, dir) {
+    const other = index + dir;
+    if (other < 0 || other >= list.length) return;
+    const a = list[index], b = list[other];
+    const aOrder = a.sort_order != null ? a.sort_order : index;
+    const bOrder = b.sort_order != null ? b.sort_order : other;
+    try {
+      await Promise.all([
+        fetch(`${API}/estimate_templates?id=eq.${a.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ sort_order: bOrder }) }),
+        fetch(`${API}/estimate_templates?id=eq.${b.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ sort_order: aOrder }) }),
+      ]);
+      etLoadTemplate();
+    } catch { showToast('並び替えに失敗しました', 'error'); }
+  }
+  function etTemplateMoveMotouke(index, dir)  { _etMoveRow(_etMotoukeRows, index, dir); }
+  function etTemplateMoveShitauke(index, dir) { _etMoveRow(_etShitaukeRows, index, dir); }
+
+  function etTemplateNewOpen() {
+    document.getElementById('etNewName').value = '';
+    document.getElementById('etNewRemark').value = '';
+    document.querySelector('input[name="etNewDivision"][value="motouri"]').checked = true;
+    document.getElementById('etNewModal').style.display = 'flex';
+  }
+  function etNewModalClose() { document.getElementById('etNewModal').style.display = 'none'; }
+  async function etNewModalSubmit() {
+    const name = document.getElementById('etNewName').value.trim();
+    if (!name) { showToast('テンプレート名を入力してください', 'error'); return; }
+    const remark = document.getElementById('etNewRemark').value.trim();
+    const division = document.querySelector('input[name="etNewDivision"]:checked').value;
+    const list = division === 'shitauke' ? _etShitaukeRows : _etMotoukeRows;
+    if (list.length >= 15) { showToast(`テンプレート登録最大件数、各15件`, 'error'); return; }
+    const now = new Date().toISOString();
+    try {
+      const res = await fetch(`${API}/estimate_templates`, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ name, remark, division, created_at: now, updated_at: now, sort_order: list.length })
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      etNewModalClose();
+      window.location.href = `template-edit.html?template_id=${created[0].id}`;
+    } catch { showToast('登録に失敗しました', 'error'); }
+  }
+
+  function etTemplateEdit(id) { window.location.href = `template-edit.html?template_id=${id}`; }
+
+  async function etTemplateCopy(id) {
+    const src = _etMotoukeRows.concat(_etShitaukeRows).find(r => r.id === id);
+    if (!src) return;
+    const name = prompt('コピー後のテンプレート名を入力してください', (src.name || '') + 'のコピー');
+    if (!name) return;
+    try {
+      const now = new Date().toISOString();
+      const hRes = await fetch(`${API}/estimate_templates`, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ name, remark: src.remark || '', division: src.division || 'motouri', created_at: now, updated_at: now })
+      });
+      if (!hRes.ok) throw new Error();
+      const created = await hRes.json();
+      const newId = created[0].id;
+      const rRes = await fetch(`${API}/estimate_template_rows?template_id=eq.${id}&order=sort_order.asc`, { headers: HEADERS });
+      const srcRows = rRes.ok ? await rRes.json() : [];
+      if (srcRows.length) {
+        const rows = srcRows.map(r => { const row = { ...r, template_id: newId }; delete row.id; return row; });
+        await fetch(`${API}/estimate_template_rows`, { method: 'POST', headers: HEADERS, body: JSON.stringify(rows) });
+      }
+      showToast('コピーしました');
+      etLoadTemplate();
+    } catch { showToast('コピーに失敗しました', 'error'); }
+  }
+
+  async function etTemplateDownload(id) {
+    const src = _etMotoukeRows.concat(_etShitaukeRows).find(r => r.id === id);
+    try {
+      const rRes = await fetch(`${API}/estimate_template_rows?template_id=eq.${id}&order=sort_order.asc`, { headers: HEADERS });
+      if (!rRes.ok) throw new Error();
+      const rows = await rRes.json();
+      const data = { name: (src && src.name) || 'template', rows };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (data.name) + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch { showToast('ダウンロードに失敗しました', 'error'); }
+  }
 
   async function etTemplateDelete(id) {
     if (!confirm('このテンプレートを削除しますか？')) return;
@@ -4475,7 +4725,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
               <td>${escHtml(staffName)}</td>`;
             tr.style.cursor = 'pointer';
             tr.addEventListener('click', () => {
-              window.location.href = `estimate-list.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
+              window.location.href = `estimate-management.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
             });
             tbody.appendChild(tr);
             count++;
@@ -4510,7 +4760,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
               <td>${escHtml(staffName)}</td>`;
             tr.style.cursor = 'pointer';
             tr.addEventListener('click', () => {
-              window.location.href = `estimate-list.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
+              window.location.href = `estimate-management.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
             });
             tbody.appendChild(tr);
           });
@@ -4546,7 +4796,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
         <td>${escHtml(staffName)}</td>`;
       tr.style.cursor = 'pointer';
       tr.addEventListener('click', () => {
-        window.location.href = `estimate-list.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
+        window.location.href = `estimate-management.html?property_id=${encodeURIComponent(p.id)}&back=${encodeURIComponent('index.html')}`;
       });
       tbody.appendChild(tr);
     });
@@ -5881,7 +6131,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
     document.getElementById('blBreadcrumb').onclick = () => goPage('bukken');
     document.getElementById('blEditBtn').onclick = () => openPropertyEdit(prop);
     document.getElementById('blEstimateBtn').onclick = () => {
-      window.location.href = `estimate-list.html?property_id=${encodeURIComponent(prop.id)}&back=${encodeURIComponent('index.html')}`;
+      window.location.href = `estimate-management.html?property_id=${encodeURIComponent(prop.id)}&back=${encodeURIComponent('index.html')}`;
     };
     document.getElementById('blShodanBtn').onclick = () => {
       window.location.href = `shodan-kanri.html?property_id=${encodeURIComponent(prop.id)}&back=${encodeURIComponent('index.html')}`;
