@@ -479,6 +479,7 @@
     <button class="btn btn-secondary" id="faceMeasureToggle" style="display:none">⬜ 面選択計測</button>
     <button class="btn btn-secondary" id="annotationToggle" style="display:none">📝 注記を表示</button>
     <button class="btn btn-secondary" id="hidePlantsToggle" style="display:none">🌳 植栽を非表示</button>
+    <button class="btn btn-secondary" id="structuralEdgeToggle" style="display:none">🧱 躯体輪郭線を非表示</button>
     <button class="btn btn-secondary" id="showAllBtn" style="display:none">👁 表示を戻す</button>
     <button class="btn btn-secondary" id="pdfLoadBtn" style="display:none">📄 図面を重ねる</button>
     <input type="file" id="pdfFileInput" accept=".pdf,.dxf" style="display:none">
@@ -730,8 +731,6 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.2));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
-// IFCはSI単位(m)で読み込まれるため、size/divisions=100/100 で1マス=1m=1000mmピッチ
-scene.add(new THREE.GridHelper(100, 100, 0xcccccc, 0xe5e5e5));
 
 function resize() {
   const el = canvas.parentElement;
@@ -794,6 +793,7 @@ const faceMeasureToggle = document.getElementById('faceMeasureToggle');
 const annotationToggle = document.getElementById('annotationToggle');
 const showAllBtn = document.getElementById('showAllBtn');
 const hidePlantsToggle = document.getElementById('hidePlantsToggle');
+const structuralEdgeToggle = document.getElementById('structuralEdgeToggle');
 const buildQtyBtn = document.getElementById('buildQtyBtn');
 const transferToEstimateBtn = document.getElementById('transferToEstimateBtn');
 const selectSameMaterialBtn = document.getElementById('selectSameMaterialBtn');
@@ -2214,6 +2214,7 @@ async function loadFile(file) {
     clearFaceMeasurement();
     clearIfcAnnotations();
     modelEdgeSegments = null;
+    disposeStructuralEdges();
     lineMeasureMode = false;
     lineMeasureToggle.textContent = '📐 線計測';
     lineMeasureToggle.classList.remove('active');
@@ -2272,6 +2273,18 @@ async function loadFile(file) {
     hidePlantsToggle.textContent = '🌳 植栽を表示に戻す';
     hidePlantsToggle.classList.add('active');
     await applyHiddenIds();
+
+    // 躯体（壁・スラブ・メッシュ・屋根・柱）の輪郭線をデフォルトで表示する（2026-08-07坂東さん指示）。
+    // 判断根拠・対象カテゴリの選定理由はengineering/docs/ifc-viewer.md参照。
+    structuralEdgeToggle.style.display = '';
+    structuralEdgesVisible = true;
+    structuralEdgeToggle.textContent = '🧱 躯体輪郭線を非表示';
+    structuralEdgeToggle.classList.add('active');
+    try {
+      await buildStructuralEdgeOutlines(model.modelID);
+    } catch (err) {
+      console.error('[structuralEdges] 躯体輪郭線の生成に失敗しました', err);
+    }
 
     document.getElementById('qtyPanel').classList.remove('show');
     document.getElementById('qtyBody').innerHTML = '<div class="qty-empty">「一覧表作成」ボタンを押すと数量が表示されます</div>';
@@ -3790,6 +3803,10 @@ const HIDE_SCAN_TYPES = [
   IFCSITE,
 ];
 const CATEGORY_NAMES = ['壁', 'スラブ', 'メッシュ', '屋根', '柱', 'オブジェクト', 'ランプ', '植栽', '窓'];
+// 躯体輪郭線（2026-08-07新規実装）のデフォルト表示対象カテゴリ。CATEGORY_NAMESのうち
+// 「オブジェクト」「ランプ」「植栽」「窓」は什器・造作・植栽・建具であり躯体（構造体）とは言えないため除外し、
+// 構造系の5分類のみを対象にした。判断根拠はengineering/docs/ifc-viewer.md参照。
+const STRUCTURAL_EDGE_CATEGORIES = ['壁', 'スラブ', 'メッシュ', '屋根', '柱'];
 const CATEGORY_PARAMS = {
   '壁': ['高さ', '壁中心長さ', '上部表面積(正味)', '表面積'],
   'スラブ': ['高さ', '平面図外周', '面積'],
@@ -5200,16 +5217,25 @@ showAllBtn.addEventListener('click', async () => {
   await refreshQtyTableIfOpen();
 });
 
-// 名称接頭辞ベースの分類（detectCategory）が指定分類に一致する要素のexpressIDを集める
-async function getCategoryElementIds(modelID, categoryName) {
+// 名称接頭辞ベースの分類（detectCategory）が指定分類に一致する要素のexpressIDを集める。
+// categoryNameOrNamesは単一の分類名（従来通りの呼び出し方、例:'植栽'）のほか、
+// 配列/Setで複数分類をまとめて渡すこともできる（2026-08-07、躯体輪郭線機能で追加）。
+// 複数分類を渡した場合もHIDE_SCAN_TYPESの全件スキャンは1回で済む
+// （分類ごとにこの関数を複数回呼ぶと、getAllItemsOfType(..., true)によるプロパティ全件取得の
+// 走査コストがそのまま呼び出し回数倍になってしまうため、単一スキャンで複数分類を振り分ける）。
+async function getCategoryElementIds(modelID, categoryNameOrNames) {
   const manager = ifcLoader.ifcManager;
+  const targets = (categoryNameOrNames instanceof Set) ? categoryNameOrNames
+    : Array.isArray(categoryNameOrNames) ? new Set(categoryNameOrNames)
+    : new Set([categoryNameOrNames]);
   const ids = new Set();
   for (const t of HIDE_SCAN_TYPES) {
     let items = [];
     try { items = await manager.getAllItemsOfType(modelID, t, true); } catch (err) { items = []; }
     for (const props of items) {
       const elementName = fieldValue(props.Name) || '';
-      if (detectCategory(elementName) === categoryName) ids.add(props.expressID);
+      const category = detectCategory(elementName);
+      if (category && targets.has(category)) ids.add(props.expressID);
     }
   }
   return ids;
@@ -5354,6 +5380,87 @@ function clearMeasurement() {
   measurePoints = [];
   lineMeasureEntries = [];
 }
+
+// ── 躯体輪郭線（デフォルト常時表示） ─────────────────────────
+// 2026-08-07新規実装（坂東さん指示「躯体の輪郭線をデフォルトで表示させてほしい」）。
+// 壁・スラブ・柱・屋根などの躯体要素の辺（EdgesGeometryベース）を、IFC読み込み完了時に自動生成し、
+// 何も操作しなくてもデフォルトで3Dビュー上に表示する。辺の抽出ロジック自体は下の「線計測」機能が
+// 使っているbuildModelEdgeSegments()をそのまま再利用する（同じEdgesGeometryベースの計算を
+// 2箇所に重複実装しないため）。ただし対象範囲・状態・キャッシュは完全に別物:
+// - 線計測(modelEdgeSegments)はモデル全体（什器・植栽・窓なども含む）の辺をクリック計測のスナップ
+//   候補にするための内部データで、画面には常時描画されない（ホバー中の1本のプレビューのみ）。
+// - 躯体輪郭線(structuralEdgeLines)はSTRUCTURAL_EDGE_CATEGORIES（壁/スラブ/メッシュ/屋根/柱の
+//   構造系5分類のみ）に絞った辺を実際にLineSegmentsとして常時シーンに描画する。
+// 対象カテゴリの選定根拠・色（0x333333）の選定根拠・既知の制約はengineering/docs/ifc-viewer.md参照。
+const structuralEdgeMaterial = new THREE.LineBasicMaterial({ color: 0x333333 });
+let structuralEdgeLines = null; // ファイル読み込み毎に再構築するLineSegments（未読込・生成失敗時はnull）
+let structuralEdgesVisible = true; // トグルボタンでON/OFF。既定はtrue（ファイル読込のたびにtrueへ戻す）
+
+function disposeStructuralEdges() {
+  if (structuralEdgeLines) {
+    scene.remove(structuralEdgeLines);
+    structuralEdgeLines.geometry.dispose();
+    structuralEdgeLines = null;
+  }
+}
+
+// 躯体カテゴリのexpressID集合から一時的なサブセットメッシュを作り、buildModelEdgeSegments()で
+// 辺を抽出したうえでサブセット自体は破棄する（表示に使うのは抽出結果のLineSegmentsのみ）。
+// visibleSubsetMesh・ハイライト用subset等と同じifcManager.createSubset()のパターンを踏襲。
+async function buildStructuralEdgeOutlines(modelID) {
+  disposeStructuralEdges();
+  if (!currentModel) return;
+
+  let structuralIds;
+  try {
+    structuralIds = await getCategoryElementIds(modelID, STRUCTURAL_EDGE_CATEGORIES);
+  } catch (err) {
+    console.error('[structuralEdges] 躯体カテゴリの集計に失敗しました', err);
+    return;
+  }
+  if (!structuralIds.size) return;
+
+  const subset = ifcLoader.ifcManager.createSubset({
+    scene,
+    modelID,
+    ids: Array.from(structuralIds),
+    removePrevious: true,
+    customID: 'ifc-viewer-structural-edge-src',
+    // materialは指定しない: 辺抽出だけに使う一時メッシュのため見た目は問わない（生成後すぐ破棄する）
+  });
+  if (!subset) return;
+
+  const segments = buildModelEdgeSegments(subset);
+
+  // 抽出専用サブセットはもう不要（シーン・ifcManager双方から破棄。visibleSubsetMesh等の
+  // 表示用サブセットとは無関係のcustomIDのため、他の表示状態には影響しない）
+  scene.remove(subset);
+  ifcLoader.ifcManager.removeSubset(modelID, undefined, 'ifc-viewer-structural-edge-src');
+
+  if (!segments.length) return;
+  const positions = new Float32Array(segments.length * 6);
+  segments.forEach((seg, i) => {
+    positions[i * 6 + 0] = seg.a.x; positions[i * 6 + 1] = seg.a.y; positions[i * 6 + 2] = seg.a.z;
+    positions[i * 6 + 3] = seg.b.x; positions[i * 6 + 4] = seg.b.y; positions[i * 6 + 5] = seg.b.z;
+  });
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  structuralEdgeLines = new THREE.LineSegments(geom, structuralEdgeMaterial);
+  // depthTestは有効のまま（他要素の陰に隠れる辺は隠れる＝X線表示にしない）。renderOrderだけ
+  // 躯体メッシュ（既定0）より後にして、同一平面上で深度がほぼ同値になった場合に辺を優先描画する
+  // （three.jsの既定depthFuncはLessEqualのため、描画順が後勝ちになりZファイティングのちらつきを抑えられる）。
+  structuralEdgeLines.renderOrder = 1;
+  structuralEdgeLines.visible = structuralEdgesVisible;
+  scene.add(structuralEdgeLines);
+}
+
+structuralEdgeToggle.addEventListener('click', () => {
+  structuralEdgesVisible = !structuralEdgesVisible;
+  if (structuralEdgeLines) structuralEdgeLines.visible = structuralEdgesVisible;
+  structuralEdgeToggle.textContent = structuralEdgesVisible ? '🧱 躯体輪郭線を非表示' : '🧱 躯体輪郭線を表示';
+  structuralEdgeToggle.classList.toggle('active', structuralEdgesVisible);
+});
 
 // ── 線計測（モデルの辺そのものをクリック1回で測る） ─────────────
 // 点と点の距離計測とは別に、実際に描かれている辺（壁の輪郭など）にカーソルを重ねてクリックすると
