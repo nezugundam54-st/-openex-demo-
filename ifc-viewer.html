@@ -291,12 +291,6 @@
   }
   table.qty-table td.qty-cat { font-weight: bold; color: #1a3a5c; background: #f7f9fc; } /* showMultiSelectionSummaryの分類列でのみ使用 */
   table.qty-table td.qty-group { color: #333; background: #fbfbfd; }
-  /* 2026-08-03追加（タスクA詳細化その2、Dify価格検索の書き込み復旧）: 参考価格列を廃止したため、
-     Dify検索結果は材質・名称セルへの小さなバッジとして表示する */
-  table.qty-table .qty-price-badge {
-    display: inline-block; margin-left: 6px; padding: 1px 6px; font-size: 11px;
-    background: #eaf7ef; color: #1a6f4c; border-radius: 8px; white-space: nowrap; cursor: help;
-  }
   table.qty-table td.qty-param { color: #555; }
   table.qty-table td.qty-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   table.qty-table td.qty-unit { color: #888; white-space: nowrap; }
@@ -312,12 +306,8 @@
      （合算結果行の背景色）は表示から使わなくなったためCSS定義ごと削除した（合算は部材情報パネル側の
      tfoot自動集計に一本化）。qty-cat（分類列）は showMultiSelectionSummary の表で引き続き使うため
      残している。
-     【注意・既知の副作用】Dify価格検索結果を一覧表セルへ書き込む機能（difyTransferBtn、
-     `.qty-price[data-group=...]`をquerySelectorする実装）は、対象セル自体が無くなったため
-     今後「数量一覧に該当行が見つかりませんでした」のアラートが常に出る状態になる。今回のタスク指示
-     （pptxスライド3の列削減、合算のパネル一本化）には含まれない別機能のため、意図的な仕様変更では
-     なく列削減の副作用として発生している。復活させる/別の場所に付け替える等の対応が必要か、
-     坂東さんに確認したい（詳細はsecretary/notes/2026-08-03-decisions.md参照）。 */
+     【2026-08-06追記】上記の副作用の原因だったdifyTransferBtn（一覧表への価格転記）は、Dify側が
+     価格を返さない仕様（商品名＋カタログPDFのURL）に変わったのに伴い機能ごと削除した。 */
   /* 2026-08-03追加（pptxスライド5・6指示）: 部材情報パネル（右ペイン）の数量セルを
      クリックで一覧表へ転記できるトグルボタンにした（合算チェック列・合算ボタンの代替） */
   table.qty-table .qty-value-toggle {
@@ -384,14 +374,14 @@
   .dify-modal-footer { padding: 12px 18px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end; }
   .dify-status { font-size: 12px; color: #666; margin-bottom: 10px; }
   .dify-status.error { color: #c0392b; }
-  table.dify-result-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-  table.dify-result-table th, table.dify-result-table td {
-    padding: 5px 6px; border-bottom: 1px solid #f0f0f0; font-size: 12px; text-align: left;
-  }
-  table.dify-result-table th { background: #f5f6f8; color: #666; font-weight: normal; }
-  table.dify-result-table td.dify-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .dify-result-meta { font-size: 11.5px; color: #888; margin: -4px 0 10px; }
   .dify-result-meta .tag-nohit { color: #c0392b; font-weight: bold; }
+  /* 2026-08-06追加: 単一選択パネルのカタログ検索結果（商品名＋URLのクリックで遷移するリスト表示） */
+  .dify-result-list { list-style: none; padding: 0; margin: 0; }
+  .dify-result-list li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .dify-result-list li:last-child { border-bottom: none; }
+  .dify-result-list a { color: #1a6f4c; text-decoration: none; }
+  .dify-result-list a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -627,13 +617,12 @@
   <div class="dify-modal-overlay" id="difyModalOverlay">
     <div class="dify-modal">
       <div class="dify-modal-header">
-        <span>💰 価格検索（RIKCAD材料引き当て）</span>
+        <span>📄 カタログ検索（RIKCAD材料引き当て）</span>
         <button id="difyModalCloseBtn">✕</button>
       </div>
       <div class="dify-modal-body" id="difyModalBody"></div>
       <div class="dify-modal-footer">
         <button class="btn btn-secondary" id="difyModalCancelBtn" style="background:#eee; color:#333;">閉じる</button>
-        <button class="btn btn-primary" id="difyTransferBtn" style="display:none;">📋 一覧表に転記</button>
       </div>
 
 <!-- APIキー設定モーダル -->
@@ -704,7 +693,7 @@ const H        = { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, 'Conte
 // Dify管理画面で「RIKCAD材料引き当て_v2」を公開→APIアクセスから発行したキー
 const DIFY_API_BASE = 'https://api.dify.ai/v1';
 // APIキーはlocalStorageから読み込む（なければHTMLに書いたデフォルト値を使用）
-let DIFY_API_KEY = localStorage.getItem('dify_api_key') || 'app-kcJvmHQcbPdzSjJ18KmzrjiP';
+let DIFY_API_KEY = localStorage.getItem('dify_api_key') || 'app-h1aLcbRDa0RyfwijcYQNwzLR';
 let _ifcFileName = '';
 // workerSrcにCDNのURLを直接指定するとクロスオリジンWorker起動に失敗し
 // page.render()が無反応のまま固まることがあるため、Workerスクリプトを取得して
@@ -1017,7 +1006,8 @@ transferToEstimateBtn.addEventListener('click', async () => {
       // 常に空のため実質的には何も追加されないが、他の経路と扱いを揃えるため呼んでおく）
       paramParts.push(...siyouEntriesForIds(meta.ids));
       const diffKey = computeQtyDiffKey({ globalId: meta.globalId, category: meta.category, paramName, label: meta.label });
-      // kakaku: Dify価格検索（difyTransferBtn）で取得済みならその金額を反映する（未取得なら従来通り0）
+      // kakaku: 2026-08-06以降、Dify側が価格を返さない仕様（商品名＋カタログPDFのURL）になったため
+      // meta.priceを書き込む経路（旧difyTransferBtn）は無くなり、常に0固定（Dify連携導入前の状態）
       // 2026-08-05再修正（坂東さん指示）: parameters内の区切りを改行からカンマ区切りに統一した
       // （「メーカー:◯◯」の直後の改行も含め、paramParts全要素をカンマ区切りの1行にまとめる）。
       items.push({ file: _ifcFileName, name: meta.label, type: 1, suuryo: parseFloat(text), kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '' });
@@ -3375,10 +3365,6 @@ async function showProperties(modelID, expressId) {
   // 「名称」はDifyのNAMEに使う商品名そのものなのでSIYOU側には含めない。
   const difySpecs = [];
   let difyName = '';
-  // フェンスの「フェンス本体枚数」「スチール柱」等、数値（枚数・本数）を持つプロパティを
-  // 全PropertySetから収集しておく。Dify検索結果の「部材名」（本体／スチール柱等）と名前を
-  // 突き合わせて、その部材の実際の数量として補完するために使う（画面表示はしない）
-  const difyQtyCandidates = [];
 
   let psetsHtml = '';
   // 2026-08-03その5変更（坂東さん指摘: 表示名を「RIKCAD_PSET」→「RIKCAD作図情報」に置き換えただけでは
@@ -3415,10 +3401,6 @@ async function showProperties(modelID, expressId) {
           } else {
             difySpecs.push(pVal);
           }
-        }
-        // 整数・小数の数値そのものが入っているプロパティは、枚数・本数系の候補として控えておく
-        if (pVal !== '' && /^-?\d+(\.\d+)?$/.test(String(pVal).trim())) {
-          difyQtyCandidates.push({ name: normKey(pName), value: parseFloat(pVal) });
         }
         if (isArchicad && !ARCHICAD_ALLOWED_PROPS.has(normKey(pName))) return null;
         if (isArchicadQty && qtyAllowSet && !qtyAllowSet.has(normKey(pName))) return null;
@@ -3522,20 +3504,20 @@ async function showProperties(modelID, expressId) {
   }
   psetsHtml = rikcadPsetHtml + psetsHtml;
 
-  _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20), quantityCandidates: difyQtyCandidates };
+  _currentDifyTarget = { expressId, name: difyName || name, siyouValues: difySpecs.slice(0, 20) };
 
   // 2026-08-03改訂（タスクA詳細化、坂東さん指示②）: 「一覧表に追加できる数量」という専用ブロックは
   // 廃止した。転記導線は既存の「数量情報」（ArchiCADQuantities由来のpsetsHtml内の表）に統合済み
   // （上記isArchicadQty分岐で➕ボタンを埋め込み、panel-merge-tableクラスを付与している）。
 
   const hideLabel = hiddenIds.has(expressId) ? '👁 非表示を解除' : '🙈 非表示にする';
-  // 価格検索（Dify連携）はオブジェクト・ランプ・窓のみ対象
+  // カタログ検索（Dify連携）はオブジェクト・ランプ・窓のみ対象
   const showDifyBtn = category === 'オブジェクト' || category === 'ランプ' || category === '窓';
   body.innerHTML = `
     <div class="prop-name">${escHtml(name)}</div>
     <div class="prop-type">${category ? '作図要素: ' + escHtml(category) + '　' : ''}ExpressID: ${expressId}　${globalId ? 'GlobalId: ' + escHtml(globalId) : ''}</div>
     <button class="btn btn-primary hide-toggle-btn" data-id="${expressId}" style="width:100%; margin-bottom:12px;">${hideLabel}</button>
-    ${showDifyBtn ? `<button class="btn btn-primary dify-search-btn" style="width:100%; margin-bottom:12px;">💰 価格検索</button>` : ''}
+    ${showDifyBtn ? `<button class="btn btn-primary dify-search-btn" style="width:100%; margin-bottom:12px;">📄 カタログ検索</button>` : ''}
     <table class="prop-table">${rows}</table>
     ${psetsHtml}
   `;
@@ -3683,11 +3665,16 @@ document.getElementById('panelBody').addEventListener('click', async e => {
   await refreshQtyTableIfOpen();
 });
 
-// ── 価格検索（RIKCAD材料引き当て / Dify ワークフロー）─────────────
+// ── カタログ検索（RIKCAD材料引き当て / Dify ワークフロー）─────────────
+// 2026-08-06: Difyワークフロー側の参照先をカタログPDF検索に変更（価格・数量ではなく商品名＋
+// カタログPDFのURLを返す仕様）したのに合わせ、単一選択パネルの検索結果表示を「商品名をクリック
+// するとカタログPDFのURLへ遷移」する形に全面書き換え。一覧表への金額転記（旧difyTransferBtn、
+// qty-price-badge）は価格という概念自体が無くなったため機能ごと削除した（groupKeyToMeta.price／
+// transferToEstimateBtnのkakakuフィールドは今後常に0のまま=Dify連携導入前の状態に戻る）。
+// 複数選択パネルの「💰 価格検索（N件）」（openMultiDifySearchFromSelection）は坂東さん指示により
+// 今回のスコープ外（旧スキーマの部材名/単価/数量/小計を表示する実装のまま。要更新時は別途対応）。
 const difyModalOverlay = document.getElementById('difyModalOverlay');
 const difyModalBody = document.getElementById('difyModalBody');
-const difyTransferBtn = document.getElementById('difyTransferBtn');
-let _difyLastResult = null; // 直近の検索結果（一覧表への転記用）
 
 function closeDifyModal() {
   difyModalOverlay.classList.remove('show');
@@ -3720,209 +3707,40 @@ async function callDifyWorkflow(name, siyouValues) {
 async function openDifySearch() {
   if (!_currentDifyTarget) return;
   const target = _currentDifyTarget;
-  difyTransferBtn.style.display = 'none';
-  _difyLastResult = null;
   difyModalBody.innerHTML = `<div class="dify-status">「${escHtml(target.name)}」を検索中...</div>`;
   difyModalOverlay.classList.add('show');
 
   try {
     const parsed = await callDifyWorkflow(target.name, target.siyouValues);
-    fillDifyItemQuantities(Array.isArray(parsed.items) ? parsed.items : [], target.quantityCandidates || []);
-    _difyLastResult = { target, parsed };
     renderDifyResult(parsed);
-    // 数量一覧に該当行があれば「一覧表に転記」を出す
-    const groupKey = idToGroupKeyMap.get(target.expressId);
-    if (groupKey && groupKeyToRows.has(groupKey)) {
-      difyTransferBtn.style.display = '';
-    }
   } catch (err) {
     console.error(err);
     difyModalBody.innerHTML = `<div class="dify-status error">検索に失敗しました: ${escHtml(err.message)}</div>`;
   }
 }
 
-// 「¥5,400」のような表記から数値部分だけを取り出す。数値として解釈できなければnull
-// （「記載なし」等のプレースホルダー文字列を弾くために使う）
-function parseYenAmount(v) {
-  if (v == null) return null;
-  const digits = String(v).replace(/[^\d.-]/g, '');
-  if (!digits) return null;
-  const num = parseFloat(digits);
-  return Number.isNaN(num) ? null : num;
-}
-
-// Dify検索結果の各部材について、選択中の要素が実際に持つ枚数・本数（フェンス本体枚数／
-// スチール柱等）を「部材名」と名前で突き合わせて数量に補完する。Difyが既に数量を返している
-// 場合は上書きしない。数量を補完できた場合は単価×数量で小計も計算し直す
-function fillDifyItemQuantities(items, quantityCandidates) {
-  if (!items.length || !quantityCandidates.length) return;
-  for (const it of items) {
-    const partName = String(it.部材名 || '').trim();
-    if (!partName) continue;
-    if (it.数量 !== '' && it.数量 != null) continue; // Dify側が既に数量を返している場合は尊重する
-    const normPart = partName.normalize('NFKC');
-    const match = quantityCandidates.find(c => c.name.includes(normPart) || normPart.includes(c.name));
-    if (!match) continue;
-    it.数量 = match.value;
-    const unitPrice = parseYenAmount(it.単価);
-    if (unitPrice != null) it.小計 = `¥${Math.round(unitPrice * match.value).toLocaleString()}`;
-  }
-}
-
-// 部材1件分の金額（単価×数量。数量が無ければ単価そのまま）を求める。既に小計が数値で
-// 入っていればそちらを優先する
-function computeItemSubtotal(it) {
-  const existingSubtotal = parseYenAmount(it.小計);
-  if (existingSubtotal != null) return existingSubtotal;
-  const unitPrice = parseYenAmount(it.単価);
-  if (unitPrice == null) return null;
-  const qty = parseFloat(it.数量);
-  if (it.数量 !== '' && it.数量 != null && !Number.isNaN(qty)) return unitPrice * qty;
-  return unitPrice;
-}
-
-// 部材ごとの金額を合算する（複数部材がセットで返ってきた場合の合計金額フォールバック用）
-function sumItemAmounts(items) {
-  return items.reduce((sum, it) => {
-    const v = computeItemSubtotal(it);
-    return v != null ? sum + v : sum;
-  }, 0);
-}
-
-// 2026-08-04変更（2026-08-03版pptxスライド9「価格検索 複数の情報が検索できた場合は検索結果の
-// 画面内でチェックボックス等で選択できるようにしてください」対応）: items（部材）が2件以上
-// 見つかった場合、各行にチェックボックスを表示し、実際に一覧表へ転記する金額をチェック済みの
-// 部材だけの合算に限定できるようにした（従来は常に全件を機械的に合算していた＝誤マッチの部材が
-// 混ざっていても除外する手段が無かった）。1件のみの場合はチェックボックスを出さない（選ぶ意味が
-// ないため）。デフォルトは全件チェック済みとし、従来の「全件合算」挙動と後方互換にしている。
+// Dify出力は { 一致度, 備考, items: [{商品名, 商品URL}] }（items は該当なしなら0件、基本1件）。
+// 商品名をクリックするとカタログPDFのURLを新規タブで開く。一覧表への転記は行わない。
 function renderDifyResult(parsed) {
   const items = Array.isArray(parsed.items) ? parsed.items : [];
-  const showChk = items.length > 1;
   let html = '<div class="dify-result-meta">一致度: '
     + `<span class="${parsed.一致度 === '該当なし' ? 'tag-nohit' : ''}">${escHtml(parsed.一致度 || '-')}</span>`
     + (parsed.備考 ? ` ／ 備考: ${escHtml(parsed.備考)}` : '') + '</div>';
-  if (showChk) {
-    html += '<div style="font-size:11px; color:#888; margin-bottom:4px;">複数の部材が見つかりました。転記する部材だけチェックしてください（既定は全件）。</div>';
-  }
   if (items.length) {
-    html += '<table class="dify-result-table"><thead><tr>'
-      + (showChk ? '<th></th>' : '')
-      + '<th>部材名</th><th>商品名</th><th>仕様</th><th>単価</th><th>数量</th><th>小計</th></tr></thead><tbody>';
-    items.forEach((it, i) => {
-      html += '<tr>'
-        + (showChk ? `<td><input type="checkbox" class="dify-item-chk" data-idx="${i}" checked></td>` : '')
-        + `<td>${escHtml(it.部材名 || '')}</td><td>${escHtml(it.商品名 || '')}</td><td>${escHtml(it.仕様 || '')}</td>`
-        + `<td class="dify-num">${escHtml(String(it.単価 ?? ''))}</td><td class="dify-num">${escHtml(String(it.数量 ?? ''))}</td><td class="dify-num">${escHtml(String(it.小計 ?? ''))}</td></tr>`;
-    });
-    html += '</tbody>';
-  }
-
-  // 「合計金額」が数値として得られない場合（複数部材がセットで返ってきて金額を確定できない場合等）、
-  // またはチェックボックスで選択可能な状態（items.length > 1）の場合は、各部材の金額
-  // （単価×数量。数量が補完できていればそれも反映）を合算した参考値を表示する
-  // （showChk時はrecomputeDifyResultTotal()がチェック状態に応じて都度書き換える）。
-  const colspan = 5 + (showChk ? 1 : 0);
-  let totalLabel = '合計金額';
-  let totalText = escHtml(String(parsed.合計金額 ?? ''));
-  if ((showChk || parseYenAmount(parsed?.合計金額) == null) && items.length) {
-    const sum = sumItemAmounts(items);
-    totalLabel = showChk ? '選択分合計（参考）' : '単価合計（参考）';
-    totalText = sum > 0 ? `${sum.toLocaleString()}円` : '-';
-  }
-  html += `<tfoot><tr><td colspan="${colspan}" id="difyResultTotalLabel" style="text-align:right;font-weight:bold;">${totalLabel}</td><td class="dify-num" id="difyResultTotalCell" style="font-weight:bold;">${totalText}</td></tr></tfoot></table>`;
-  difyModalBody.innerHTML = html;
-  if (showChk) wireDifyItemCheckboxes(items);
-}
-
-// チェックボックスの状態が変わるたびに、フッターの参考合計を再計算する
-function wireDifyItemCheckboxes(items) {
-  const table = difyModalBody.querySelector('table.dify-result-table');
-  if (!table) return;
-  const recompute = () => {
-    const checks = Array.from(table.querySelectorAll('.dify-item-chk'));
-    const checkedItems = items.filter((_, i) => checks[i]?.checked);
-    const labelCell = document.getElementById('difyResultTotalLabel');
-    const totalCell = document.getElementById('difyResultTotalCell');
-    if (!checkedItems.length) {
-      if (labelCell) labelCell.textContent = '選択分合計（参考）';
-      if (totalCell) totalCell.textContent = '-';
-      return;
-    }
-    const sum = sumItemAmounts(checkedItems);
-    if (labelCell) labelCell.textContent = '選択分合計（参考）';
-    if (totalCell) totalCell.textContent = sum > 0 ? `${sum.toLocaleString()}円` : '-';
-  };
-  table.addEventListener('change', e => {
-    if (e.target.classList.contains('dify-item-chk')) recompute();
-  });
-}
-
-// difyTransferBtn（一覧表への転記）が、チェックボックスで選択された部材だけを対象にするための
-// ヘルパー。チェックボックスが無い（items.length<=1）場合はnullを返し、呼び出し元は従来通り
-// items全件・parsed.合計金額ベースの計算にフォールバックする。
-function getDifyCheckedItems(items) {
-  const table = difyModalBody.querySelector('table.dify-result-table');
-  const checks = table ? Array.from(table.querySelectorAll('.dify-item-chk')) : [];
-  if (!checks.length) return null;
-  return items.filter((_, i) => checks[i]?.checked);
-}
-
-// 2026-08-03再修正（タスクA詳細化その2、坂東さん指示②「Dify価格検索の一覧表書き込みを復旧する」）:
-// 列削減（pptxスライド3対応）で参考価格列(.qty-price)自体を廃止したため、以前はこの関数が
-// 常に対象セルを見つけられず機能しなくなっていた（「既知の副作用」として報告済み）。
-// 列を復活させるのではなく、書き込み先を「材質・名称」セル(.qty-group)へのバッジ表示に変更し、
-// 新しい5列構成のまま機能を復旧させた。あわせて、取得した金額をgroupKeyToMeta.priceに保持し、
-// transferToEstimateBtn（見積へ転記）のJSON出力`kakaku`フィールド（従来は常に0固定だった）に
-// 反映されるようにした。
-difyTransferBtn.addEventListener('click', () => {
-  if (!_difyLastResult) return;
-  const { target, parsed } = _difyLastResult;
-  const groupKey = idToGroupKeyMap.get(target.expressId);
-  const qtyBodyEl = document.getElementById('qtyBody');
-  const row = groupKey && qtyBodyEl.querySelector(`tr.qty-row[data-group="${cssEscape(groupKey)}"]`);
-  if (!row) { alert('数量一覧に該当行が見つかりませんでした'); return; }
-
-  const items = Array.isArray(parsed.items) ? parsed.items : [];
-  // 2026-08-04追加（2026-08-03版pptxスライド9対応）: items が2件以上ある場合はチェックボックスで
-  // 選択された部材のみを転記対象にする（getDifyCheckedItemsはチェックボックスが無い＝1件以下の
-  // 場合はnullを返すので、その場合は従来通りparsed.合計金額／items全件合算にフォールバックする）。
-  const checkedItems = getDifyCheckedItems(items);
-  let amount = 0, cellText;
-  if (checkedItems != null) {
-    if (!checkedItems.length) { alert('転記する部材を1件以上選択してください'); return; }
-    const sum = sumItemAmounts(checkedItems);
-    amount = sum;
-    cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${checkedItems.length}件)` : '-';
+    html += '<div style="font-size:11px; color:#888; margin-bottom:4px;">商品名の上でクリックしてください（カタログPDFが新しいタブで開きます）。</div>';
+    html += '<ul class="dify-result-list">' + items.map(it => {
+      const label = escHtml(String(it.商品名 || '(商品名なし)'));
+      const url = String(it.商品URL || '').trim();
+      // javascript: 等の危険なスキームでclickされないよう、formatPropValueHtml()と同じくhttp/https限定でのみリンク化する
+      return PROP_URL_PATTERN.test(url)
+        ? `<li><a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a></li>`
+        : `<li>${label}（URLなし）</li>`;
+    }).join('') + '</ul>';
   } else {
-    const totalAmount = parseYenAmount(parsed?.合計金額);
-    if (totalAmount != null) {
-      amount = totalAmount;
-      cellText = `${totalAmount.toLocaleString()}円`;
-    } else {
-      // 合計金額が非数値（「記載なし」等）の場合は、部材ごとの金額（単価×数量）合算をフォールバックとして使う
-      const sum = sumItemAmounts(items);
-      amount = sum;
-      cellText = sum > 0 ? `${sum.toLocaleString()}円(内訳${items.length}件)` : '-';
-    }
+    html += '<div class="dify-status">該当するカタログが見つかりませんでした</div>';
   }
-
-  const meta = groupKeyToMeta.get(groupKey);
-  if (meta) meta.price = amount;
-
-  const groupCell = row.querySelector('td.qty-group');
-  if (groupCell) {
-    let badge = groupCell.querySelector('.qty-price-badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'qty-price-badge';
-      groupCell.appendChild(badge);
-    }
-    badge.textContent = `💰${cellText}`;
-    badge.title = JSON.stringify(items, null, 1);
-  }
-  closeDifyModal();
-  showMeasureToast(`Dify価格検索結果（${cellText}）を一覧表に反映しました`);
-});
+  difyModalBody.innerHTML = html;
+}
 
 function cssEscape(s) {
   return String(s).replace(/["\\]/g, '\\$&');
@@ -6447,8 +6265,6 @@ async function openMultiDifySearchFromSelection() {
     [difyName, ...specs].join(',')
   ).join('\n');
 
-  difyTransferBtn.style.display = 'none';
-  _difyLastResult = null;
   difyModalBody.innerHTML = `<div class="dify-status">${labels.length}件を検索中...</div>`;
   difyModalOverlay.classList.add('show');
 
