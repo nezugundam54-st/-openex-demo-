@@ -9,6 +9,7 @@
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/examples/jsm/utils/BufferGeometryUtils": "https://unpkg.com/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js",
     "web-ifc": "https://unpkg.com/web-ifc@0.0.39/web-ifc-api.js",
     "web-ifc-three/IFCLoader": "https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.js"
   }
@@ -1980,16 +1981,45 @@
     const qtySumRaw = checkedLeaves.reduce((s, l) => s + (Number(l.qty) || 0), 0);
     const qtySum = Math.round(qtySumRaw * 1000) / 1000; // 浮動小数の誤差(0.1+0.2等)を吸収
 
-    let uprice = null; // 客出し単価: チェック済みメンバーのうち最初に値を持つものを採用（従来の_cadUpdateSubtotalと同じ方針）
-    for (const l of checkedLeaves) {
-      const m = l.matchedRow;
-      if (m && m.customer_unit_price != null) { uprice = Number(m.customer_unit_price); break; }
+    // 2026-08-05修正（坂東さん指示「合算対象となった元要素の単価も引き継いでください」）:
+    // 従来は「チェック済みメンバーのうち最初に単価を持つもの」を1件だけ採用し、その単価を
+    // 合計数量にそのまま掛けていた（uprice * qtySum）。これだとメンバー間で単価が異なる場合
+    // （同じ名称＋単位でもマスタの引当行が違う等）に金額が不正確になる。各メンバー自身の単価×
+    // そのメンバー自身の数量、をメンバーごとに積み上げて金額を算出する方式に変更した。
+    // 表示・保存用の単価（列が1つしか無いため）は「金額÷合計数量」の実効単価とし、全メンバーが
+    // 同じ単価であれば従来と同じ値になる。
+    // 2026-08-05再修正（坂東さん指摘、011.jpg）: 客出し単価(uprice)だけでなく、問屋材仕入れ単価
+    // (cost=matchedRow.unit_price)も合算後に反映されていなかった（cadPreviewAmountsが個別行では
+    // 計算しているのに、_cadComputeSubtotalはuprice/amountしか計算していなかったのが原因）。
+    // 同じ考え方（メンバーごとの単価×数量を積み上げ→実効単価=金額÷合計数量）を、問屋材仕入れ
+    // （cost）・職人手間（craftsman）・骨材料等（bone）にも適用し、cadPreviewAmountsと同じ
+    // 「costTotal（3種の金額合計）・粗利額(interest)・粗利率(interestRate)」も算出するようにした。
+    function accumulate(getPrice) {
+      let sum = 0, any = false;
+      for (const l of checkedLeaves) {
+        const price = getPrice(l.matchedRow);
+        if (price != null) any = true;
+        sum += (price || 0) * (Number(l.qty) || 0);
+      }
+      sum = Math.round(sum);
+      return { amount: sum, unitPrice: (any && qtySum) ? sum / qtySum : null };
     }
-    const amount = Math.round((uprice || 0) * qtySum);
+    const costR = accumulate(m => (m && m.unit_price != null) ? Number(m.unit_price) : null);
+    const craftsmanR = accumulate(m => (m && m.craftsman_unit_price != null) ? Number(m.craftsman_unit_price) : null);
+    const boneR = accumulate(m => (m && m.bone_unit_price != null) ? Number(m.bone_unit_price) : null);
+    const upriceR = accumulate(m => (m && m.customer_unit_price != null) ? Number(m.customer_unit_price) : null);
+    const costTotal = costR.amount + craftsmanR.amount + boneR.amount;
+    const interest = upriceR.amount - costTotal;
+    const interestRate = upriceR.amount ? Math.round((interest / upriceR.amount) * 1000) / 10 : null;
     const nameLeaf = checkedLeaves.find(l => l.matchedRow) || checkedLeaves[0];
 
     return {
-      checkedLeaves, checkedLeafIdxs, qtySum, uprice, amount,
+      checkedLeaves, checkedLeafIdxs, qtySum,
+      cost: costR.unitPrice, costAmount: costR.amount,
+      craftsman: craftsmanR.unitPrice, craftsmanAmount: craftsmanR.amount,
+      bone: boneR.unitPrice, boneAmount: boneR.amount,
+      uprice: upriceR.unitPrice, amount: upriceR.amount,
+      interest, interestRate,
       name: _cadLeafDisplayName(nameLeaf),
       unit: nameLeaf.unit || '',
     };
@@ -2035,6 +2065,24 @@
     if (qtyCell) qtyCell.textContent = esc(data.qtySum);
     if (upriceCell) upriceCell.textContent = esc(fmt(data.uprice || 0));
     if (amountCell) amountCell.textContent = esc(fmt(data.amount));
+    // 2026-08-05追加（坂東さん指摘、011.jpg）: 問屋材仕入れ・職人手間・骨材料等・粗利も
+    // 客出し単価/金額と同じ要領でセルへ反映する（_cadGroupCellsHtmlが生成するdata-field属性で参照）
+    const costCell = row.querySelector('[data-field="cost"]');
+    const costAmountCell = row.querySelector('[data-field="costAmount"]');
+    const craftsmanCell = row.querySelector('[data-field="craftsman"]');
+    const craftsmanAmountCell = row.querySelector('[data-field="craftsmanAmount"]');
+    const boneCell = row.querySelector('[data-field="bone"]');
+    const boneAmountCell = row.querySelector('[data-field="boneAmount"]');
+    const interestCell = row.querySelector('[data-field="interest"]');
+    const interestRateCell = row.querySelector('[data-field="interestRate"]');
+    if (costCell) costCell.textContent = esc(fmt(data.cost || 0));
+    if (costAmountCell) costAmountCell.textContent = esc(fmt(data.costAmount));
+    if (craftsmanCell) craftsmanCell.textContent = esc(fmt(data.craftsman || 0));
+    if (craftsmanAmountCell) craftsmanAmountCell.textContent = esc(fmt(data.craftsmanAmount));
+    if (boneCell) boneCell.textContent = esc(fmt(data.bone || 0));
+    if (boneAmountCell) boneAmountCell.textContent = esc(fmt(data.boneAmount));
+    if (interestCell) interestCell.textContent = esc(fmt(data.interest));
+    if (interestRateCell) interestRateCell.textContent = data.interestRate != null ? esc(data.interestRate) + '%' : '';
 
     if (wasSubtotalChecked) {
       const subtotalChk = row.querySelector('.cad-subtotal-chk');
@@ -2823,10 +2871,12 @@
       });
     });
 
-    // 合算（小計）行: 1グループにつき1行、数量合計・共通の客出し単価のみを反映する。
-    // それ以外の列（問屋材仕入れ・職人手間・骨材料等・発注先・社内メモ等）は、小計行の画面表示自体が
-    // 空欄仕様（_cadGroupCellsHtml(null)、既存の合算・小計機能の設計を変更しない）のため、
-    // 表示と食い違わないようnullのまま挿入する。
+    // 合算（小計）行: 1グループにつき1行、数量合計・単価・金額を反映する。
+    // 2026-08-05修正（坂東さん指摘、011.jpg）: 問屋材仕入れ（cost）・職人手間（craftsman_unit_price）・
+    // 骨材料等（bone_unit_price）も、_cadComputeSubtotalが算出した実効単価（合算対象メンバーの
+    // 単価×数量を積み上げた金額÷合計数量）を反映するよう変更した（従来はnull固定＝空欄だった）。
+    // 発注先・社内メモ・定価・掛率は、合算対象で発注先等が食い違いうる・定価は元々合算方針の対象外
+    // （list_price合算は別途検討事項）のため、引き続きnullのまま挿入する。
     // 挿入先の階層は、グループ内でマスタに一致した代表行（無ければ先頭行）の所属フォルダを使う
     // （合算対象は基本的に同一マスタ行＝同一フォルダのはずだが、複数マスタにまたがる場合も代表1件に統一する）。
     subtotalGroups.forEach(g => {
@@ -2847,9 +2897,9 @@
         list_price: null,
         rate: null,
         unit_price: data.uprice,
-        cost: null,
-        craftsman_unit_price: null,
-        bone_unit_price: null,
+        cost: data.cost,
+        craftsman_unit_price: data.craftsman,
+        bone_unit_price: data.bone,
         order_wholesale_name: null,
         order_craftsman_name: null,
         memo: null,
