@@ -6002,7 +6002,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
   // ========== ファイル登録ページ ==========
   let fuSelectedFolderId = null;
   let fuSelectedFiles = [];
-  const FU_MAX_SIZE = 400 * 1024 * 1024;
+  const FU_MAX_SIZE = 50 * 1024 * 1024;
   const FU_MAX_COUNT = 50;
 
   function fuInit(preselectFolderId) {
@@ -6040,12 +6040,14 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
   }
 
   function fuAddFiles(fileList) {
-    const rejected = [];
+    const oversized = [], overCount = [];
     Array.from(fileList).forEach(f => {
-      if (f.size > FU_MAX_SIZE || fuSelectedFiles.length >= FU_MAX_COUNT) { rejected.push(f.name); return; }
+      if (f.size > FU_MAX_SIZE) { oversized.push(f.name); return; }
+      if (fuSelectedFiles.length >= FU_MAX_COUNT) { overCount.push(f.name); return; }
       fuSelectedFiles.push(f);
     });
-    if (rejected.length) showToast(`追加できないファイルがあります（400MB超過 または 50件上限）: ${rejected.join(', ')}`, 'error');
+    if (oversized.length) showToast('デモ版のためアップロード可能なファイルサイズは50MBとなっています', 'error');
+    if (overCount.length) showToast(`追加できないファイルがあります（50件上限）: ${overCount.join(', ')}`, 'error');
     fuRenderSelectedFiles();
   }
 
