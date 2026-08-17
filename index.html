@@ -6083,7 +6083,7 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
     if (!fuSelectedFiles.length) { showToast('ファイルを選択してください', 'error'); return; }
     const tags = Array.from(document.querySelectorAll('.fu-tag-check:checked')).map(el => el.value);
     showLoading(true);
-    let okCount = 0, failCount = 0;
+    let okCount = 0, failCount = 0, lastErrorDetail = '';
     for (const file of fuSelectedFiles) {
       try {
         const ts = Date.now();
@@ -6094,7 +6094,10 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
           body: file
         });
-        if (!upRes.ok) throw new Error('storage upload failed');
+        if (!upRes.ok) {
+          const bodyText = await upRes.text().catch(() => '');
+          throw new Error(`storage upload failed (${upRes.status}): ${bodyText}`);
+        }
         const dbRes = await fetch(`${API}/property_files`, {
           method: 'POST', headers: HEADERS,
           body: JSON.stringify({
@@ -6107,13 +6110,20 @@ tr.ky-prop-selected { background:#e3f2fd !important; }
             tags
           })
         });
-        if (!dbRes.ok) throw new Error('db insert failed');
+        if (!dbRes.ok) {
+          const bodyText = await dbRes.text().catch(() => '');
+          throw new Error(`db insert failed (${dbRes.status}): ${bodyText}`);
+        }
         okCount++;
-      } catch (e) { console.error('[fuUpload]', e); failCount++; }
+      } catch (e) {
+        console.error('[fuUpload]', file.name, e);
+        lastErrorDetail = e.message || String(e);
+        failCount++;
+      }
     }
     showLoading(false);
     if (!okCount) {
-      showToast('アップロードに失敗しました。property_filesテーブル／property-files Storageバケットが作成されているか確認してください。', 'error');
+      showToast(`アップロードに失敗しました: ${lastErrorDetail || '原因不明。property_filesテーブル／property-files Storageバケットが作成されているか確認してください。'}`, 'error');
       return;
     }
     showToast(`${okCount}件のファイルをアップロードしました${failCount ? `（${failCount}件失敗）` : ''}`, failCount ? 'error' : 'success');
