@@ -380,17 +380,21 @@
   #cadOverlay .fxK{left:75px;}
   #cadOverlay .fx2{left:175px;}
   #cadOverlay .fx3{left:355px;}
-  #cadOverlay .fx4{left:455px;}
-  #cadOverlay .fxH{left:565px;}
-  #cadOverlay .fx5{left:695px;}
-  #cadOverlay .fx6{left:765px;}
-  #cadOverlay .fx7{left:835px;border-right:2px solid #8f8f8f !important;}
+  /* 2026-08-17追加: 仕様(fx3)とRIKCAD材料名(fx4)の間に「ツール名」列(fxT)を新設したため、
+     fx4以降の左端px値をすべて幅90px(w-tool)分だけ後ろへ再計算した。 */
+  #cadOverlay .fxT{left:455px;}
+  #cadOverlay .fx4{left:545px;}
+  #cadOverlay .fxH{left:655px;}
+  #cadOverlay .fx5{left:785px;}
+  #cadOverlay .fx6{left:855px;}
+  #cadOverlay .fx7{left:925px;border-right:2px solid #8f8f8f !important;}
   #cadOverlay .w-arrow{width:25px;min-width:25px;max-width:25px;}
   #cadOverlay .w-check{width:25px;min-width:25px;max-width:25px;}
   #cadOverlay .w-merge{width:25px;min-width:25px;max-width:25px;}
   #cadOverlay .w-koji{width:100px;min-width:100px;max-width:100px;}
   #cadOverlay .w-name{width:180px;min-width:180px;max-width:180px;}
   #cadOverlay .w-spec{width:100px;min-width:100px;max-width:100px;}
+  #cadOverlay .w-tool{width:90px;min-width:90px;max-width:90px;}
   #cadOverlay .w-rikcad{width:110px;min-width:110px;max-width:110px;}
   #cadOverlay .w-hikidashi{width:130px;min-width:130px;max-width:130px;}
   #cadOverlay .w-qty{width:70px;min-width:70px;max-width:70px;}
@@ -443,6 +447,14 @@
   #cadOverlay tr.cad-subtotal-hidden{display:none;}
   #cadOverlay .cad-merge-chk{cursor:pointer;}
   #cadOverlay .cad-chk:disabled{opacity:.35;cursor:not-allowed;}
+
+  /* 2026-08-17追加（坂東さん依頼3）: 過去に「引用」済みの明細行のグレー表示。
+     estimate_rows.cad_source_key（本セッションで新設）に一致する行にJS側で付与する。 */
+  #cadOverlay tr.cad-already-quoted td{background-color:#dcdcdc !important;color:#8a8a8a;}
+  /* 2026-08-17追加（坂東さん依頼4）: 「合算」ボタン押下時に実際に小計へ反映されたメンバー行の青色ハイライト。
+     _cadUpdateSubtotal()がボタン押下のたびに対象行だけへclassを付け外しする（cad-already-quotedより後に
+     定義し、同じ行が両方に該当する場合は「直近の合算操作」を優先表示する）。 */
+  #cadOverlay tr.cad-subtotal-member td{background-color:#cfe2ff !important;}
 
   /* 工事選択サブモーダル: koji-select.html（2026-07-24デザイン刷新）準拠。#kojiOverlay配下にのみ効かせるスコープ */
   #kojiOverlay .cad-modal{width:1150px;max-width:96vw;background:#eaeaea;}
@@ -1581,6 +1593,11 @@
   let _cadMasterItemList = []; // master_items（sort_order順・工事選択の種別プルダウン用）
   let _cadPreviewLeaves = []; // renderCadImportTableで描画中のリーフ行（引用候補）一覧
   let _cadSubtotalAffected = new Map(); // groupId -> [{idx, prevChecked}]。小計チェックONで自動OFFにした個別行の引用チェックの復元用（二重計上防止）
+  // 2026-08-17追加（坂東さん依頼3、過去引用のグレー表示）: 現在の見積(currentEstimateId)に対して
+  // 過去に「CADから引用」で保存されたestimate_rows.cad_source_key（本セッションで新設した列）の集合。
+  // openCadImport()でSupabaseから取得し、buildCadPreviewTree()が各リーフの_cadLeafOriginKey()と
+  // 突き合わせて「過去に引用済みか」を判定する。
+  let _cadQuotedOriginKeys = new Set();
   let _kojiTargetIdx = -1;
   let _kojiFilterMasterId = ''; // 工事種別プルダウンの選択値（''=すべて）
   let _kojiFilterKeyword = ''; // 検索キーワード入力値
@@ -1597,9 +1614,12 @@
 
   function cadSpec(item) {
     const params = item.parameters || '';
+    // 2026-08-17変更（坂東さん依頼1）: 「仕様」欄にIFC/ビューアの「メーカー名」を連携しないようにする
+    // （基本的に常に空欄）。従来はtype4-7（壁/スラブ/メッシュ/屋根）でメーカー名を正規表現抽出して
+    // そのまま仕様欄に表示していたが、この抽出自体をやめて常に空文字を返すようにした
+    // （これらの分類はparametersがメーカー名のみのため、実質「常に空欄」になる）。
     if ([4,5,6,7].includes(item.type)) {
-      const m = params.match(/ﾒｰｶｰ[：:]\s*([^\n\r、,/]+)/);
-      return m ? m[1].trim() : '';
+      return '';
     }
     // 2026-08-04追加（坂東さん指示）: オブジェクト系（type 1/3/8＝壁/スラブ/メッシュ/屋根以外）は
     // item.parametersを従来そのまま返していたが、「数量」の行だけは仕様欄から除外してほしいとの
@@ -1611,8 +1631,10 @@
     // （cadQtyRowsが単位「枚」の転記候補として拾うのと役割を分ける：仕様欄には出さない・
     // 数量としては転記できる、という坂東さんの指示通りの使い分け）。区切りもsplitCadParamSegments
     // でカンマ・改行どちらにも対応させた（ifc-viewer.html側の区切り変更に追従）。
+    // 2026-08-17追加（坂東さん依頼1）: type4-7以外の分類（オブジェクト・ランプ・植栽・窓・柱）は
+    // 従来「ﾒｰｶｰ:」行が除外対象に入っておらず仕様欄に表示されたままだったため、除外対象に追加した。
     return splitCadParamSegments(params)
-      .filter(seg => !/^(数量|フェンス本体枚数|枚数)[：:]/.test(seg))
+      .filter(seg => !/^(数量|フェンス本体枚数|枚数|ﾒｰｶｰ)[：:]/.test(seg))
       .join('\n');
   }
 
@@ -1644,6 +1666,20 @@
       if (r.row_type !== 'row' || !r.rikcad_name) return false;
       return r.rikcad_name.split(',').map(s => s.trim().toLowerCase()).includes(needle);
     });
+  }
+
+  /* 2026-08-17追加（坂東さん依頼3、過去引用のグレー表示）: リーフの「ファイルをまたいで安定するキー」。
+     _cadLeafStableKey（同一プレビュー描画内での再描画対応用、itemIdx+subIdxベース）は、別セッションで
+     同じIFC/JSONを再度読み込んだ場合にitemIdx/subIdxの割当が変わりうるため永続識別には使えない
+     （既存コメント参照）。ここでは「RIKCAD材料名＋数量パラメータのラベル（cadQtyRowsのlabel。
+     例:高さ/表面積/数量等）＋マスタ引当id」の組を採用した。CAD要素のGlobalId（ifc-viewer.html側の
+     item.key/global_id）は「ビューアから引用」(JSON)経路にしか無く、「IFCから引用」（ifc-extract.js
+     直接読込）経路には無い（ifc-extract.jsは分類・パラメータ抽出のみでGlobalId自体を取得していない）
+     ため、両経路で共通して使える名称ベースのキーを選んだ（開発部の判断、secretary/notes参照）。
+     同じ名称・同じラベル・同じマスタ引当が2件以上ある場合は区別できない既知の制約があるが、
+     「過去に引用したものが概ねどれか分かる」というグレー表示の目的には十分と判断した。 */
+  function _cadLeafOriginKey(leaf) {
+    return `${leaf.cadName || ''}::${leaf.qtyLabel || ''}::${leaf.matchedRow ? leaf.matchedRow.id : 'none'}`;
   }
 
   /* CAD引用データ(_cadItems)とマスタ行(全列)から、マスタのフォルダ階層でグループ化したプレビュー木を作る。
@@ -1679,14 +1715,19 @@
         // 2026-08-04追加（坂東さん指示）: item.kakaku（ifc-viewer.htmlの価格検索で反映した金額）も
         // leafへ配線する。マスタ未マッチの明細のみ「定価」列へそのまま反映する（下記applyCadImport/
         // _cadLeafRowHtml参照）。金額は坂東さん指示により数量で割った単価換算は行わず、金額のまま。
-        const base = { itemIdx, subIdx, qty: qu.qty, unit: qu.unit, qtyLabel: qu.label, cadName: item.name || '', spec: cadSpec(item), hikidashi: item.hikidashi || '', kakaku: item.kakaku != null ? Number(item.kakaku) : 0 };
+        // 2026-08-17追加（坂東さん依頼2）: item.category（ifc-viewer.html/ifc-extract.js新設フィールド、
+        // 単一選択パネル「作図要素: 」表示と同じ分類名）をleaf.toolへ配線し、「ツール名」列に表示する。
+        const base = { itemIdx, subIdx, qty: qu.qty, unit: qu.unit, qtyLabel: qu.label, cadName: item.name || '', spec: cadSpec(item), tool: item.category || '', hikidashi: item.hikidashi || '', kakaku: item.kakaku != null ? Number(item.kakaku) : 0 };
         if (matches.length === 0) {
           const leaf = { ...base, matchedRow: null };
+          // 2026-08-17追加（坂東さん依頼3）: 過去に同じ内容で引用済みかどうかを_cadQuotedOriginKeysと突合する。
+          leaf._cadAlreadyQuoted = _cadQuotedOriginKeys.has(_cadLeafOriginKey(leaf));
           looseLeaves.push(leaf); leaves.push(leaf);
           return;
         }
         matches.forEach(m => {
           const leaf = { ...base, matchedRow: m };
+          leaf._cadAlreadyQuoted = _cadQuotedOriginKeys.has(_cadLeafOriginKey(leaf));
           leaves.push(leaf);
           if (m.parent_id && folderByFolderId.has(m.parent_id)) {
             ensureFolderNode(m.parent_id).leaves.push(leaf);
@@ -1732,18 +1773,33 @@
     document.getElementById('cadOverlay').classList.add('open');
 
     try {
-      const [rowsR, itemsR] = await Promise.all([
+      // 2026-08-17追加（坂東さん依頼3）: 現在の見積に紐づくestimate_rows.cad_source_key（過去の
+      // 「CADから引用」で保存された由来キー、新設列）を取得する。currentEstimateIdが無い（デモ表示・
+      // 未保存の新規見積）場合は取得しようがないため空集合のままにする。
+      const [rowsR, itemsR, quotedR] = await Promise.all([
         fetch(`${API}/master_rows?select=id,master_id,row_type,name,rikcad_name,parent_id,folder_id,level,sort_order,list_price,rate,unit_price,craftsman_unit_price,bone_unit_price,cost_rate,customer_unit_price,order_wholesale_name,order_craftsman_name,line_remark&order=master_id.asc,sort_order.asc&limit=1000`, { headers: HEADERS }),
         // index.html「見積管理・マスタ」(emLoadMaster)と同じ順序ロジック・同じデータソース(master_items)を参照する
         // （order=sort_order.asc,created_at.asc）。以前はorder=sort_order.asc,name.asc で、sort_orderが同値の
         // 場合の並び順がindex.html側と食い違っていた。
         fetch(`${API}/master_items?select=id,name,sort_order,created_at&order=sort_order.asc,created_at.asc&limit=1000`, { headers: HEADERS }),
+        currentEstimateId
+          ? fetch(`${API}/estimate_rows?estimate_id=eq.${currentEstimateId}&cad_source_key=not.is.null&select=cad_source_key&limit=1000`, { headers: HEADERS })
+          : Promise.resolve(null),
       ]);
       _cadAllMasterRows = rowsR.ok ? await rowsR.json() : [];
       _cadMasterItemMap = {};
       _cadMasterItemList = itemsR.ok ? await itemsR.json() : [];
       _cadMasterItemList.forEach(m => { _cadMasterItemMap[m.id] = m.name; });
-    } catch(e) { _cadAllMasterRows = []; _cadMasterItemMap = {}; _cadMasterItemList = []; }
+      _cadQuotedOriginKeys = new Set();
+      if (quotedR && quotedR.ok) {
+        const quotedRows = await quotedR.json();
+        // 合算（小計）行のcad_source_keyはメンバー全員分のキーをカンマ区切りで1列に保存しているため
+        // （applyCadImport参照）、分解してそれぞれ個別のキーとして集合に加える。
+        quotedRows.forEach(r => {
+          (r.cad_source_key || '').split(',').map(s => s.trim()).filter(Boolean).forEach(k => _cadQuotedOriginKeys.add(k));
+        });
+      }
+    } catch(e) { _cadAllMasterRows = []; _cadMasterItemMap = {}; _cadMasterItemList = []; _cadQuotedOriginKeys = new Set(); }
 
     renderCadSourceChoice();
   }
@@ -1955,8 +2011,9 @@
       `<td class="ac fx fx1 w-check"><input type="checkbox" class="cad-subtotal-chk" data-group="${anchorLeaf._cadGroupId}"></td>` +
       `<td class="fx fxM w-merge"></td>` +
       `<td class="ac fx fxK w-koji"><span class="subtotal-label">合算</span></td>` +
-      `<td class="al fx fx2 w-name"><div class="name-wrap" style="padding-left:${indent}px;"><span class="name-text">${escHtml(name)}</span></div></td>` +
+      `<td class="al fx fx2 w-name"><div class="name-wrap" style="padding-left:${indent}px;"><span class="name-text" title="${escHtml(name)}">${escHtml(name)}</span></div></td>` +
       `<td class="al fx fx3 w-spec"></td>` +
+      `<td class="al fx fxT w-tool"></td>` +
       `<td class="al fx fx4 w-rikcad"></td>` +
       `<td class="al fx fxH w-hikidashi"></td>` +
       `<td class="ar fx fx5 w-qty" data-subtotal-qty></td>` +
@@ -2040,12 +2097,26 @@
     const wasSubtotalChecked = !!(existingRow && existingRow.querySelector('.cad-subtotal-chk')?.checked);
     if (existingRow) existingRow.remove();
 
+    // 2026-08-17追加（坂東さん依頼4）: 「合算」ボタンが押されるたびに、このグループの前回の青ハイライトを
+    // 一旦全解除する。「対象から外れたメンバーは青を解除する」という要件を、都度作り直す既存の
+    // 小計行生成方式（トグルではなく作り直し）とまったく同じ考え方で満たす。
+    table.querySelectorAll(`tr.r-leaf.cad-subtotal-member[data-subtotal-member="${groupId}"]`).forEach(tr => {
+      tr.classList.remove('cad-subtotal-member');
+      tr.removeAttribute('data-subtotal-member');
+    });
+
     const data = _cadComputeSubtotal(groupId);
     if (!data) {
       // 合算不成立（チェック済み2件未満）: 小計行なし。直前まで引用チェックがONだった場合は排他制御を解除する
       _cadSyncSubtotalExclusivity(groupId);
       return;
     }
+
+    // 2026-08-17追加（坂東さん依頼4）: 小計へ実際に反映されたメンバー行（data.checkedLeafIdxs）だけを青くする。
+    data.checkedLeafIdxs.forEach(i => {
+      const memberTr = table.querySelector(`tr[data-id="cad-leaf-${i}"]`);
+      if (memberTr) { memberTr.classList.add('cad-subtotal-member'); memberTr.setAttribute('data-subtotal-member', groupId); }
+    });
 
     // 挿入位置: チェック済みメンバーのうち表示順（leafIdx）で一番大きい＝一番下の行の直後
     const maxIdx = Math.max(...data.checkedLeafIdxs);
@@ -2180,8 +2251,9 @@
     html += `<td class="fx fx1 w-check"></td>`;
     html += `<td class="fx fxM w-merge"></td>`;
     html += `<td class="fx fxK w-koji"></td>`;
-    html += `<td class="al fx fx2 w-name"><div class="name-wrap" style="padding-left:${indent}px;"><span class="fic">📁</span><span class="bold-text">${escHtml(node.row.name || '')}</span></div></td>`;
+    html += `<td class="al fx fx2 w-name"><div class="name-wrap" style="padding-left:${indent}px;"><span class="fic">📁</span><span class="bold-text" title="${escHtml(node.row.name || '')}">${escHtml(node.row.name || '')}</span></div></td>`;
     html += `<td class="al fx fx3 w-spec"></td>`;
+    html += `<td class="al fx fxT w-tool"></td>`;
     html += `<td class="al fx fx4 w-rikcad"></td>`;
     html += `<td class="al fx fxH w-hikidashi"></td>`;
     html += `<td class="ar fx fx5 w-qty"></td>`;
@@ -2206,9 +2278,12 @@
     const m = leaf.matchedRow;
     const amt = cadPreviewAmounts(leaf.qty, m);
     const indent = depth * 14 + 4;
+    // 2026-08-17追加（坂東さん依頼6）: 名称欄は.w-nameが180px固定幅+ellipsisで省略表示されるため、
+    // マウスオーバーで全文を確認できるようtitle属性を付与する（hikidashi-cellの既存title属性と同じパターン）。
+    const displayName = m ? (m.name || '') : `${leaf.cadName}（未登録）`;
     const nameHtml = m
-      ? `<span class="tree">├</span><span class="name-text">${escHtml(m.name || '')}</span>`
-      : `<span class="tree">├</span><span class="name-text" style="color:#999;font-style:italic;">${escHtml(leaf.cadName)}（未登録）</span>`;
+      ? `<span class="tree">├</span><span class="name-text" title="${escHtml(displayName)}">${escHtml(displayName)}</span>`
+      : `<span class="tree">├</span><span class="name-text" style="color:#999;font-style:italic;" title="${escHtml(displayName)}">${escHtml(displayName)}</span>`;
     const qtyHtml = `${esc(leaf.qty)}${leaf.qtyLabel ? `<br><span style="font-size:9px;color:#999;">${escHtml(leaf.qtyLabel)}</span>` : ''}`;
     // 引出線名称: 2026-07-28〜 送り手側(ifc-viewer.html/ifc-extract.js)がhikidashiフィールドを出力するようになり、
     // buildCadPreviewTree側でもleaf.hikidashiへの配線を追加済み。値が無い（RIKCAD_PSET未設定等）の場合は
@@ -2222,13 +2297,18 @@
       ? `<td class="ac fx fxM w-merge"><input type="checkbox" class="cad-merge-chk" data-leaf-idx="${idx}" data-group="${leaf._cadGroupId}"></td>`
       : `<td class="fx fxM w-merge"></td>`;
 
-    let html = `<tr class="r-leaf" data-id="${leafId}"${parentFolderId != null ? ` data-parent="${parentFolderId}"` : ''}>`;
+    // 2026-08-17追加（坂東さん依頼3）: 過去に同じ内容で引用済みのリーフはグレー反転する。
+    const rowClass = 'r-leaf' + (leaf._cadAlreadyQuoted ? ' cad-already-quoted' : '');
+    let html = `<tr class="${rowClass}" data-id="${leafId}"${parentFolderId != null ? ` data-parent="${parentFolderId}"` : ''}>`;
     html += `<td class="ac fx fx0 w-arrow"></td>`;
     html += `<td class="ac fx fx1 w-check"><input type="checkbox" class="cad-chk" data-leaf-idx="${idx}" checked></td>`;
     html += mergeCellHtml;
     html += `<td class="ac fx fxK w-koji"><button type="button" class="btn-koji" onclick="openKojiSelect(${leaf.itemIdx})">工事選択</button></td>`;
     html += `<td class="al fx fx2 w-name"><div class="name-wrap" style="padding-left:${indent}px;">${nameHtml}</div></td>`;
     html += `<td class="al fx fx3 w-spec">${escHtml(leaf.spec)}</td>`;
+    // 2026-08-17追加（坂東さん依頼2）: 「ツール名」列（IFCの「作図要素」＝leaf.tool、単一選択パネルの
+    // 「作図要素: 」表示と同じcategory値）。仕様とRIKCAD材料名の間に新設。
+    html += `<td class="al fx fxT w-tool">${escHtml(leaf.tool || '')}</td>`;
     html += `<td class="al fx fx4 w-rikcad">${escHtml(leaf.cadName)}</td>`;
     html += `<td class="al fx fxH w-hikidashi">${hikidashiHtml}</td>`;
     html += `<td class="ar fx fx5 w-qty">${qtyHtml}</td>`;
@@ -2270,7 +2350,7 @@
     <th class="corner fx fx1 w-check" rowspan="2"><input type="checkbox" id="cadCheckAll" checked onchange="document.querySelectorAll('.cad-chk').forEach(c=>{ if(!c.disabled) c.checked=this.checked; })"></th>
     <th class="corner fx fxM w-merge" rowspan="2" title="合算対象">合算</th>
     <th class="corner fx fxK w-koji" rowspan="2"></th>
-    <th class="group fx fx2" colspan="7">内訳表</th>
+    <th class="group fx fx2" colspan="8">内訳表</th>
     <th class="group g-tonya" colspan="3"><span class="gwrap"><button type="button" class="fold-btn" onclick="cadToggleFold('tonya')">−</button>問屋材仕入れ</span></th>
     <th class="group ph ph-tonya w-ph" rowspan="2"><button type="button" class="fold-btn" onclick="cadToggleFold('tonya')">＋</button></th>
     <th class="group g-shokunin" colspan="2"><span class="gwrap"><button type="button" class="fold-btn" onclick="cadToggleFold('shokunin')">−</button>職人手間</span></th>
@@ -2290,6 +2370,7 @@
   <tr>
     <th class="fx fx2 w-name">名称</th>
     <th class="fx fx3 w-spec">仕様</th>
+    <th class="fx fxT w-tool">ツール名</th>
     <th class="fx fx4 w-rikcad">RIKCAD材料名</th>
     <th class="fx fxH w-hikidashi">引出線名称</th>
     <th class="fx fx5 w-qty">数量</th>
@@ -2326,7 +2407,8 @@
     roots.forEach(r => { rowsHtml += _cadFolderRowHtml(r, 1, null); });
     looseLeaves.forEach(l => { rowsHtml += _cadLeafRowHtml(l, 1, null); });
     if (!rowsHtml) {
-      rowsHtml = '<tr><td colspan="34" style="text-align:center;padding:32px 0;color:#bbb;">引用できる項目がありません</td></tr>';
+      // 2026-08-17: 「ツール名」列追加で総列数が34→35に増えたため、空状態プレースホルダーのcolspanも追随させる。
+      rowsHtml = '<tr><td colspan="35" style="text-align:center;padding:32px 0;color:#bbb;">引用できる項目がありません</td></tr>';
     }
 
     document.getElementById('cadTitle').textContent = 'CADから引用';
@@ -2334,7 +2416,7 @@
       <div class="mr-lead">引用する行を選択して「引用」をクリックしてください。マスタのフォルダに紐づいた工事はグループ表示されます。「工事選択」でマスタとの紐づけを設定できます。</div>
       <div class="table-area">
         <div class="table-scroll">
-          <table id="cadMasterTable">
+          <table id="cadMasterTable" class="fold-tonya fold-shokunin fold-kotsuzai">
             ${CAD_IMPORT_THEAD}
             <tbody>${rowsHtml}</tbody>
           </table>
@@ -2611,9 +2693,12 @@
       leaf._hikidashiAdopted = active;
       const nameSpan = hbtn.closest('tr').querySelector('.name-text');
       if (nameSpan) {
-        nameSpan.textContent = active
+        const newName = active
           ? (leaf.hikidashi || '')
           : (leaf.matchedRow ? (leaf.matchedRow.name || '') : `${leaf.cadName}（未登録）`);
+        nameSpan.textContent = newName;
+        // 2026-08-17追加（坂東さん依頼6）: 「採用」トグルで表示名が切り替わった際もtitle属性を追従させる
+        nameSpan.setAttribute('title', newName);
         nameSpan.classList.toggle('override', active);
       }
     }
@@ -2868,6 +2953,10 @@
         order_craftsman_name: (m && m.order_craftsman_name) || null,
         memo: (m && m.line_remark) || null,
         note: leaf.cadName || null,
+        // 2026-08-17追加（坂東さん依頼3、過去引用のグレー表示）: このリーフのファイル横断の由来キー
+        // （_cadLeafOriginKey、新設列cad_source_key）を保存する。次回同じ見積で「CADから引用」を開いた際、
+        // openCadImport()がこの列を読み戻し、同じキーを持つプレビュー行をグレー表示する。
+        cad_source_key: _cadLeafOriginKey(leaf),
       });
     });
 
@@ -2904,6 +2993,9 @@
         order_craftsman_name: null,
         memo: null,
         note: [...new Set(data.checkedLeaves.map(l => l.cadName).filter(Boolean))].join(', ') || null,
+        // 2026-08-17追加（坂東さん依頼3）: 合算（小計）行は複数リーフ由来のため、メンバー全員分の
+        // origin keyをカンマ区切りで1列に保存する（openCadImport()側でカンマ分解して個別キーの集合に加える）。
+        cad_source_key: data.checkedLeaves.map(_cadLeafOriginKey).join(',') || null,
       });
     });
     if (!newRows.length) { alert('挿入できる行がありません'); return; }
