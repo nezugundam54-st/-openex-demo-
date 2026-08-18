@@ -1392,6 +1392,7 @@
   const OP_ROW_COLUMNS = [
     'row_type', 'level', 'name', 'spec', 'qty', 'unit', 'list_price', 'rate', 'unit_price', 'cost',
     'craftsman_unit_price', 'bone_unit_price', 'order_wholesale_name', 'order_craftsman_name', 'memo', 'note',
+    'cad_source_key',
   ];
   function _opBlankRow(overrides) {
     const row = { estimate_id: currentEstimateId, folder_id: null, sort_order: 0 };
@@ -1585,6 +1586,9 @@
      toast()は現行ファイルに無いヘルパーのためalert()で代用。escHtml()は上で定義済みのものをそのまま再利用する。
      cadQtyDisplay/cadQtyUnit/getAncestorChain は移植元でも呼び出し箇所が無い未使用関数のため移植していない。 */
   const STORAGE_BASE = `${SUPABASE_URL}/storage/v1/object/public/property-files`;
+  // 2026-08-17追加: ifc-extract.js動的import()のキャッシュバスティング用（loadCadFile参照）。
+  // ページ読み込みのたびに変わればよいだけなので現在時刻を使う。
+  const IFC_EXTRACT_CACHE_BUST = Date.now();
   let _cadPropertyId = '';
   let _cadFiles      = [];   // property_files レコード
   let _cadItems      = [];
@@ -1598,6 +1602,12 @@
   // openCadImport()でSupabaseから取得し、buildCadPreviewTree()が各リーフの_cadLeafOriginKey()と
   // 突き合わせて「過去に引用済みか」を判定する。
   let _cadQuotedOriginKeys = new Set();
+  // 2026-08-17追加（坂東さん実機報告によるバグ修正、依頼2「ツール名」列の後続対応）: 「ビューアから
+  // 引用」で読み込んだJSONが、今回のセッションで新設したcategoryフィールド導入より前にアップロード
+  // 済みだった場合、全要素にcategoryキー自体が存在せず「ツール名」列が常に空欄になる
+  // （コードの不具合ではなく既存データの世代差によるもの）。loadCadFile()が判定してこのフラグを立て、
+  // renderCadImportTable()が案内文を表示する。
+  let _cadCategoryMissingNotice = false;
   let _kojiTargetIdx = -1;
   let _kojiFilterMasterId = ''; // 工事種別プルダウンの選択値（''=すべて）
   let _kojiFilterKeyword = ''; // 検索キーワード入力値
@@ -1639,11 +1649,18 @@
   }
 
   /* parametersの各項目「ラベル:数値単位」を汎用的にパースして、取得可能な数量・単位をすべて候補として返す
-     （「ﾒｰｶｰ:xxx」のような数値で始まらない項目はcadSpec側の情報なのでここでは無視する）
+     （「ﾒｰｶｰ:xxx」のような数値で始まらない項目はcadSpec側の情報なのでここでは無視する、という
+     想定だったが、2026-08-17に坂東さん実機報告でこの前提が崩れているバグが発覚。下記追記参照）。
      2026-08-05修正（坂東さん指示）: ifc-viewer.html側のparameters区切りがカンマに変わったことに
      追従し、splitCadParamSegments（カンマ・改行どちらにも対応）で項目分解するよう変更。
      これにより「フェンス本体枚数:5枚」「枚数:3枚」も他の数値項目と同様に数量候補として拾われ、
-     単位「枚」のまま転記候補（quRows、buildCadPreviewTreeで1候補=1リーフ行として展開）に載る。 */
+     単位「枚」のまま転記候補（quRows、buildCadPreviewTreeで1候補=1リーフ行として展開）に載る。
+     2026-08-17追加（坂東さん実機報告によるバグ修正）: メーカー名の値が「04その他一般」のように
+     数字で始まる場合、上記コメントの「メーカー名は数値で始まらない」という前提が崩れ、
+     `^([\d.]+)(.*)$`にマッチしてメーカー名が誤って数量候補（数量4・単位「その他一般」）として
+     拾われてしまうバグがあった。値の内容に関わらず、ラベル自体がメーカー名（`cadSpec()`の除外
+     判定と同じ`ﾒｰｶｰ`半角カナ、念のため全角「メーカー」表記も防御）である行は無条件で数量候補から
+     除外するようにした。 */
   function cadQtyRows(item) {
     const p = item.parameters || '';
     const rows2 = [];
@@ -1651,6 +1668,8 @@
       const idx = line2.search(/[：:]/);
       if (idx < 0) return;
       const label = line2.slice(0, idx).trim();
+      // 2026-08-17追加: メーカー名行はラベルで判定して除外する（値が数字始まりでも拾わない）。
+      if (label === 'ﾒｰｶｰ' || label === 'メーカー') return;
       const rest = line2.slice(idx + 1).trim();
       const m = rest.match(/^([\d.]+)(.*)$/);
       if (!m) return;
@@ -1889,7 +1908,13 @@
       if (isIfc) {
         // JSONルートとは別に、IFCを直接読んで同じフラット配列(file/suuryo/kakaku/name/type/parameters)を得る
         const buffer = await r.arrayBuffer();
-        const { extractIfcItems } = await import('./ifc-extract.js');
+        // 2026-08-17追加（坂東さん実機報告の調査対応）: 動的import()はブラウザのモジュールキャッシュに
+        // 強く乗るため、ifc-extract.js更新後もタブを開き直さずに古いモジュールが使われ続ける可能性を
+        // 排除する目的でクエリ文字列によるキャッシュバスティングを付与した（サーバー側は既に
+        // Cache-Control: no-storeを送っているため必須ではないはずだが、念のための保険。ロジック自体
+        // ＝category配線は`ifc-extract.js`側・受け手側とも単体テストで正しいことを確認済み、
+        // 詳細はengineering/debug-log/2026-08-17-cad-import-tool-column-blank.md参照）。
+        const { extractIfcItems } = await import(`./ifc-extract.js?v=${IFC_EXTRACT_CACHE_BUST}`);
         _cadItems = await extractIfcItems(buffer, f.name);
       } else {
         const text = await r.text();
@@ -1898,6 +1923,10 @@
         _cadItems = data.items || (Array.isArray(data) ? data : []);
       }
       if (!_cadItems.length) throw new Error('データが空です');
+      // 2026-08-17追加: 全要素にcategoryキーが1つも無ければ「categoryフィールド導入前にアップロード
+      // された古いJSON」と判定する（新しい抽出ロジックはcategoryキーを必ず持たせる、値が空文字の
+      // 場合でもキー自体は存在するため`'category' in item`で判定し、値の中身では判定しない）。
+      _cadCategoryMissingNotice = _cadItems.every(it => !('category' in it));
       renderCadImportTable();
     } catch(e) {
       document.getElementById('cadBody').innerHTML = `<div style="padding:20px;color:#e02020;">読み込み失敗: ${escHtml(e.message)}</div>`;
@@ -2411,9 +2440,17 @@
       rowsHtml = '<tr><td colspan="35" style="text-align:center;padding:32px 0;color:#bbb;">引用できる項目がありません</td></tr>';
     }
 
+    // 2026-08-17追加（坂東さん実機報告によるバグ修正）: categoryフィールード導入前にアップロード
+    // された古いJSONを読み込んだ場合、「ツール名」列が全行空欄になるのはバグではなく既存データの
+    // 世代差であることを案内する（ifc-viewer.htmlで対象要素を再度「選択した要素を見積へ転記」する
+    // と、その要素だけ新しいcategory付きの値で上書きされる＝タスクBのdiff_keyマージ仕様）。
+    const categoryNoticeHtml = _cadCategoryMissingNotice
+      ? `<div class="mr-lead" style="color:#c07000;">⚠ このJSONは「ツール名」列の対応より前に保存されたデータのため、「ツール名」列が空欄になります。ifc-viewer.htmlで対象要素を再度「選択した要素を見積へ転記」すると反映されます。</div>`
+      : '';
     document.getElementById('cadTitle').textContent = 'CADから引用';
     document.getElementById('cadBody').innerHTML = `
       <div class="mr-lead">引用する行を選択して「引用」をクリックしてください。マスタのフォルダに紐づいた工事はグループ表示されます。「工事選択」でマスタとの紐づけを設定できます。</div>
+      ${categoryNoticeHtml}
       <div class="table-area">
         <div class="table-scroll">
           <table id="cadMasterTable" class="fold-tonya fold-shokunin fold-kotsuzai">
