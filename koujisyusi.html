@@ -196,9 +196,27 @@
     .badge { font-size: 11px; padding: 3px 9px; border-radius: 3px; display: inline-block; white-space: nowrap; }
     .badge-paid   { background: #e6f4ea; color: #1e7e34; }
     .badge-unpaid { background: #f0f0f0; color: #888; }
+    .badge-billed  { background: #fff3cd; color: #8a6d1d; }
+    .badge-overdue { background: #fde8e8; color: #c0392b; }
     .badge-unordered { background: #fde8e8; color: #c0392b; }
     .badge-waiting   { background: #e8f5fe; color: var(--primary-blue); }
     .badge-pdf       { background: #f0f0f0; color: #777; }
+    .badge-clickable { cursor: pointer; user-select: none; }
+    .badge-clickable:hover { opacity: 0.8; }
+    /* ステータス選択ポップオーバー（クリックで4択を一覧表示） */
+    .status-cell { position: relative; }
+    .status-menu {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 20;
+      background: #fff; border: 1px solid var(--border-color); border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+      padding: 4px; display: flex; flex-direction: column; gap: 3px;
+      min-width: 92px;
+    }
+    .status-menu .status-menu-item {
+      display: block; width: 100%; box-sizing: border-box; text-align: left;
+      border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif;
+    }
+    .status-menu .status-menu-item:hover { filter: brightness(0.93); }
 
     /* ===== 行追加 ===== */
     .add-row-btn {
@@ -215,11 +233,23 @@
     .new-row-input::placeholder { color: #ccc; }
     .delete-link { font-size: 12px; color: #e53935; background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
     .delete-link:hover { opacity: 0.7; }
+    .amount-input {
+      font-size: 13px; color: #333;
+      border: none; border-bottom: 2px solid transparent;
+      background: transparent; outline: none;
+      font-family: 'Noto Sans JP', sans-serif;
+      width: 100%; text-align: right; padding: 1px 0;
+      transition: border-color 0.15s;
+    }
+    .amount-input:hover { border-bottom-color: #ddd; }
+    .amount-input:focus { border-bottom-color: var(--primary-blue); }
+    .amount-input::placeholder { color: #bbb; }
+    /* テーブル内の日付入力（.date-input を13px・通常太字に縮小した軽量版） */
+    .date-input.table-date { font-size: 13px; font-weight: 400; }
 
     /* ===== 発注テーブル ===== */
     .order-name { font-size: 12.5px; font-weight: 500; color: #333; }
     .order-no   { font-size: 11px; color: #aaa; margin-top: 2px; }
-    .attach-cell { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 12px; color: #888; }
 
     /* ===== 発注フィルタ ===== */
     .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -441,7 +471,7 @@
         <div class="payment-summary">
           <div class="payment-badge grey">
             <span>入金予定</span>
-            <strong>¥14,080,000</strong>
+            <strong id="paymentSummaryScheduled">¥14,080,000</strong>
           </div>
           <div class="payment-badge blue">
             <span>入金実績</span>
@@ -452,47 +482,55 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th style="width:130px; padding-left:20px;">名目</th>
-            <th class="r" style="width:160px;">予定金額</th>
-            <th style="width:140px;">予定日</th>
-            <th class="r" style="width:160px;">実績金額</th>
-            <th style="width:140px;">入金日</th>
-            <th style="width:140px;">ステータス</th>
-            <th style="width:120px; padding-right:20px;"></th>
+            <th style="width:110px; padding-left:20px;">名目</th>
+            <th style="width:110px;">予定日</th>
+            <th class="r" style="width:130px;">予定金額</th>
+            <th style="width:110px;">請求日</th>
+            <th class="r" style="width:130px;">請求金額</th>
+            <th style="width:110px;">入金日</th>
+            <th class="r" style="width:130px;">実績金額</th>
+            <th style="width:110px;">ステータス</th>
+            <th style="width:90px; padding-right:20px;"></th>
           </tr>
         </thead>
         <tbody id="payment-tbody">
           <tr>
             <td style="padding-left:20px;">着手金</td>
-            <td class="r">¥4,400,000</td>
-            <td class="muted">2026/04/10</td>
-            <td class="r" style="font-weight:700;">¥4,400,000</td>
-            <td class="muted">2026/04/10</td>
-            <td><span class="badge badge-paid">入金済</span></td>
-            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書</a></td>
+            <td><input class="date-input table-date" type="text" value="2026/04/10" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="2026/04/10" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="actual" style="font-weight:700;" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td class="status-cell"><span class="badge badge-clickable badge-paid" data-status="2" onclick="toggleStatusMenu(this, event)">入金済</span></td>
+            <td style="text-align:right; padding-right:20px;"></td>
           </tr>
           <tr>
             <td style="padding-left:20px;">中間金</td>
-            <td class="r">¥4,400,000</td>
-            <td class="muted">2026/06/30</td>
-            <td class="r" style="font-weight:700;">¥4,400,000</td>
-            <td class="muted">2026/06/28</td>
-            <td><span class="badge badge-paid">入金済</span></td>
-            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書</a></td>
+            <td><input class="date-input table-date" type="text" value="2026/06/30" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="2026/06/28" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="actual" style="font-weight:700;" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td class="status-cell"><span class="badge badge-clickable badge-paid" data-status="2" onclick="toggleStatusMenu(this, event)">入金済</span></td>
+            <td style="text-align:right; padding-right:20px;"></td>
           </tr>
           <tr>
             <td style="padding-left:20px;">完成金</td>
-            <td class="r">¥5,280,000</td>
-            <td class="muted">2026/09/15</td>
-            <td class="r muted">—</td>
-            <td class="muted">—</td>
-            <td><span class="badge badge-unpaid">未入金</span></td>
-            <td style="text-align:right; padding-right:20px;"><a href="invoice_form.html" style="font-size:12px;color:var(--primary-blue);text-decoration:none;">請求書発行</a></td>
+            <td><input class="date-input table-date" type="text" value="2026/09/15" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥5,280,000" data-raw="5280000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td class="r"><input class="amount-input" type="text" data-field="actual" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+            <td class="status-cell"><span class="badge badge-clickable badge-unpaid" data-status="0" onclick="toggleStatusMenu(this, event)">未入金</span></td>
+            <td style="text-align:right; padding-right:20px;"></td>
           </tr>
         </tbody>
         <tbody>
           <tr>
-            <td colspan="7" style="padding:4px 8px 4px 12px;">
+            <td colspan="9" style="padding:4px 8px 4px 12px;">
               <button class="add-row-btn" onclick="addPaymentRow()">
                 <i class="fa-solid fa-plus" style="font-size:11px;"></i> 行を追加
               </button>
@@ -502,10 +540,13 @@
         <tfoot>
           <tr>
             <td style="padding-left:20px;">合計</td>
-            <td class="r">予定 ¥14,080,000</td>
+            <td></td>
+            <td class="r">予定 <span id="paymentTotalScheduled">¥14,080,000</span></td>
+            <td></td>
+            <td></td>
             <td></td>
             <td class="r">実績 ¥8,800,000</td>
-            <td colspan="3"></td>
+            <td colspan="2"></td>
           </tr>
         </tfoot>
       </table>
@@ -543,9 +584,9 @@
             発注金額合計 <strong id="order-total">¥9,450,000</strong>
           </div>
           <div class="order-total-badge">
-            登録済外注費 <strong id="order-registered">¥6,800,000</strong>
+            登録済外注費 <strong id="order-registered">¥4,270,000</strong>
             <span style="color:#ccc;">｜</span>
-            差額 <strong id="order-diff">¥2,650,000</strong>
+            差額 <strong id="order-diff">¥5,180,000</strong>
           </div>
           <a href="#" style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--primary-blue);text-decoration:none;white-space:nowrap;">
             発注管理へ <i class="fa-solid fa-chevron-right" style="font-size:11px;"></i>
@@ -559,14 +600,14 @@
               <th style="padding-left:16px; width:180px;">商品名 / 発注No</th>
               <th class="r" style="width:55px;">数量</th>
               <th style="width:55px;">単位</th>
-              <th style="width:85px;">工事依頼</th>
-              <th style="width:55px; text-align:center;">添付</th>
               <th style="width:140px;">状況</th>
               <th style="width:150px;">発注先</th>
               <th style="width:100px;">発注日</th>
               <th style="width:160px;">納品希望日 / 回答日</th>
               <th class="r" style="width:120px;">発注金額</th>
-              <th class="r" style="padding-right:16px; width:130px;">外注費</th>
+              <th style="width:110px;">処理日</th>
+              <th class="r" style="width:130px;">外注費</th>
+              <th style="width:70px; padding-right:16px;"></th>
             </tr>
           </thead>
           <tbody id="order-tbody">
@@ -577,8 +618,6 @@
               </td>
               <td class="r">1</td>
               <td class="muted">式</td>
-              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
-              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>2</div></td>
               <td><span class="badge badge-unordered">未発注</span></td>
               <td style="font-size:12.5px; font-weight:500;">(有)山田建材</td>
               <td class="muted" style="font-size:12.5px;">2026/04/20</td>
@@ -587,7 +626,9 @@
                 <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 2026/05/24</div>
               </td>
               <td class="r" style="font-weight:600;">¥3,200,000</td>
-              <td class="r muted" style="padding-right:16px;">—</td>
+              <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+              <td class="r"><input class="amount-input" type="text" data-field="outsource" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this); filterOrders();"></td>
+              <td style="padding-right:16px;"></td>
             </tr>
             <tr data-status="未発注" data-supplier="(株)第一資材" data-amount="1980000">
               <td style="padding-left:16px;">
@@ -596,8 +637,6 @@
               </td>
               <td class="r">1</td>
               <td class="muted">式</td>
-              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
-              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>1</div></td>
               <td><span class="badge badge-unordered">未発注</span></td>
               <td style="font-size:12.5px; font-weight:500;">(株)第一資材</td>
               <td class="muted" style="font-size:12.5px;">2026/04/15</td>
@@ -606,7 +645,9 @@
                 <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 2026/05/17</div>
               </td>
               <td class="r" style="font-weight:600;">¥1,980,000</td>
-              <td class="r muted" style="padding-right:16px;">—</td>
+              <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+              <td class="r"><input class="amount-input" type="text" data-field="outsource" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this); filterOrders();"></td>
+              <td style="padding-right:16px;"></td>
             </tr>
             <tr data-status="発注受付待ち" data-supplier="鈴木電気工業" data-amount="2350000">
               <td style="padding-left:16px;">
@@ -615,8 +656,6 @@
               </td>
               <td class="r">1</td>
               <td class="muted">式</td>
-              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
-              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>3</div></td>
               <td><span class="badge badge-waiting">発注受付待ち</span></td>
               <td style="font-size:12.5px; font-weight:500;">鈴木電気工業</td>
               <td class="muted" style="font-size:12.5px;">2026/06/10</td>
@@ -625,7 +664,9 @@
                 <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 —</div>
               </td>
               <td class="r" style="font-weight:600;">¥2,350,000</td>
-              <td class="r" style="padding-right:16px; font-weight:600;">¥2,350,000</td>
+              <td><input class="date-input table-date" type="text" value="2026/06/10" placeholder="yyyy/mm/dd"></td>
+              <td class="r"><input class="amount-input" type="text" data-field="outsource" value="¥2,350,000" data-raw="2350000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this); filterOrders();"></td>
+              <td style="padding-right:16px;"></td>
             </tr>
             <tr data-status="発注受付待ち" data-supplier="緑化ガーデン(株)" data-amount="1920000">
               <td style="padding-left:16px;">
@@ -634,8 +675,6 @@
               </td>
               <td class="r">1</td>
               <td class="muted">式</td>
-              <td style="color:var(--primary-blue);font-size:13px;">依頼済</td>
-              <td style="text-align:center;"><div class="attach-cell"><i class="fa-solid fa-paperclip" style="font-size:12px;"></i>1</div></td>
               <td><span class="badge badge-waiting">発注受付待ち</span></td>
               <td style="font-size:12.5px; font-weight:500;">緑化ガーデン(株)</td>
               <td class="muted" style="font-size:12.5px;">2026/07/01</td>
@@ -644,7 +683,18 @@
                 <div style="font-size:11px;color:#aaa;margin-top:2px;">回答 —</div>
               </td>
               <td class="r" style="font-weight:600;">¥1,920,000</td>
-              <td class="r" style="padding-right:16px; font-weight:600;">¥1,920,000</td>
+              <td><input class="date-input table-date" type="text" value="2026/07/01" placeholder="yyyy/mm/dd"></td>
+              <td class="r"><input class="amount-input" type="text" data-field="outsource" value="¥1,920,000" data-raw="1920000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this); filterOrders();"></td>
+              <td style="padding-right:16px;"></td>
+            </tr>
+          </tbody>
+          <tbody>
+            <tr>
+              <td colspan="11" style="padding:4px 8px 4px 12px;">
+                <button class="add-row-btn" onclick="addOrderRow()">
+                  <i class="fa-solid fa-plus" style="font-size:11px;"></i> 行を追加
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -698,12 +748,11 @@
     };
   }
 
-  // ===== 発注情報：フィルタ =====
-  // 登録済外注費＝会計側（実績仕訳）に計上済みの外注費合計。発注状況フィルタの対象外。
-  const registeredOutsourceAmount = 6800000;
-
-  function updateOrderDiff(totalAmount) {
-    const diff = totalAmount - registeredOutsourceAmount;
+  // ===== 発注情報：フィルタ＋外注費集計 =====
+  // 登録済外注費＝各発注行の外注費inputの合計（発注状況フィルタの対象外、全行が対象）。
+  // 外注費は単一金額のみ（.amount-input＋editYen/formatYenで整形、値はdataset.rawに保持）。
+  function updateOrderDiff(totalAmount, registeredTotal) {
+    const diff = totalAmount - registeredTotal;
     const diffEl = document.getElementById('order-diff');
     diffEl.textContent = '¥' + Math.abs(diff).toLocaleString('ja-JP') + (diff < 0 ? '（超過）' : '');
     diffEl.classList.toggle('diff-negative', diff < 0);
@@ -716,6 +765,7 @@
     const rows = document.querySelectorAll('#order-tbody tr');
     let visibleCount = 0;
     let totalAmount  = 0;
+    let registeredTotal = 0;
 
     rows.forEach(tr => {
       const rowStatus   = tr.dataset.status   || '';
@@ -732,17 +782,182 @@
       } else {
         tr.classList.add('order-row-hidden');
       }
+
+      // 外注費（単一金額input）は発注状況フィルタに関わらず全行を対象に集計する。
+      const outsourceInput = tr.querySelector('input.amount-input[data-field="outsource"]');
+      if (outsourceInput) {
+        const raw = parseInt(outsourceInput.dataset.raw || '0', 10);
+        if (!isNaN(raw)) registeredTotal += raw;
+      }
     });
 
     document.getElementById('order-count').textContent = `（${visibleCount}件）`;
     document.getElementById('order-total').textContent =
       '¥' + totalAmount.toLocaleString('ja-JP');
     document.getElementById('order-registered').textContent =
-      '¥' + registeredOutsourceAmount.toLocaleString('ja-JP');
-    updateOrderDiff(totalAmount);
+      '¥' + registeredTotal.toLocaleString('ja-JP');
+    updateOrderDiff(totalAmount, registeredTotal);
   }
 
+  // ===== 発注情報：行追加 =====
+  // 「入金管理」のaddPaymentRow()と同じパターン。1つの発注に対して外注費を新規に登録したい場合、
+  // セル内に複数明細をまとめるのではなく「行を追加して別の外注費行として記録する」運用にした
+  // （2026-08-20方針転換）。少なくとも「処理日」「外注費」は編集可能。状況・発注先・発注金額も
+  // 編集可能にし、変更時は`this.closest('tr')`でtr.dataset（フィルタ・集計が参照する値）を追従
+  // 更新したうえでfilterOrders()を再実行する（idごとの動的グローバル関数は作らない汎用ハンドラ方式。
+  // idにはハイフンを含むため、`tr_${id}_xxx`のようなインライン関数名生成はJS識別子として不正になる
+  // ことに気づき、この汎用ハンドラ方式に変更した）。商品名/数量/単位/発注日/納品希望日は
+  // 実装しやすさを優先し簡略化した入力欄（発注No・回答日欄は省略）。
+  function orderRowStatusChanged(sel) {
+    const tr = sel.closest('tr');
+    if (tr) tr.dataset.status = sel.value;
+    filterOrders();
+  }
+  function orderRowSupplierChanged(inp) {
+    const tr = inp.closest('tr');
+    if (tr) tr.dataset.supplier = inp.value.trim();
+    filterOrders();
+  }
+  function orderRowAmountChanged(inp) {
+    formatYen(inp);
+    const tr = inp.closest('tr');
+    if (tr) tr.dataset.amount = inp.dataset.raw || '0';
+    filterOrders();
+  }
+
+  let orderRowCount = 0;
+  function addOrderRow() {
+    orderRowCount++;
+    const id = 'order-row-' + orderRowCount;
+    const tbody = document.getElementById('order-tbody');
+    const tr = document.createElement('tr');
+    tr.id = id;
+    tr.dataset.status = '';
+    tr.dataset.supplier = '';
+    tr.dataset.amount = '0';
+    tr.innerHTML = `
+      <td style="padding-left:16px;"><input class="new-row-input" placeholder="商品名" style="width:130px;"></td>
+      <td class="r"><input class="new-row-input" placeholder="1" style="text-align:right;width:36px;"></td>
+      <td><input class="new-row-input" placeholder="式" style="width:40px;"></td>
+      <td>
+        <select class="filter-select" style="max-width:110px;" onchange="orderRowStatusChanged(this)">
+          <option value="">未選択</option>
+          <option>未発注</option>
+          <option>発注受付待ち</option>
+          <option>発注済</option>
+        </select>
+      </td>
+      <td><input class="new-row-input" placeholder="発注先" style="width:120px;" onblur="orderRowSupplierChanged(this)"></td>
+      <td><input class="date-input table-date" type="text" placeholder="yyyy/mm/dd" style="width:90px;"></td>
+      <td><input class="date-input table-date" type="text" placeholder="希望 yyyy/mm/dd" style="width:130px;"></td>
+      <td class="r"><input class="new-row-input" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="orderRowAmountChanged(this)"></td>
+      <td><input class="date-input table-date" type="text" placeholder="yyyy/mm/dd"></td>
+      <td class="r"><input class="amount-input" type="text" data-field="outsource" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this); filterOrders();"></td>
+      <td style="text-align:right;padding-right:16px;"><button class="delete-link" onclick="deleteOrderRow('${id}')">削除</button></td>
+    `;
+    tbody.appendChild(tr);
+    filterOrders();
+  }
+
+  function deleteOrderRow(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.remove();
+      filterOrders();
+    }
+  }
+
+  // ===== 入金管理：金額入力の整形 =====
+  // フォーカス時は生の数値のみを表示し、blur時に¥・カンマ区切りへ整形する。
+  // 直近の整形済み値は input.dataset.raw に保持する。
+  // data-field="scheduled" の入力（予定金額）はblur時に入金予定の合計も再計算する。
+  function editYen(input) {
+    input.value = input.dataset.raw || '';
+  }
+  function formatYen(input) {
+    const digits = input.value.replace(/[^\d]/g, '');
+    if (digits === '') {
+      input.value = '';
+      input.dataset.raw = '';
+    } else {
+      const num = parseInt(digits, 10);
+      input.dataset.raw = String(num);
+      input.value = '¥' + num.toLocaleString('ja-JP');
+    }
+    if (input.dataset.field === 'scheduled') {
+      recalcScheduledTotal();
+    }
+  }
+
+  // ===== 入金管理：入金予定合計の再計算 =====
+  // 予定金額（data-field="scheduled"）の入力値を合算し、上部サマリーバッジ「入金予定」と
+  // tfootの「予定 ¥xxx」表示に反映する。入金実績・請求金額の合計は今回のスコープ外のため対象外。
+  function recalcScheduledTotal() {
+    let total = 0;
+    document.querySelectorAll('#payment-tbody input[data-field="scheduled"]').forEach(inp => {
+      const raw = parseInt(inp.dataset.raw || '0', 10);
+      if (!isNaN(raw)) total += raw;
+    });
+    const formatted = '¥' + total.toLocaleString('ja-JP');
+    const badgeEl = document.getElementById('paymentSummaryScheduled');
+    if (badgeEl) badgeEl.textContent = formatted;
+    const footEl = document.getElementById('paymentTotalScheduled');
+    if (footEl) footEl.textContent = formatted;
+  }
+
+  // ===== 入金管理：ステータスの選択肢メニュー =====
+  // バッジをクリックすると4択（未入金／請求済／入金済／予定超過）のポップオーバーを表示し、
+  // クリックした選択肢に切り替える（順送りクリック方式は廃止）。
+  const PAYMENT_STATUS_STATES = [
+    { text: '未入金',   cls: 'badge-unpaid' },
+    { text: '請求済',   cls: 'badge-billed' },
+    { text: '入金済',   cls: 'badge-paid' },
+    { text: '予定超過', cls: 'badge-overdue' },
+  ];
+  function closeAllStatusMenus() {
+    document.querySelectorAll('.status-menu').forEach(m => m.remove());
+  }
+  function toggleStatusMenu(el, evt) {
+    if (evt) evt.stopPropagation();
+    const cell = el.parentElement;
+    const existing = cell.querySelector('.status-menu');
+    if (existing) {
+      // 既にこのバッジのメニューが開いていればトグルで閉じる
+      existing.remove();
+      return;
+    }
+    closeAllStatusMenus();
+    const menu = document.createElement('div');
+    menu.className = 'status-menu';
+    menu.innerHTML = PAYMENT_STATUS_STATES.map((s, i) =>
+      `<button type="button" class="status-menu-item badge ${s.cls}" data-idx="${i}" onclick="selectStatus(this, event)">${s.text}</button>`
+    ).join('');
+    cell.appendChild(menu);
+  }
+  function selectStatus(itemEl, evt) {
+    if (evt) evt.stopPropagation();
+    const menu = itemEl.parentElement;
+    const badge = menu.previousElementSibling;
+    const idx = parseInt(itemEl.dataset.idx, 10);
+    const state = PAYMENT_STATUS_STATES[idx];
+    if (badge && state) {
+      PAYMENT_STATUS_STATES.forEach(s => badge.classList.remove(s.cls));
+      badge.classList.add(state.cls);
+      badge.dataset.status = String(idx);
+      badge.textContent = state.text;
+    }
+    menu.remove();
+  }
+  // メニュー外クリックで閉じる
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.status-cell')) {
+      closeAllStatusMenus();
+    }
+  });
+
   // ===== 入金管理：行追加 =====
+  // 注意: 請求金額・実績金額の合計は今回のスコープ外のため自動再計算されない
+  // （予定金額のみ recalcScheduledTotal() で再計算対象）。
   let rowCount = 0;
   function addPaymentRow() {
     rowCount++;
@@ -752,11 +967,13 @@
     tr.id = id;
     tr.innerHTML = `
       <td style="padding-left:20px;"><input class="new-row-input" placeholder="名目" style="width:90px;"></td>
-      <td class="r"><input class="new-row-input" placeholder="¥0" style="text-align:right;width:100%;"></td>
-      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:110px;"></td>
-      <td class="r muted">—</td>
-      <td class="muted">—</td>
-      <td><span class="badge badge-unpaid">未入金</span></td>
+      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td class="r"><input class="new-row-input" data-field="scheduled" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td class="r"><input class="new-row-input" data-field="billed" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td class="r"><input class="new-row-input" data-field="actual" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
+      <td class="status-cell"><span class="badge badge-clickable badge-unpaid" data-status="0" onclick="toggleStatusMenu(this, event)">未入金</span></td>
       <td style="text-align:right;padding-right:20px;"><button class="delete-link" onclick="deleteRow('${id}')">削除</button></td>
     `;
     tbody.appendChild(tr);
@@ -764,8 +981,14 @@
 
   function deleteRow(id) {
     const el = document.getElementById(id);
-    if (el) el.remove();
+    if (el) {
+      el.remove();
+      recalcScheduledTotal();
+    }
   }
+
+  // 初期表示時点でも予定金額の合計を計算し直し、静的に埋め込んだサマリー表示とズレないようにする。
+  recalcScheduledTotal();
 </script>
 </body>
 </html>
