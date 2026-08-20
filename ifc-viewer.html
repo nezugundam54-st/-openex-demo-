@@ -472,12 +472,12 @@
   <div class="header-actions">
     <button class="btn btn-secondary" id="buildQtyBtn" style="display:none">📋 一覧表作成</button>
     <button class="btn btn-secondary" id="planViewToggle" style="display:none">📐 平面図モード</button>
-    <button class="btn btn-secondary" id="parallelViewToggle" style="display:none">📦 平行投影</button>
     <button class="btn btn-secondary" id="measureToggle" style="display:none">📏 距離計測</button>
     <button class="btn btn-secondary" id="lineMeasureToggle" style="display:none">📐 線計測</button>
     <button class="btn btn-secondary" id="areaMeasureToggle" style="display:none">🟩 面積計測</button>
     <button class="btn btn-secondary" id="faceMeasureToggle" style="display:none">⬜ 面選択計測</button>
     <button class="btn btn-secondary" id="annotationToggle" style="display:none">📝 注記を表示</button>
+    <button class="btn btn-secondary" id="annotationSettingsBtn" title="注記設定" style="display:none">⚙️ 注記設定</button>
     <button class="btn btn-secondary" id="hidePlantsToggle" style="display:none">🌳 植栽を非表示</button>
     <button class="btn btn-secondary" id="structuralEdgeToggle" style="display:none">🧱 躯体輪郭線を非表示</button>
     <button class="btn btn-secondary" id="showAllBtn" style="display:none">👁 表示を戻す</button>
@@ -602,6 +602,24 @@
       <input type="range" id="dxfTextScale" min="0.05" max="2" step="0.05" value="0.3">
 
       <button class="btn btn-secondary" id="pdfRemoveBtn">🗑 図面を削除</button>
+    </div>
+
+    <!-- 2026-08-20追加（坂東さん指示）: 注記（2D注記/IfcAnnotation）の高度・色・文字サイズ調整パネル。
+         「図面を重ねる」パネル(pdf-panel)と同じ見た目・配置を踏襲しつつ、横位置移動・回転・拡大率は
+         対象外のため高度・色・文字サイズの3項目のみに絞っている。 -->
+    <div class="pdf-panel" id="annotationPanel">
+      <div class="pdf-title">
+        <span>📝 注記設定</span>
+        <button class="close-btn" id="annotationPanelCloseBtn">✕</button>
+      </div>
+
+      <label>高度 (Y): <span id="annotationHeightVal">0.00</span> m</label>
+      <input type="range" id="annotationHeight" min="-5" max="10" step="0.01" value="0">
+
+      <label>色: <input type="color" id="annotationColorInput" value="#555555" style="vertical-align:middle; width:48px; height:24px; padding:0; border:1px solid #ccc; border-radius:4px;"></label>
+
+      <label>文字サイズ: <span id="annotationTextSizeVal">0.25</span> m</label>
+      <input type="range" id="annotationTextSize" min="0.05" max="2" step="0.05" value="0.25">
     </div>
   </div>
 
@@ -791,6 +809,7 @@ const lineMeasureToggle = document.getElementById('lineMeasureToggle');
 const areaMeasureToggle = document.getElementById('areaMeasureToggle');
 const faceMeasureToggle = document.getElementById('faceMeasureToggle');
 const annotationToggle = document.getElementById('annotationToggle');
+const annotationSettingsBtn = document.getElementById('annotationSettingsBtn'); // 2026-08-20追加: 注記設定パネルの開閉トリガー
 const showAllBtn = document.getElementById('showAllBtn');
 const hidePlantsToggle = document.getElementById('hidePlantsToggle');
 const structuralEdgeToggle = document.getElementById('structuralEdgeToggle');
@@ -1010,7 +1029,12 @@ transferToEstimateBtn.addEventListener('click', async () => {
       // meta.priceを書き込む経路（旧difyTransferBtn）は無くなり、常に0固定（Dify連携導入前の状態）
       // 2026-08-05再修正（坂東さん指示）: parameters内の区切りを改行からカンマ区切りに統一した
       // （「メーカー:◯◯」の直後の改行も含め、paramParts全要素をカンマ区切りの1行にまとめる）。
-      items.push({ file: _ifcFileName, name: meta.label, type: 1, suuryo: parseFloat(text), kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '' });
+      // 2026-08-17追加（坂東さん指示）: 単一選択パネルの「作図要素: 」表示と同じmeta.categoryを
+      // 新規フィールドcategoryとしてJSON出力する。estimate-edit-demo.html側「CADから引用」の
+      // 「ツール名」列（仕様と RIKCAD材料名の間に新設、typeは数値マッピングで非可逆になるため
+      // categoryという文字列を別途渡す）が参照する。手動追加行はcategoryが'手動'固定（groupKeyToMeta
+      // 側の既存値、diffKey計算にも既に使われている値をそのまま流用）。
+      items.push({ file: _ifcFileName, name: meta.label, type: 1, suuryo: parseFloat(text), kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '', category: meta.category || '' });
       stateRows.push({ diffKey, globalId: meta.globalId || '', category: meta.category, paramName, label: meta.label, value: parseFloat(text), unit, hikidashi: meta.hikidashi || '' });
       continue;
     }
@@ -1096,7 +1120,8 @@ transferToEstimateBtn.addEventListener('click', async () => {
     // kakaku: Dify価格検索（difyTransferBtn）で取得済みならその金額を反映する（未取得なら従来通り0）
     // 2026-08-05再修正（坂東さん指示）: parameters内の区切りを改行からカンマ区切りに統一した
     // （「メーカー:◯◯」の直後の改行も含め、paramParts全要素をカンマ区切りの1行にまとめる）。
-    items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '' });
+    // 2026-08-17追加（坂東さん指示）: categoryフィールド追加（上記の手動追加行の分岐と同じ理由）。
+    items.push({ file: _ifcFileName, name: meta.label, type, suuryo, kakaku: meta.price || 0, parameters: paramParts.join(', '), hikidashi: meta.hikidashi || '', key: diffKey, global_id: meta.globalId || '', category: category || '' });
     if (diffKey) {
       stateRows.push({ diffKey, globalId: meta.globalId || '', category, paramName: solePar, label: meta.label, value: values[solePar], unit: valueUnits[solePar] || '', hikidashi: meta.hikidashi || '' });
     }
@@ -1275,8 +1300,12 @@ selectSameMaterialBtn.addEventListener('click', async () => {
 // 坂東さん指示によりテキストと同じRGB(85,85,85)=#555555に変更した（ANNOTATION_TEXT_COLORと同値）。
 // 塗り(IfcAnnotationFillArea)は対象外（実データの色を反映する既存仕様のまま変更しない、
 // buildFillColorMap()/getAnnotationFillMaterial()側は無変更）。
+// 2026-08-20追加: 注記設定パネルの色スライダー(annotationColorInput)で変更可能にするため、
+// 固定値ではなく変数annotationColorを初期値として使う。マテリアルは使い回しの単一インスタンス
+// （読込のたびに作り直さない）なので、.color.set()で書き換えれば既存の全注記線に即座に反映される。
+let annotationColor = '#555555';
 const IFC_ANNOTATION_LINE_MATERIAL = new THREE.LineBasicMaterial({
-  color: 0x555555, transparent: true, opacity: 1, depthTest: false,
+  color: annotationColor, transparent: true, opacity: 1, depthTest: false,
 });
 // IfcAnnotationFillArea（塗りつぶし領域。断面ハッチング等）の塗り本体（2026-07-31追加）。
 // 【方針】FillStyle（斜線ハッチング等のパターン指定）は読み取らず、常に単色半透明塗りで代用する
@@ -1293,8 +1322,15 @@ const IFC_ANNOTATION_LINE_MATERIAL = new THREE.LineBasicMaterial({
 // （未適用だとY/Zが入れ替わり符号も反転した状態で数十m単位にズレる）。
 const IFC_TO_THREE_AXIS_MATRIX = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
 let annotationGroup = null;
-let annotationsVisible = false; // 2026-08-03: 既定は非表示（平面図モード時のみ表示選択可能）
+// 2026-08-20変更: 「平面図モード時のみ表示選択可能」の制限を撤廃したため、既定非表示の理由も
+// それに合わせて「平面図モード以外では既定非表示、平面図モードは自動表示（enterPlanView側）」に変更。
+let annotationsVisible = false;
 let _annotationUnsupportedTypes = new Set(); // 未対応の曲線種別をログ重複しないよう記録（読込のたびにクリア）
+// 2026-08-20追加: 注記設定パネル（annotationPanel）の高度スライダー。既存の全注記に対する
+// Y方向オフセット(m)。annotationGroup.position.yに直接反映する（グループ全体を平行移動するだけ
+// なので個々の線・テキストの座標計算には手を加えない）。ファイルを開き直しても値は保持する
+// （「図面を重ねる」の高さスライダーと同様、パネルの入力値がそのまま次回にも使われる挙動）。
+let annotationHeightOffset = 0;
 
 function clearIfcAnnotations() {
   if (annotationGroup) {
@@ -1311,11 +1347,13 @@ function clearIfcAnnotations() {
     _annotationFillMaterialCache.clear();
   }
   annotationToggle.style.display = 'none';
-  // 2026-08-03（pptxスライド9指示）: 注記は「平面図モード」の時だけ表示選択できる仕様のため、
-  // ボタンの既定ラベルも「非表示中→表示に切り替える」側にしておく
+  // ボタンの既定ラベルは「非表示中→表示に切り替える」側にしておく
   annotationToggle.textContent = '📝 注記を表示';
   annotationToggle.classList.remove('active');
   annotationsVisible = false;
+  // 2026-08-20追加: 注記が無い状態では設定ボタン・パネルも出さない（開いていれば閉じる）
+  annotationSettingsBtn.style.display = 'none';
+  annotationPanel.classList.remove('show');
 }
 
 // Emscripten側のVector<number>（GetLineIDsWithType等の戻り値）をJS配列に変換する
@@ -2001,29 +2039,41 @@ function decodeStepUnicodeEscapes(str) {
 // スライド9「注記について」のオーナー指示）。元々はIfcTextLiteral.Extent.SizeInYから可変で
 // 求めていたが、「文字サイズは統一し、色はRGB(85/85/85)としてください」との明示指示のため、
 // 個々の注記が持つサイズ情報は無視し、常に固定サイズ・固定色で描画する（詳細は意思決定ログ参照）。
+// 2026-08-20変更: 「注記設定」パネル（annotationTextSize）から文字サイズを調整できるようにする
+// ため、固定定数ではなく可変変数annotationTextHeightMetersを実際の描画に使う値とした
+// （ANNOTATION_TEXT_HEIGHT_METERSは初期値・フォールバック値として残す）。色は上で定義した
+// annotationColor（線と共通）をそのまま使う。
 const ANNOTATION_TEXT_HEIGHT_METERS = 0.25; // 旧実装のExtent未取得時フォールバック値を統一値として採用
-const ANNOTATION_TEXT_COLOR = '#555555'; // RGB(85,85,85)
+let annotationTextHeightMeters = ANNOTATION_TEXT_HEIGHT_METERS;
+const ANNOTATION_TEXT_CANVAS_PX = 48; // canvasへの描画フォントサイズ(px)。色の再描画時にも同じ値を使う
 
 // テキストをThree.jsのSprite（カメラ常時正面向き）として生成する
 // （fils_demo/ifc-viewer.htmlの makeTextSprite / makeDistanceLabel と同じcanvas-texture手法）
+// 2026-08-20変更: 色スライダーでの後からの再描画に対応するため、生成時のcanvas/ctx/元テキストを
+// sprite.userDataに保持しておく（updateAnnotationColor()参照）。文字サイズも同様にsprite.userData
+// に保持し、updateAnnotationTextSize()から都度scale.setし直せるようにする。
 function makeIfcAnnotationTextSprite(text, heightMeters) {
   const canvasEl = document.createElement('canvas');
   const ctx = canvasEl.getContext('2d');
-  const px = 48;
+  const px = ANNOTATION_TEXT_CANVAS_PX;
   ctx.font = `${px}px sans-serif`;
   const width = Math.max(4, Math.ceil(ctx.measureText(text).width) + 8);
   canvasEl.width = width;
   canvasEl.height = px + 8;
   ctx.font = `${px}px sans-serif`; // canvasサイズ変更でコンテキストがリセットされるため再設定
-  ctx.fillStyle = ANNOTATION_TEXT_COLOR;
+  ctx.fillStyle = annotationColor;
   ctx.textBaseline = 'top';
   ctx.fillText(text, 4, 4);
   const texture = new THREE.CanvasTexture(canvasEl);
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(material);
   const aspect = canvasEl.width / canvasEl.height;
-  const h = heightMeters > 1e-6 ? heightMeters : ANNOTATION_TEXT_HEIGHT_METERS;
+  const h = heightMeters > 1e-6 ? heightMeters : annotationTextHeightMeters;
   sprite.scale.set(h * aspect, h, 1);
+  sprite.userData.ifcAnnotationText = text;
+  sprite.userData.ifcAnnotationCanvas = canvasEl;
+  sprite.userData.ifcAnnotationCtx = ctx;
+  sprite.userData.ifcAnnotationAspect = aspect;
   // IFCの配置点はテキストの左端・書き始め位置を指す（実データのBoxAlignment='bottom-left'とも
   // 整合）。THREE.Spriteは既定でcenter=(0.5,0.5)＝中心基準のため、そのままだと配置点に対して
   // テキストが左右上下にはみ出してズレる。center=(0,0)＝左下基準に変更し、テキストが配置点の
@@ -2051,7 +2101,7 @@ function buildAnnotationTextSprite(item, placementMatrix, scale, coordMatrix) {
   v.applyMatrix4(coordMatrix);
   v.applyMatrix4(IFC_TO_THREE_AXIS_MATRIX);
 
-  const sprite = makeIfcAnnotationTextSprite(text, ANNOTATION_TEXT_HEIGHT_METERS);
+  const sprite = makeIfcAnnotationTextSprite(text, annotationTextHeightMeters);
   sprite.position.copy(v);
   return sprite;
 }
@@ -2161,27 +2211,90 @@ async function loadIfcAnnotations(modelID, fileBuffer) {
   }
 
   if (lineCount > 0 || textCount > 0 || fillCount > 0) {
+    // 2026-08-20追加: 高度スライダー(annotationHeightOffset)の値を新しいグループにも反映する
+    // （ファイルを開き直した場合もパネルの入力値を引き継ぐ、「図面を重ねる」の高さと同じ挙動）。
+    group.position.y = annotationHeightOffset;
     scene.add(group);
     annotationGroup = group;
-    // 2026-08-03（pptxスライド9のオーナー指示）: 注記の表示/非表示は「平面図モード」の時のみ
-    // 選択可能で、それ以外のモードでは常に非表示。読込直後は平面図モードではないため、
-    // ここでは常に非表示で追加するだけにとどめ、トグルボタンもまだ出さない
-    // （enterPlanView()に入った時点で初めてボタンを表示し、その時点の既定値も非表示にする）。
+    // 2026-08-20変更（坂東さん指示）: 従来は「平面図モードの時のみ表示/非表示を選択可能、
+    // それ以外は常に非表示」だったが、どのモードでも切替可能にする仕様に変更した。ボタンは
+    // 注記が1件でも読み込めた時点で常時表示し（モードに依存しない）、既定値は平面図モード以外を
+    // 想定して非表示のままにする（平面図モードに入った場合はenterPlanView()側で自動的に表示に
+    // 切り替わる、2026-08-03その3から維持）。
     group.visible = false;
     annotationsVisible = false;
+    annotationToggle.style.display = '';
+    annotationToggle.textContent = '📝 注記を表示';
+    annotationToggle.classList.remove('active');
+    annotationSettingsBtn.style.display = '';
   }
   console.info(`[ifcAnnotation] IfcAnnotation ${ids.length}件中 ${annotationWithGeometryCount}件から線分${lineCount}本・塗りつぶし${fillCount}件・文字列${textCount}件を描画しました`
     + (_annotationUnsupportedTypes.size ? `（未対応の曲線種別${_annotationUnsupportedTypes.size}種はスキップ）` : ''));
 }
 
 annotationToggle.addEventListener('click', () => {
-  // 平面図モード以外では注記のトグル自体を無効化する（pptxスライド9指示、ボタンも
-  // enterPlanView/exitPlanViewでその時しか表示しないため通常ここに到達しないが、念のため二重に防御）
-  if (!annotationGroup || !planViewMode) return;
+  // 2026-08-20変更: 「平面図モードの時のみ」という制限を撤廃し、注記が読み込めていればどのモード
+  // でも切替可能にした。
+  if (!annotationGroup) return;
   annotationsVisible = !annotationsVisible;
   annotationGroup.visible = annotationsVisible;
   annotationToggle.textContent = annotationsVisible ? '📝 注記を非表示' : '📝 注記を表示';
   annotationToggle.classList.toggle('active', annotationsVisible);
+});
+
+// ── 注記設定パネル（高度・色・文字サイズ、2026-08-20追加） ──────────────
+// 「図面を重ねる」(pdfPanel)の位置調整パネルと同じ見た目・配置を踏襲。横位置移動・回転・拡大率は
+// 対象外のため、このパネルは高度・色・文字サイズの3項目のみを持つ。
+const annotationPanel = document.getElementById('annotationPanel');
+const annotationHeightInput = document.getElementById('annotationHeight');
+const annotationColorInput = document.getElementById('annotationColorInput');
+const annotationTextSizeInput = document.getElementById('annotationTextSize');
+
+annotationSettingsBtn.addEventListener('click', () => {
+  annotationPanel.classList.toggle('show');
+});
+document.getElementById('annotationPanelCloseBtn').addEventListener('click', () => annotationPanel.classList.remove('show'));
+
+annotationHeightInput.addEventListener('input', () => {
+  const v = parseFloat(annotationHeightInput.value);
+  document.getElementById('annotationHeightVal').textContent = v.toFixed(2);
+  annotationHeightOffset = v;
+  if (annotationGroup) annotationGroup.position.y = v;
+});
+
+// 色は線(IFC_ANNOTATION_LINE_MATERIAL、単一マテリアルの使い回しなので.color.set()だけで全線に
+// 反映される)とテキスト(Sprite個々にcanvasテクスチャとして色を焼き込んでいるため、既存の全
+// テキストSpriteを1つずつ再描画する必要がある)の両方に反映する
+annotationColorInput.addEventListener('input', () => {
+  const v = annotationColorInput.value;
+  annotationColor = v;
+  IFC_ANNOTATION_LINE_MATERIAL.color.set(v);
+  if (annotationGroup) {
+    annotationGroup.traverse(obj => {
+      if (!obj.isSprite || !obj.userData.ifcAnnotationText) return;
+      const canvasEl = obj.userData.ifcAnnotationCanvas;
+      const ctx = obj.userData.ifcAnnotationCtx;
+      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      ctx.font = `${ANNOTATION_TEXT_CANVAS_PX}px sans-serif`;
+      ctx.fillStyle = v;
+      ctx.textBaseline = 'top';
+      ctx.fillText(obj.userData.ifcAnnotationText, 4, 4);
+      obj.material.map.needsUpdate = true;
+    });
+  }
+});
+
+annotationTextSizeInput.addEventListener('input', () => {
+  const v = parseFloat(annotationTextSizeInput.value);
+  document.getElementById('annotationTextSizeVal').textContent = v.toFixed(2);
+  annotationTextHeightMeters = v;
+  if (annotationGroup) {
+    annotationGroup.traverse(obj => {
+      if (!obj.isSprite || !obj.userData.ifcAnnotationText) return;
+      const aspect = obj.userData.ifcAnnotationAspect || 1;
+      obj.scale.set(v * aspect, v, 1);
+    });
+  }
 });
 
 async function loadFile(file) {
@@ -2224,7 +2337,6 @@ async function loadFile(file) {
     canvas.style.cursor = '';
     if (lineHoverPreview) lineHoverPreview.visible = false;
     exitPlanView();
-    exitParallelView();
     if (pdfPivot) removePdf();
 
     const model = await ifcLoader.parse(buffer);
@@ -2254,7 +2366,6 @@ async function loadFile(file) {
     areaMeasureToggle.style.display = '';
     faceMeasureToggle.style.display = '';
     planViewToggle.style.display = '';
-    parallelViewToggle.style.display = '';
     buildQtyBtn.style.display = '';
     hiddenIds.clear();
     checkedIds.clear();
@@ -2335,7 +2446,6 @@ planViewToggle.addEventListener('click', () => {
 
 function enterPlanView() {
   if (!currentModel || planViewMode) return;
-  if (parallelViewMode) exitParallelView();
   savedCameraState = {
     position: perspectiveCamera.position.clone(),
     target: controls.target.clone(),
@@ -2367,23 +2477,15 @@ function enterPlanView() {
   planViewToggle.textContent = '📐 平面図モード';
   planViewToggle.classList.add('active');
 
-  // 2026-08-03（pptxスライド9「注記について」指示）: 2Dアノテーションの表示/非表示切替は
-  // 「平面図モード」の時のみ選択可能（平面図モードOFF時は非表示、exitPlanView()側で強制）。
-  // 注記が1件も読み込めていない場合はボタン自体を出さない。
-  //
-  // 【2026-08-03その3・重要な修正】当初は「平面図モードに入った直後も既定は非表示」（テキストの
-  // 「デフォルトを『注記を非表示』に」を字義通りに解釈）としていたが、坂東さんの実機確認で
-  // 「線（引出線・寸法線）が表示されない」と指摘された。原因調査の結果、注記の生成・座標変換
-  // 自体は正常（Node+web-ifcでの実データ検証、福井様.ifcで線分1948本・ワールド座標バウンディング
-  // ボックスが2026-07-31実装時の記録値と完全一致することを確認済み）で、`group.visible=false`の
-  // まま追加のクリック操作（ボタン押下）をしないと何も見えない状態になっていたことが原因と特定した。
-  // 「平面図モードOFFでは絶対に表示しない」という指示は明確だが、「平面図モード中は既定で
-  // 非表示（要クリック）」まで要求しているかは読み方が分かれる上、実際にオーナーが「表示されない」
-  // と感じた以上はこちらの読みを見直すべきと判断し、**平面図モードに入った時点で自動的に表示する**
-  // よう変更した（表示/非表示の切替自体は従来通りボタンで可能）。経緯は
-  // secretary/notes/2026-08-03-decisions.md 参照。
+  // 2026-08-03（pptxスライド9「注記について」指示、その3で修正）: 当初「平面図モードOFF時は
+  // 注記を絶対に表示しない」制限とセットで、平面図モードに入った時点で自動的に注記を表示する
+  // 挙動にしていた（坂東さんの実機確認で「線が表示されない」と指摘され、group.visible=falseの
+  // まま追加のクリックをしないと何も見えなかったことが原因）。
+  // 2026-08-20（坂東さん指示）: 注記の表示切替を全モードで可能にし、平面図モード以外での既定を
+  // 非表示に変更したのに伴い、上記の「平面図モードに入ったら自動的に注記を表示する」挙動自体は
+  // 維持する（迷ったらこちらを残すのが自然、という坂東さんの判断）。表示/非表示の切替は
+  // 従来通りボタンで可能（ボタン自体は注記読込時から常時表示、平面図モード限定ではなくなった）。
   if (annotationGroup) {
-    annotationToggle.style.display = '';
     annotationsVisible = true;
     annotationGroup.visible = true;
     annotationToggle.textContent = '📝 注記を非表示';
@@ -2410,71 +2512,19 @@ function exitPlanView() {
   planViewToggle.textContent = '📐 平面図モード';
   planViewToggle.classList.remove('active');
 
-  // 2026-08-03（pptxスライド9指示）: 平面図モード以外では注記は常に非表示・トグル不可にする
-  if (annotationGroup) annotationGroup.visible = false;
-  annotationsVisible = false;
-  annotationToggle.style.display = 'none';
-}
-
-// ── 平行投影モード（現在の斜め視点のまま投影方式だけを平行投影にする） ────
-// RIKCADのアイソメ表示（透視図法を使わない平行投影の斜め視点）を再現する。
-// 新しいカメラは作らず、平面図モードと同じ`orthoCamera`を再利用する。
-// 平面図モードと違い、カメラの上下角度(polarAngle)は固定せず今の視点をそのまま維持する。
-let parallelViewMode = false;
-let savedParallelCameraState = null; // 平行投影モードOFF時に元の視点へ戻すための退避先
-
-const parallelViewToggle = document.getElementById('parallelViewToggle');
-parallelViewToggle.addEventListener('click', () => {
-  if (parallelViewMode) exitParallelView(); else enterParallelView();
-});
-
-function enterParallelView() {
-  if (!currentModel || parallelViewMode) return;
-  if (planViewMode) exitPlanView();
-  savedParallelCameraState = {
-    position: perspectiveCamera.position.clone(),
-    target: controls.target.clone(),
-  };
-
-  const distance = Math.max(perspectiveCamera.position.distanceTo(controls.target), 0.01);
-
-  camera = orthoCamera;
-  controls.object = orthoCamera;
-
-  // カメラ〜注視点間の距離とパースペクティブのFOVから、切替前後でモデルの見た目の
-  // 大きさ（画面占有率）が変わらないようにorthoHalfHeightを逆算する
-  orthoHalfHeight = distance * Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov / 2));
-  orthoCamera.zoom = 1;
-  orthoCamera.near = perspectiveCamera.near;
-  orthoCamera.far = perspectiveCamera.far;
-  resize(); // orthoHalfHeightを反映してleft/right/top/bottomを設定
-
-  // 現在のパースペクティブカメラの位置・向きをそのままコピー（角度は固定しない）
-  orthoCamera.position.copy(perspectiveCamera.position);
-  orthoCamera.quaternion.copy(perspectiveCamera.quaternion);
-  controls.update();
-
-  parallelViewMode = true;
-  parallelViewToggle.textContent = '📦 平行投影中';
-  parallelViewToggle.classList.add('active');
-}
-
-function exitParallelView() {
-  if (!parallelViewMode) return;
-
-  camera = perspectiveCamera;
-  controls.object = perspectiveCamera;
-  if (savedParallelCameraState) {
-    perspectiveCamera.position.copy(savedParallelCameraState.position);
-    controls.target.copy(savedParallelCameraState.target);
+  // 2026-08-20（坂東さん指示・その1）: 従来は「平面図モード以外では注記は常に非表示・トグル不可」
+  // だったが、どのモードでも注記の表示切替を可能にする仕様に変更したため、いったんここで
+  // 「平面図モードを抜けても注記を強制的に非表示にはしない」実装にしていた。
+  // 2026-08-20（坂東さん指示・その2、差し戻し）: 「平面図モードから3Dに戻ったら注記を非表示に
+  // してほしい（ボタンでオフの状態にし、必要ならONに戻せる）」との追加指示により、抜けたら
+  // 強制非表示にする挙動を復活させる。ボタン自体はこれまで通り押下可能なままで、トグル機能は維持。
+  // 平面図モードに入った際の自動表示（enterPlanView側、2026-08-03その3の修正）は変更していない。
+  if (annotationGroup) {
+    annotationsVisible = false;
+    annotationGroup.visible = false;
+    annotationToggle.textContent = '📝 注記を表示';
+    annotationToggle.classList.remove('active');
   }
-  resize();
-  controls.update();
-
-  parallelViewMode = false;
-  savedParallelCameraState = null;
-  parallelViewToggle.textContent = '📦 平行投影';
-  parallelViewToggle.classList.remove('active');
 }
 
 // ── クリックで部材選択 ───────────────────────────────────
@@ -5217,27 +5267,45 @@ showAllBtn.addEventListener('click', async () => {
   await refreshQtyTableIfOpen();
 });
 
-// 名称接頭辞ベースの分類（detectCategory）が指定分類に一致する要素のexpressIDを集める。
-// categoryNameOrNamesは単一の分類名（従来通りの呼び出し方、例:'植栽'）のほか、
-// 配列/Setで複数分類をまとめて渡すこともできる（2026-08-07、躯体輪郭線機能で追加）。
-// 複数分類を渡した場合もHIDE_SCAN_TYPESの全件スキャンは1回で済む
-// （分類ごとにこの関数を複数回呼ぶと、getAllItemsOfType(..., true)によるプロパティ全件取得の
-// 走査コストがそのまま呼び出し回数倍になってしまうため、単一スキャンで複数分類を振り分ける）。
+// 指定分類に一致する要素のexpressIDを集める。categoryNameOrNamesは単一の分類名
+// （従来通りの呼び出し方、例:'植栽'）のほか、配列/Setで複数分類をまとめて渡すこともできる
+// （2026-08-07、躯体輪郭線機能で追加）。複数分類を渡した場合もHIDE_SCAN_TYPESの全件スキャンは
+// 1回で済む（分類ごとにこの関数を複数回呼ぶと、getAllItemsOfType(..., true)によるプロパティ
+// 全件取得の走査コストがそのまま呼び出し回数倍になってしまうため、単一スキャンで複数分類を振り分ける）。
+//
+// 2026-08-20修正（デバッグログ2026-08-20-hide-plants-button-no-effect.md、坂東さん報告バグ対応）:
+// 従来はここで`detectCategory(elementName)`（要素名の接頭辞パターンマッチ）だけで分類していた。
+// RIKCADが植栽ライブラリ部品を出力する際、Name属性は常に汎用的な「オブジェクト-NNN」になり
+// （実際に植栽か否かはArchiCADProperties「要素タイプ」にしか現れない）、実データ（セミクローズ_
+// 160520_ban_202608201158.ifc、植栽47件）では「🌳 植栽を非表示」ボタンが常に0件しか拾えず
+// 完全に無反応になっていた。この問題は2026-08-04に`buildQuantityTable()`側で発見・修正済み
+// （デバッグログ2026-08-04-ifc-list-element-missing.md）で、当時「`getCategoryElementIds()`も
+// 同じ弱点を持つが植栽表示/非表示の症状が出るまでは対応を見送る」と明記されていた。
+// `buildQuantityTable()`と同じ2段階構成に揃える: 1段目はHIDE_SCAN_TYPESの全件を名前で絞り込まず
+// 収集し、2段目でPropertySetsを取得して`resolveCategory()`（要素タイプ優先＋「オブジェクト+NM
+// パラメータ→植栽」特例＋名前ベースの最終フォールバック）で判定する。
 async function getCategoryElementIds(modelID, categoryNameOrNames) {
   const manager = ifcLoader.ifcManager;
   const targets = (categoryNameOrNames instanceof Set) ? categoryNameOrNames
     : Array.isArray(categoryNameOrNames) ? new Set(categoryNameOrNames)
     : new Set([categoryNameOrNames]);
-  const ids = new Set();
+  const candidates = [];
   for (const t of HIDE_SCAN_TYPES) {
     let items = [];
     try { items = await manager.getAllItemsOfType(modelID, t, true); } catch (err) { items = []; }
     for (const props of items) {
       const elementName = fieldValue(props.Name) || '';
-      const category = detectCategory(elementName);
-      if (category && targets.has(category)) ids.add(props.expressID);
+      const nameCategory = detectCategory(elementName); // 2段目のフォールバック専用（除外判定には使わない）
+      candidates.push({ id: props.expressID, elementName, nameCategory });
     }
   }
+  const ids = new Set();
+  await Promise.all(candidates.map(async ({ id, elementName, nameCategory }) => {
+    let psets = [];
+    try { psets = await manager.getPropertySets(modelID, id, true); } catch (err) { psets = []; }
+    const category = resolveCategory(elementName, psets) || nameCategory;
+    if (category && targets.has(category)) ids.add(id);
+  }));
   return ids;
 }
 
