@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>入金管理設定</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans JP', sans-serif; background: #fff; color: #333; min-height: 100vh; }
+
+    /* ===== ナビバー（settings.html / company-master.html と共通パターン） ===== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #fff; border-bottom: 1px solid #e0e0e0;
+      display: flex; align-items: stretch; height: 48px; padding: 0 4px;
+    }
+    .nav-main { display: flex; align-items: stretch; flex: 1; overflow-x: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 11px; font-size: 12px; color: #555;
+      cursor: pointer; text-decoration: none; white-space: nowrap;
+      border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-item:hover { color: #1a6fc4; }
+    .nav-item.active { color: #1a6fc4; border-bottom-color: #1a6fc4; font-weight: 600; }
+    .nav-item svg { flex-shrink: 0; width: 14px; height: 14px; }
+    .nav-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #e53935; color: #fff; font-size: 10px; font-weight: 700;
+      border-radius: 10px; min-width: 16px; height: 16px; padding: 0 4px; margin-left: 1px;
+    }
+    .nav-item.hacchukanri svg { color: #e53935; }
+    .nav-right { display: flex; align-items: center; margin-left: auto; border-left: 1px solid #e8e8e8; padding-left: 2px; flex-shrink: 0; }
+
+    /* ===== パンくず ===== */
+    .breadcrumb {
+      position: fixed; top: 48px; left: 0; right: 0; z-index: 90;
+      background: #fff; border-bottom: 1px solid #f0f0f0;
+      padding: 10px 24px; font-size: 12.5px; color: #888;
+    }
+    .breadcrumb a { color: #1a6fc4; text-decoration: none; cursor: pointer; }
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb .sep { margin: 0 6px; color: #bbb; }
+    .breadcrumb .current { color: #333; }
+
+    .page-body { margin-top: 88px; padding: 24px 32px 80px; }
+    .page-title { font-size: 19px; font-weight: 700; color: #1e2939; margin-bottom: 26px; }
+
+    /* ===== インボイス登録番号セクション ===== */
+    .invoice-section { width: 100%; max-width: 420px; margin-bottom: 34px; }
+    .section-label { font-size: 15px; font-weight: 600; color: #1e2939; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+    .help-icon {
+      width: 16px; height: 16px; border-radius: 50%; border: 1px solid #bbb; color: #999;
+      font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
+      cursor: default; flex-shrink: 0;
+    }
+    .invoice-row { display: flex; align-items: center; gap: 10px; }
+    .t-prefix { font-size: 14px; color: #333; font-weight: 600; }
+    .invoice-display-input {
+      flex: 1; height: 34px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: #333; background: #fafafa;
+    }
+    .invoice-note { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.7; }
+
+    /* ===== 口座一覧セクション ===== */
+    .account-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .account-section-title { font-size: 15px; font-weight: 600; color: #1e2939; }
+
+    .acc-table-wrap { border: 1px solid #B9B9B9; border-radius: 5px; overflow: hidden; }
+    table.acc-table { width: 100%; border-collapse: collapse; }
+    table.acc-table thead th {
+      background: #E6E6E6; color: #333; font-size: 12px; font-weight: 600;
+      padding: 9px 10px; text-align: center; border-bottom: 1px solid #B9B9B9;
+      border-right: 1px solid #d8d8d8;
+    }
+    table.acc-table thead th:last-child { border-right: none; }
+    table.acc-table tbody td {
+      padding: 10px; font-size: 13px; color: #333; text-align: center;
+      border-bottom: 1px solid #eee; border-right: 1px solid #eee;
+    }
+    table.acc-table tbody td:last-child { border-right: none; }
+    table.acc-table tbody tr:last-child td { border-bottom: none; }
+    table.acc-table tbody tr:hover { background: #fafcff; }
+    .col-no { width: 60px; color: #888; }
+    .col-actions { width: 56px; position: relative; }
+    .empty-row { padding: 40px 0 !important; color: #aaa; font-size: 13px; }
+
+    .more-btn {
+      background: none; border: none; cursor: pointer; color: #888; font-size: 18px;
+      width: 30px; height: 26px; border-radius: 4px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .more-btn:hover { background: #eef3fa; color: #1a6fc4; }
+
+    .row-menu {
+      display: none; position: absolute; right: 8px; top: 30px; z-index: 20;
+      background: #fff; border: 1px solid #ddd; border-radius: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12); overflow: hidden; min-width: 92px;
+    }
+    .row-menu.open { display: block; }
+    .row-menu button {
+      display: block; width: 100%; border: none; background: none; text-align: left;
+      padding: 9px 14px; font-size: 12.5px; color: #333; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; white-space: nowrap;
+    }
+    .row-menu button:hover { background: #f2f6fb; }
+    .row-menu button.danger:hover { background: #fdecea; color: #d32f2f; }
+
+    /* ===== ボタン共通 ===== */
+    .btn-primary {
+      background: #1a6fc4; color: #fff; border: none; border-radius: 5px;
+      padding: 0 22px; height: 34px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-primary:hover { background: #1558a0; }
+    .btn-secondary {
+      background: #fff; color: #666; border: 1px solid #ccc; border-radius: 5px;
+      padding: 0 22px; height: 34px; font-size: 13px; cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #f5f5f5; }
+
+    /* ===== モーダル（estimate-list.html の .overlay パターンを踏襲） ===== */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.32); z-index: 500; justify-content: center; align-items: center; }
+    .overlay.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.22); width: 440px; max-width: 92vw; overflow: hidden; }
+    .modal-box.wide { width: 600px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid #f0f1f3; }
+    .modal-title { font-size: 15px; font-weight: 700; color: #1e2939; }
+    .modal-close-btn { width: 26px; height: 26px; border: none; background: transparent; font-size: 18px; color: #9ca3af; cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: inherit; line-height: 1; }
+    .modal-close-btn:hover { background: #f3f4f6; color: #374151; }
+    .modal-body { padding: 22px; }
+    .modal-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid #f3f4f6; }
+
+    /* インボイスモーダル */
+    .invoice-modal-hint { font-size: 12px; color: #666; text-align: center; margin-bottom: 18px; }
+    .invoice-modal-input-row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .invoice-modal-input-row input {
+      width: 220px; height: 36px; padding: 0 12px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 14px; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0.5px;
+    }
+    .invoice-modal-input-row input.field-error { border-color: #e53935; }
+    .field-error-text { display: none; color: #e53935; font-size: 11px; margin-top: 8px; text-align: center; }
+    .field-error-text.show { display: block; }
+
+    /* 口座登録モーダル */
+    .acc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+    .acc-form-field.full { grid-column: 1 / -1; }
+    .acc-field-label { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 5px; display: block; }
+    .acc-field-label .req { color: #e53935; margin-left: 2px; }
+    .acc-field-input {
+      width: 100%; height: 34px; padding: 0 10px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 13px; font-family: 'Noto Sans JP', sans-serif; color: #333; transition: border-color 0.15s;
+    }
+    .acc-field-input:focus { outline: none; border-color: #1a6fc4; }
+    .acc-field-input.field-error { border-color: #e53935; background: #fff8f8; }
+    .acc-form-note { text-align: right; font-size: 11px; color: #888; margin-top: 4px; }
+
+    /* バリデーション通知モーダル */
+    .validation-modal-text { font-size: 13px; color: #333; }
+
+    .toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: #323232; color: #fff; padding: 12px 24px; border-radius: 6px;
+      font-size: 13px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #388e3c; }
+    .toast.error { background: #c62828; }
+
+    .loading-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.7);
+      z-index: 900; display: none; align-items: center; justify-content: center;
+    }
+    .loading-overlay.open { display: flex; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #e0e0e0; border-top-color: #1a6fc4; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-main">
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>物件</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>顧客</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>ファイル検索</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>共有物件</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>見積管理</a>
+    <a href="#" class="nav-item hacchukanri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>発注管理<span class="nav-badge">2</span></a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>受注管理</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>商談管理</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>スケジュール</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>チャット</a>
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>メーカー見積</a>
+    <a href="settings.html" class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>設定</a>
+  </div>
+  <div class="nav-right">
+    <a href="#" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>マニュアル</a>
+  </div>
+</nav>
+
+<div class="breadcrumb">
+  <a href="settings.html">設定</a><span class="sep">&gt;</span><span class="current">入金管理設定</span>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+<div class="toast" id="toast"></div>
+
+<div class="page-body">
+  <div class="page-title">入金管理設定</div>
+
+  <!-- インボイス登録番号 -->
+  <div class="invoice-section">
+    <div class="section-label">インボイス登録番号 <span class="help-icon" title="支店は会社情報で登録してください。">?</span></div>
+    <div class="invoice-row">
+      <span class="t-prefix">T</span>
+      <input type="text" id="invoiceDisplay" class="invoice-display-input" readonly placeholder="未登録">
+      <button class="btn-primary" id="btnInvoiceOpen">登録</button>
+    </div>
+    <div class="invoice-note">
+      ＊先頭の「T」を除く13桁の数字を入力してください。<br>
+      ＊請求書に記載することができます。
+    </div>
+  </div>
+
+  <!-- 口座一覧 -->
+  <div class="account-section">
+    <div class="account-section-head">
+      <div class="account-section-title">口座一覧</div>
+      <button class="btn-primary" id="btnAccountOpen">口座登録</button>
+    </div>
+    <div class="acc-table-wrap">
+      <table class="acc-table">
+        <thead>
+          <tr>
+            <th class="col-no">No.</th>
+            <th>金融機関</th>
+            <th>支店</th>
+            <th>科目</th>
+            <th>口座番号</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="accountsTbody">
+          <tr><td colspan="6" class="empty-row" style="text-align:center;">読み込み中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- インボイス登録番号 登録/編集モーダル -->
+<div class="overlay" id="invoiceOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="invoiceModalTitle">インボイス登録番号</div>
+      <button class="modal-close-btn" onclick="closeOverlay('invoiceOverlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="invoice-modal-hint">＊先頭の「T」を除く13桁の数字を入力してください。</div>
+      <div class="invoice-modal-input-row">
+        <span class="t-prefix">T</span>
+        <input type="text" id="invoiceModalInput" maxlength="13" inputmode="numeric" placeholder="1234567891234">
+      </div>
+      <div class="field-error-text" id="invoiceModalError">先頭の「T」を除く13桁の数字を入力してください</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeOverlay('invoiceOverlay')">キャンセル</button>
+      <button class="btn-primary" id="invoiceModalConfirmBtn" onclick="confirmInvoice()">登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- 口座登録/編集モーダル -->
+<div class="overlay" id="accountOverlay">
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <div class="modal-title" id="accountModalTitle">口座登録</div>
+      <button class="modal-close-btn" onclick="closeOverlay('accountOverlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="acc-form-grid">
+        <div class="acc-form-field">
+          <label class="acc-field-label">金融機関<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accFinancial">
+        </div>
+        <div class="acc-form-field">
+          <label class="acc-field-label">支店<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accBranch">
+        </div>
+        <div class="acc-form-field">
+          <label class="acc-field-label">科目<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accType" placeholder="例：普通">
+        </div>
+        <div class="acc-form-field">
+          <label class="acc-field-label">口座番号<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accNumber">
+        </div>
+        <div class="acc-form-field full">
+          <label class="acc-field-label">受取人<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accRecipient">
+        </div>
+        <div class="acc-form-field full">
+          <label class="acc-field-label">受取人ｶﾅ<span class="req">*</span></label>
+          <input type="text" class="acc-field-input" id="accRecipientKana">
+          <div class="acc-form-note">＊受取人ｶﾅは半角で入力してください。</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeOverlay('accountOverlay')">キャンセル</button>
+      <button class="btn-primary" id="accountModalConfirmBtn" onclick="confirmAccount()">登録</button>
+    </div>
+  </div>
+</div>
+
+<!-- 必須項目未入力 通知モーダル -->
+<div class="overlay" id="validationOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">入力確認</div>
+      <button class="modal-close-btn" onclick="closeOverlay('validationOverlay')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="validation-modal-text">＊印の付いた必須項目は全て入力してください。</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeOverlay('validationOverlay')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// fils_demo 実運用中の Supabase プロジェクト（company-master.html 等と共通）
+// docs/CLAUDE.md 記載の kkxnyszblaveglvlvwie とは別プロジェクトなので注意（詳細: engineering/docs/payment-settings.md）
+const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+const API = `${SUPABASE_URL}/rest/v1`;
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+let companyInfoId = null;
+let invoiceNumber = '';
+let accounts = [];
+let accountModalType = 0; // 0=登録 1=編集
+let accountEditId = null;
+let bankTableMissingWarned = false;
+
+const $ = id => document.getElementById(id);
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function showLoading(v) { $('loadingOverlay').classList.toggle('open', v); }
+function showToast(msg, type = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+function openOverlay(id) { $(id).classList.add('active'); }
+function closeOverlay(id) { $(id).classList.remove('active'); }
+
+// 背景クリックで閉じる
+['invoiceOverlay', 'accountOverlay', 'validationOverlay'].forEach(id => {
+  $(id).addEventListener('click', e => { if (e.target.id === id) closeOverlay(id); });
+});
+// メニュー外クリックで「…」メニューを閉じる
+document.addEventListener('click', () => closeAllRowMenus());
+
+// ========== インボイス登録番号 ==========
+async function loadCompanyInfo() {
+  try {
+    const r = await fetch(`${API}/company_info?select=id,invoice_number&limit=1`, { headers: HEADERS });
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    const ci = data[0];
+    if (ci) {
+      companyInfoId = ci.id;
+      invoiceNumber = ci.invoice_number || '';
+    }
+  } catch (e) {
+    console.error('loadCompanyInfo:', e);
+    showToast('会社情報の取得に失敗しました', 'error');
+  }
+  renderInvoice();
+}
+
+function renderInvoice() {
+  $('invoiceDisplay').value = invoiceNumber || '';
+}
+
+$('btnInvoiceOpen').addEventListener('click', () => {
+  $('invoiceModalInput').value = invoiceNumber || '';
+  $('invoiceModalInput').classList.remove('field-error');
+  $('invoiceModalError').classList.remove('show');
+  const isEdit = !!invoiceNumber;
+  $('invoiceModalTitle').textContent = 'インボイス登録番号';
+  $('invoiceModalConfirmBtn').textContent = isEdit ? '確定' : '登録';
+  openOverlay('invoiceOverlay');
+  $('invoiceModalInput').focus();
+});
+
+$('invoiceModalInput').addEventListener('input', e => {
+  e.target.value = e.target.value.replace(/[^\d]/g, '');
+});
+
+async function confirmInvoice() {
+  const val = $('invoiceModalInput').value;
+  if (!val || val.length !== 13) {
+    $('invoiceModalInput').classList.add('field-error');
+    $('invoiceModalError').classList.add('show');
+    return;
+  }
+  $('invoiceModalInput').classList.remove('field-error');
+  $('invoiceModalError').classList.remove('show');
+
+  showLoading(true);
+  try {
+    let res;
+    if (companyInfoId) {
+      res = await fetch(`${API}/company_info?id=eq.${companyInfoId}`, {
+        method: 'PATCH', headers: HEADERS,
+        body: JSON.stringify({ invoice_number: val, updated_at: new Date().toISOString() })
+      });
+    } else {
+      res = await fetch(`${API}/company_info`, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ invoice_number: val, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      });
+    }
+    if (!res.ok) throw new Error();
+    if (!companyInfoId) {
+      const created = await res.json();
+      companyInfoId = created[0]?.id || null;
+    }
+    invoiceNumber = val;
+    renderInvoice();
+    closeOverlay('invoiceOverlay');
+    showToast('インボイス登録番号を登録しました', 'success');
+  } catch (e) {
+    console.error('confirmInvoice:', e);
+    showToast('登録に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ========== 口座一覧 ==========
+async function loadAccounts() {
+  try {
+    const r = await fetch(`${API}/bank_accounts?order=sort_order.asc,created_at.asc`, { headers: HEADERS });
+    if (!r.ok) {
+      if (r.status === 404) {
+        accounts = [];
+        if (!bankTableMissingWarned) {
+          bankTableMissingWarned = true;
+          showToast('bank_accounts テーブルが未作成です。Supabase SQL Editor でのマイグレーション実行が必要です（engineering/docs/payment-settings.md 参照）', 'error');
+        }
+        renderAccounts();
+        return;
+      }
+      throw new Error();
+    }
+    accounts = await r.json();
+  } catch (e) {
+    console.error('loadAccounts:', e);
+    accounts = [];
+    showToast('口座一覧の取得に失敗しました', 'error');
+  }
+  renderAccounts();
+}
+
+function renderAccounts() {
+  const tbody = $('accountsTbody');
+  if (!accounts.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-row" style="text-align:center;">口座が登録されていません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = accounts.map((a, i) => `
+    <tr>
+      <td class="col-no">${i + 1}</td>
+      <td>${esc(a.financial_institution)}</td>
+      <td>${esc(a.branch)}</td>
+      <td>${esc(a.account_type)}</td>
+      <td>${esc(a.account_number)}</td>
+      <td class="col-actions">
+        <button class="more-btn" onclick="toggleRowMenu(event, '${a.id}')" title="操作">&#8943;</button>
+        <div class="row-menu" id="menu-${a.id}">
+          <button onclick="openAccountEdit('${a.id}')">✎ 編集</button>
+          <button class="danger" onclick="deleteAccount(event, '${a.id}')">🗑 削除</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function closeAllRowMenus() {
+  document.querySelectorAll('.row-menu.open').forEach(m => m.classList.remove('open'));
+}
+function toggleRowMenu(e, id) {
+  e.stopPropagation();
+  const menu = $(`menu-${id}`);
+  const willOpen = !menu.classList.contains('open');
+  closeAllRowMenus();
+  if (willOpen) menu.classList.add('open');
+}
+
+function clearAccountErrors() {
+  ['accFinancial', 'accBranch', 'accType', 'accNumber', 'accRecipient', 'accRecipientKana'].forEach(id => {
+    $(id).classList.remove('field-error');
+  });
+}
+
+$('btnAccountOpen').addEventListener('click', () => {
+  accountModalType = 0;
+  accountEditId = null;
+  ['accFinancial', 'accBranch', 'accType', 'accNumber', 'accRecipient', 'accRecipientKana'].forEach(id => $(id).value = '');
+  clearAccountErrors();
+  $('accountModalTitle').textContent = '口座登録';
+  $('accountModalConfirmBtn').textContent = '登録';
+  openOverlay('accountOverlay');
+});
+
+function openAccountEdit(id) {
+  closeAllRowMenus();
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  accountModalType = 1;
+  accountEditId = id;
+  $('accFinancial').value = a.financial_institution || '';
+  $('accBranch').value = a.branch || '';
+  $('accType').value = a.account_type || '';
+  $('accNumber').value = a.account_number || '';
+  $('accRecipient').value = a.recipient || '';
+  $('accRecipientKana').value = a.recipient_kana || '';
+  clearAccountErrors();
+  $('accountModalTitle').textContent = '口座編集';
+  $('accountModalConfirmBtn').textContent = '確定';
+  openOverlay('accountOverlay');
+}
+
+async function confirmAccount() {
+  const data = {
+    financial_institution: $('accFinancial').value.trim(),
+    branch: $('accBranch').value.trim(),
+    account_type: $('accType').value.trim(),
+    account_number: $('accNumber').value.trim(),
+    recipient: $('accRecipient').value.trim(),
+    recipient_kana: $('accRecipientKana').value.trim(),
+  };
+  const fieldMap = {
+    financial_institution: 'accFinancial', branch: 'accBranch', account_type: 'accType',
+    account_number: 'accNumber', recipient: 'accRecipient', recipient_kana: 'accRecipientKana'
+  };
+  let hasEmpty = false;
+  Object.keys(fieldMap).forEach(key => {
+    const empty = !data[key];
+    $(fieldMap[key]).classList.toggle('field-error', empty);
+    if (empty) hasEmpty = true;
+  });
+  if (hasEmpty) {
+    openOverlay('validationOverlay');
+    return;
+  }
+
+  showLoading(true);
+  try {
+    let res;
+    if (accountModalType === 1 && accountEditId) {
+      res = await fetch(`${API}/bank_accounts?id=eq.${accountEditId}`, {
+        method: 'PATCH', headers: HEADERS,
+        body: JSON.stringify({ ...data, updated_at: new Date().toISOString() })
+      });
+    } else {
+      res = await fetch(`${API}/bank_accounts`, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ ...data, sort_order: accounts.length })
+      });
+    }
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('TABLE_MISSING');
+      throw new Error();
+    }
+    closeOverlay('accountOverlay');
+    await loadAccounts();
+    showToast(accountModalType === 1 ? '口座情報を更新しました' : '口座を登録しました', 'success');
+  } catch (e) {
+    console.error('confirmAccount:', e);
+    if (e.message === 'TABLE_MISSING') {
+      showToast('bank_accounts テーブルが未作成のため保存できません。engineering/docs/payment-settings.md のSQLを実行してください', 'error');
+    } else {
+      showToast('保存に失敗しました', 'error');
+    }
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function deleteAccount(e, id) {
+  e.stopPropagation();
+  closeAllRowMenus();
+  if (!confirm('この口座を削除しますか？')) return;
+  showLoading(true);
+  try {
+    const res = await fetch(`${API}/bank_accounts?id=eq.${id}`, { method: 'DELETE', headers: HEADERS });
+    if (!res.ok) throw new Error();
+    await loadAccounts();
+    showToast('口座を削除しました', 'success');
+  } catch (e) {
+    console.error('deleteAccount:', e);
+    showToast('削除に失敗しました', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ========== 初期ロード ==========
+(async function init() {
+  showLoading(true);
+  await Promise.all([loadCompanyInfo(), loadAccounts()]);
+  showLoading(false);
+})();
+</script>
+</body>
+</html>

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <title>工事収支 - OPEN EX</title>
+  <title>工事台帳 - OPEN EX</title>
   <style>
     :root {
       --primary-blue: #00a1e9;
@@ -121,7 +121,7 @@
     .progress-main { font-size: 22px; font-weight: 700; color: #333; }
     .progress-total { font-size: 13px; color: #aaa; }
 
-    /* ===== 工事収支タイトル行 ===== */
+    /* ===== 工事台帳タイトル行 ===== */
     .content-title-row { display: flex; align-items: flex-end; justify-content: space-between; }
     .content-title { font-size: 18px; font-weight: 700; color: #333; }
     .content-subtitle { font-size: 13px; color: #888; margin-top: 4px; }
@@ -233,6 +233,31 @@
     .new-row-input::placeholder { color: #ccc; }
     .delete-link { font-size: 12px; color: #e53935; background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
     .delete-link:hover { opacity: 0.7; }
+    /* 入金管理：行ごとの「請求書発行」リンク（invoice_form.htmlへ遷移） */
+    .invoice-link {
+      font-size: 12px; color: var(--primary-blue); background: none; border: none;
+      cursor: pointer; font-family: 'Noto Sans JP', sans-serif; white-space: nowrap;
+    }
+    .invoice-link:hover { text-decoration: underline; opacity: 0.8; }
+
+    /* 入金管理：過去の請求書一覧モーダル（estimate-list.html / payment-settings.html の
+       .overlay パターンを踏襲、プロジェクト内で確立済みのモーダル実装を再利用） */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.32); z-index: 500; justify-content: center; align-items: center; }
+    .overlay.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.22); width: 520px; max-width: 92vw; overflow: hidden; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid #f0f1f3; }
+    .modal-title { font-size: 15px; font-weight: 700; color: #1e2939; }
+    .modal-close-btn { width: 26px; height: 26px; border: none; background: transparent; font-size: 18px; color: #9ca3af; cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: inherit; line-height: 1; }
+    .modal-close-btn:hover { background: #f3f4f6; color: #374151; }
+    .modal-body { padding: 18px 22px; max-height: 60vh; overflow-y: auto; }
+    .modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid #f3f4f6; }
+    .invoice-history-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .invoice-history-table th { text-align: left; color: #888; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid #eee; }
+    .invoice-history-table td { padding: 8px; border-bottom: 1px solid #f3f4f6; }
+    .invoice-history-table tr:last-child td { border-bottom: none; }
+    .invoice-history-open-btn { font-size: 12px; color: var(--primary-blue); background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+    .invoice-history-open-btn:hover { text-decoration: underline; }
+    .invoice-history-empty { text-align: center; color: #999; font-size: 12.5px; padding: 24px 0; }
     .amount-input {
       font-size: 13px; color: #333;
       border: none; border-bottom: 2px solid transparent;
@@ -358,7 +383,7 @@
     <div class="breadcrumb">
       <a href="index.html">物件一覧</a> &gt;
       <a id="bcPropLink" href="index.html"><span id="bcPropName">物件</span></a> &gt;
-      <span>工事収支</span>
+      <span>工事台帳</span>
     </div>
     <div class="header-row">
       <div class="title-block">
@@ -384,16 +409,16 @@
     <a class="tab" href="index.html">更新履歴</a>
     <a class="tab" href="index.html">参加者</a>
     <a class="tab" href="index.html">物件チャット</a>
-    <a class="tab active" href="#">工事収支</a>
+    <a class="tab active" href="#">工事台帳</a>
   </div>
 
   <!-- ===== メインコンテンツ ===== -->
   <div class="content">
 
-    <!-- 工事収支タイトル行 -->
+    <!-- 工事台帳タイトル行 -->
     <div class="content-title-row">
       <div>
-        <div class="content-title">工事収支</div>
+        <div class="content-title">工事台帳</div>
         <div class="content-subtitle" id="contentSubtitle">— ／ 物件コード —</div>
       </div>
       <div class="btn-row">
@@ -473,6 +498,10 @@
             <span>入金予定</span>
             <strong id="paymentSummaryScheduled">¥14,080,000</strong>
           </div>
+          <div class="payment-badge grey">
+            <span>請求金額</span>
+            <strong id="paymentSummaryBilled">¥0</strong>
+          </div>
           <div class="payment-badge blue">
             <span>入金実績</span>
             <strong>¥8,800,000</strong>
@@ -490,42 +519,42 @@
             <th style="width:110px;">入金日</th>
             <th class="r" style="width:130px;">実績金額</th>
             <th style="width:110px;">ステータス</th>
-            <th style="width:90px; padding-right:20px;"></th>
+            <th style="width:150px; padding-right:20px;"></th>
           </tr>
         </thead>
         <tbody id="payment-tbody">
-          <tr>
+          <tr data-row-key="default-1">
             <td style="padding-left:20px;">着手金</td>
-            <td><input class="date-input table-date" type="text" value="2026/04/10" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="scheduled_date" value="2026/04/10" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="billed_date" value="" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="2026/04/10" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="paid_date" value="2026/04/10" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="actual" style="font-weight:700;" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
             <td class="status-cell"><span class="badge badge-clickable badge-paid" data-status="2" onclick="toggleStatusMenu(this, event)">入金済</span></td>
-            <td style="text-align:right; padding-right:20px;"></td>
+            <td style="text-align:right; padding-right:20px;"><button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button></td>
           </tr>
-          <tr>
+          <tr data-row-key="default-2">
             <td style="padding-left:20px;">中間金</td>
-            <td><input class="date-input table-date" type="text" value="2026/06/30" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="scheduled_date" value="2026/06/30" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="billed_date" value="" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="2026/06/28" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="paid_date" value="2026/06/28" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="actual" style="font-weight:700;" value="¥4,400,000" data-raw="4400000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
             <td class="status-cell"><span class="badge badge-clickable badge-paid" data-status="2" onclick="toggleStatusMenu(this, event)">入金済</span></td>
-            <td style="text-align:right; padding-right:20px;"></td>
+            <td style="text-align:right; padding-right:20px;"><button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button></td>
           </tr>
-          <tr>
+          <tr data-row-key="default-3">
             <td style="padding-left:20px;">完成金</td>
-            <td><input class="date-input table-date" type="text" value="2026/09/15" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="scheduled_date" value="2026/09/15" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="scheduled" value="¥5,280,000" data-raw="5280000" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="billed_date" value="" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="billed" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-            <td><input class="date-input table-date" type="text" value="" placeholder="yyyy/mm/dd"></td>
+            <td><input class="date-input table-date" type="text" data-field="paid_date" value="" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)"></td>
             <td class="r"><input class="amount-input" type="text" data-field="actual" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)"></td>
             <td class="status-cell"><span class="badge badge-clickable badge-unpaid" data-status="0" onclick="toggleStatusMenu(this, event)">未入金</span></td>
-            <td style="text-align:right; padding-right:20px;"></td>
+            <td style="text-align:right; padding-right:20px;"><button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button></td>
           </tr>
         </tbody>
         <tbody>
@@ -543,7 +572,7 @@
             <td></td>
             <td class="r">予定 <span id="paymentTotalScheduled">¥14,080,000</span></td>
             <td></td>
-            <td></td>
+            <td class="r">請求 <span id="paymentTotalBilled">¥0</span></td>
             <td></td>
             <td class="r">実績 ¥8,800,000</td>
             <td colspan="2"></td>
@@ -705,6 +734,23 @@
   </div>
 </div>
 
+<!-- 入金管理：過去の請求書一覧モーダル（発行済み行の「請求書」リンクから開く） -->
+<div class="overlay" id="invoiceHistoryOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="invoiceHistoryTitle">請求書履歴</div>
+      <button class="modal-close-btn" onclick="closeInvoiceHistory()">&times;</button>
+    </div>
+    <div class="modal-body" id="invoiceHistoryBody">
+      <div class="invoice-history-empty">読み込み中...</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeInvoiceHistory()">閉じる</button>
+      <button class="btn-primary" id="invoiceHistoryReissueBtn">＋ 新規に請求書を発行</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // ===== 原価台帳ダウンロード =====
   function downloadGenkaDaichou() {
@@ -725,6 +771,217 @@
   document.getElementById('bcPropName').textContent = propName;
   document.getElementById('bcPropLink').href = backUrl;
   document.getElementById('contentSubtitle').textContent = propName + ' ／ 物件コード —';
+
+  // ===== Supabase接続・入金管理データ永続化 =====
+  // payment-settings.html / invoice_form.html と共通のSupabaseプロジェクト（ejxfofwavfypznjdwlpd）を使用。
+  // 詳細・要実行マイグレーションSQLは engineering/docs/koujisyusi.md 参照。
+  const SUPABASE_URL = 'https://ejxfofwavfypznjdwlpd.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqeGZvZndhdmZ5cHpuamR3bHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxNjczMTUsImV4cCI6MjA5ODc0MzMxNX0.pzi8zFtOGwNlCwgz88kLqTjezCWMUgvP7RexoeUCvR0';
+  const SB_API = `${SUPABASE_URL}/rest/v1`;
+  const SB_HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+  // true になったら payment_rows テーブルが実在する（404で無効化されていない）ことを示す。
+  // property_id が無いページアクセス（直接開いた場合等）や、テーブル未作成時は false のままとし、
+  // 従来通りブラウザ内のみの編集（リロードで消える）にフォールバックする。
+  let paymentRowsReady = false;
+
+  // loadPaymentRows()の同一タブでの多重呼び出し（pageshowと通常ロードの競合等）を1つの処理に
+  // 集約するための単一フライト用Promise。詳細はseedDefaultPaymentRowsGuarded()のコメント参照。
+  let paymentRowsLoadPromise = null;
+  function loadPaymentRows() {
+    if (!propertyId) return Promise.resolve();
+    if (paymentRowsLoadPromise) return paymentRowsLoadPromise;
+    paymentRowsLoadPromise = loadPaymentRowsInner().finally(() => { paymentRowsLoadPromise = null; });
+    return paymentRowsLoadPromise;
+  }
+
+  async function loadPaymentRowsInner() {
+    try {
+      const r = await fetch(`${SB_API}/payment_rows?property_id=eq.${encodeURIComponent(propertyId)}&order=sort_order.asc`, { headers: SB_HEADERS });
+      if (!r.ok) {
+        if (r.status === 404) {
+          console.warn('payment_rows テーブルが未作成です。Supabase SQL Editor でのマイグレーション実行が必要です（engineering/docs/koujisyusi.md 参照）。入金管理欄はDB未連携のまま動作します。');
+        } else {
+          console.error('loadPaymentRows: 取得に失敗', r.status);
+        }
+        return;
+      }
+      paymentRowsReady = true;
+      const rows = await r.json();
+      if (rows.length > 0) {
+        renderPaymentRowsFromDb(rows);
+      } else {
+        await seedDefaultPaymentRowsGuarded();
+      }
+      // 依頼3: 発行済み（invoicesに1件以上紐づく）行の「請求書発行」表示を「請求書」に切り替える。
+      await markIssuedRows();
+    } catch (e) {
+      console.error('loadPaymentRows:', e);
+    }
+  }
+
+  // 初回アクセス時（そのproperty_idでpayment_rowsが1件も無い場合）、既存の静的3行
+  // （着手金/中間金/完成金）をそのままDBへ複製し、以後はDBを正として動作させる
+  // （表示内容・初期値は変えず、永続化レイヤーだけを追加する設計）。
+  //
+  // 【2026-08-21 バグ修正】loadPaymentRows()は「GET→0件確認→POST」というcheck-then-act
+  // パターンで、確認と実行の間にウィンドウがある。同一property_idのkoujisyusi.htmlが複数タブ・
+  // 素早い連続リロード等でほぼ同時に読み込まれると、両方が「0件」を確認してそれぞれ静的3行を
+  // POSTしてしまい、payment_rowsに重複行（着手金/中間金/完成金の3行セットが複数）が作られる
+  // 不具合を実機のSupabaseデータで確認した（詳細: engineering/debug-log/2026-08-21-payment-rows-duplicate.md）。
+  // localStorageに「シード試行中」のタイムスタンプを同期的に記録してから非同期処理に入ることで、
+  // 同一ブラウザ内での競合（複数タブ・連続リロード）を防ぐ簡易ロックを追加した。
+  const SEED_GUARD_PREFIX = 'kj_payment_rows_seeding_';
+  const SEED_GUARD_TTL_MS = 10000; // ロックの有効期限（他タブの処理が失敗した場合に永久ロックしないための保険）
+
+  async function seedDefaultPaymentRowsGuarded() {
+    const guardKey = SEED_GUARD_PREFIX + propertyId;
+    const now = Date.now();
+    let existing = 0;
+    try { existing = parseInt(localStorage.getItem(guardKey) || '0', 10); } catch (e) { /* localStorage不可の環境は無視 */ }
+    if (existing && (now - existing) < SEED_GUARD_TTL_MS) {
+      // 直前（TTL以内）に別のタブ/リクエストがシードを開始している。少し待ってからDBを
+      // 再取得し、既にシード済みならそれを描画する（新規にはシードしない）。
+      await new Promise(res => setTimeout(res, 800));
+      try {
+        const r2 = await fetch(`${SB_API}/payment_rows?property_id=eq.${encodeURIComponent(propertyId)}&order=sort_order.asc`, { headers: SB_HEADERS });
+        if (r2.ok) {
+          const rows2 = await r2.json();
+          if (rows2.length > 0) { renderPaymentRowsFromDb(rows2); return; }
+        }
+      } catch (e) { console.error('seedDefaultPaymentRowsGuarded: 再確認に失敗', e); }
+      // それでも0件なら先行処理が失敗した可能性があるため、通常通りシードへ進む。
+    }
+    try { localStorage.setItem(guardKey, String(now)); } catch (e) { /* localStorage不可の環境は無視 */ }
+    try {
+      await seedDefaultPaymentRows();
+    } finally {
+      try { localStorage.removeItem(guardKey); } catch (e) { /* noop */ }
+    }
+  }
+
+  async function seedDefaultPaymentRows() {
+    const trs = Array.from(document.querySelectorAll('#payment-tbody tr[data-row-key]'));
+    const payload = trs.map((tr, i) => rowToPayload(tr, i));
+    try {
+      const r = await fetch(`${SB_API}/payment_rows`, { method: 'POST', headers: SB_HEADERS, body: JSON.stringify(payload) });
+      if (!r.ok) { console.error('seedDefaultPaymentRows: 保存に失敗', r.status); return; }
+      const inserted = await r.json();
+      trs.forEach((tr, i) => { if (inserted[i]) tr.dataset.dbId = inserted[i].id; });
+    } catch (e) {
+      console.error('seedDefaultPaymentRows:', e);
+    }
+  }
+
+  function rowToPayload(tr, sortOrder) {
+    const nameCell = tr.children[0];
+    const nameInput = nameCell.querySelector('input');
+    const name = (nameInput ? nameInput.value : nameCell.textContent).trim();
+    return {
+      property_id: propertyId,
+      row_key: tr.dataset.rowKey || ('row-' + Date.now() + '-' + sortOrder),
+      name,
+      scheduled_date: fieldVal(tr, 'scheduled_date'),
+      scheduled_amount: rawNum(tr, 'scheduled'),
+      billed_date: fieldVal(tr, 'billed_date'),
+      billed_amount: rawNum(tr, 'billed'),
+      paid_date: fieldVal(tr, 'paid_date'),
+      actual_amount: rawNum(tr, 'actual'),
+      status: parseInt(tr.querySelector('.status-cell .badge')?.dataset.status || '0', 10),
+      sort_order: sortOrder
+    };
+  }
+  function fieldVal(tr, field) {
+    const el = tr.querySelector(`[data-field="${field}"]`);
+    return el ? el.value.trim() : '';
+  }
+  function rawNum(tr, field) {
+    const el = tr.querySelector(`input[data-field="${field}"]`);
+    const raw = el ? el.dataset.raw : '';
+    return raw ? parseInt(raw, 10) : null;
+  }
+
+  function escHtmlK(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  // DB取得済みの行データから#payment-tbodyを再構築する。
+  // row_key が "default-" で始まる行（着手金/中間金/完成金）は元の静的markupと同じ見た目
+  // （名目は編集不可・削除ボタン無し）を再現し、それ以外（addPaymentRow()由来の追加行）は
+  // 名目編集input・削除ボタンありの見た目を再現する。
+  function renderPaymentRowsFromDb(rows) {
+    const tbody = document.getElementById('payment-tbody');
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(buildPaymentRowTr(row)));
+    recalcScheduledTotal();
+    recalcBilledTotal();
+  }
+
+  function buildPaymentRowTr(row) {
+    const tr = document.createElement('tr');
+    tr.dataset.dbId = row.id;
+    if (row.row_key) tr.dataset.rowKey = row.row_key;
+    const isDefault = (row.row_key || '').startsWith('default-');
+    const dateCls = isDefault ? 'date-input table-date' : 'new-row-input';
+    const amtCls  = isDefault ? 'amount-input' : 'new-row-input';
+    const dateStyle = isDefault ? '' : ' style="width:100px;"';
+    const amtStyle  = isDefault ? '' : ' style="text-align:right;width:100%;"';
+    const nameCell = isDefault
+      ? `<td style="padding-left:20px;">${escHtmlK(row.name || '')}</td>`
+      : `<td style="padding-left:20px;"><input class="new-row-input" placeholder="名目" style="width:90px;" value="${escHtmlK(row.name || '')}" onblur="paymentNameBlur(this)"></td>`;
+    const statusState = PAYMENT_STATUS_STATES[row.status || 0] || PAYMENT_STATUS_STATES[0];
+    const actionCell = isDefault
+      ? `<button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button>`
+      : `<button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button><button class="delete-link" style="margin-left:6px;" onclick="deleteRow(this)">削除</button>`;
+    const mkDate = (field, val) => `<input class="${dateCls}" type="text" data-field="${field}"${dateStyle} value="${escHtmlK(val || '')}" placeholder="yyyy/mm/dd" onblur="paymentDateBlur(this)">`;
+    const mkAmt = (field, val, bold) => {
+      const raw = (val === null || val === undefined || val === '') ? '' : String(Math.round(val));
+      const display = raw ? ('¥' + parseInt(raw, 10).toLocaleString('ja-JP')) : '';
+      const boldStyle = (bold && isDefault) ? ' style="font-weight:700;"' : '';
+      return `<input class="${amtCls}" type="text" data-field="${field}"${amtStyle}${boldStyle} value="${escHtmlK(display)}" data-raw="${escHtmlK(raw)}" placeholder="¥0" onfocus="editYen(this)" onblur="formatYen(this)">`;
+    };
+    tr.innerHTML = `
+      ${nameCell}
+      <td>${mkDate('scheduled_date', row.scheduled_date)}</td>
+      <td class="r">${mkAmt('scheduled', row.scheduled_amount)}</td>
+      <td>${mkDate('billed_date', row.billed_date)}</td>
+      <td class="r">${mkAmt('billed', row.billed_amount)}</td>
+      <td>${mkDate('paid_date', row.paid_date)}</td>
+      <td class="r">${mkAmt('actual', row.actual_amount, true)}</td>
+      <td class="status-cell"><span class="badge badge-clickable ${statusState.cls}" data-status="${row.status || 0}" onclick="toggleStatusMenu(this, event)">${statusState.text}</span></td>
+      <td style="text-align:right; padding-right:20px; white-space:nowrap;">${actionCell}</td>
+    `;
+    return tr;
+  }
+
+  // 行単位の部分保存（PATCH）。dbId未確定（Supabase未連携）の行では何もしない。
+  async function savePaymentRowPatch(tr, patch) {
+    if (!tr) return;
+    const dbId = tr.dataset.dbId;
+    if (!dbId || !paymentRowsReady) return;
+    try {
+      const r = await fetch(`${SB_API}/payment_rows?id=eq.${dbId}`, { method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify(patch) });
+      if (!r.ok) console.error('savePaymentRowPatch: 保存に失敗', r.status, patch);
+    } catch (e) {
+      console.error('savePaymentRowPatch:', e);
+    }
+  }
+  function paymentDateBlur(input) {
+    const tr = input.closest('tr');
+    savePaymentRowPatch(tr, { [input.dataset.field]: input.value.trim() });
+  }
+  function paymentNameBlur(input) {
+    const tr = input.closest('tr');
+    savePaymentRowPatch(tr, { name: input.value.trim() });
+  }
+
+  // bfcacheからの復元時（invoice_form.htmlから「戻る」で戻ってきた場合等）は
+  // 最新のDBデータを再取得して請求日・請求金額の反映を確実にする。
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) loadPaymentRows();
+  });
 
   // ===== ナビバー：index.htmlへの遷移 =====
   function navClick(key) {
@@ -871,6 +1128,7 @@
   // フォーカス時は生の数値のみを表示し、blur時に¥・カンマ区切りへ整形する。
   // 直近の整形済み値は input.dataset.raw に保持する。
   // data-field="scheduled" の入力（予定金額）はblur時に入金予定の合計も再計算する。
+  // data-field="billed" の入力（請求金額）はblur時に請求金額の合計も再計算する。
   function editYen(input) {
     input.value = input.dataset.raw || '';
   }
@@ -886,6 +1144,13 @@
     }
     if (input.dataset.field === 'scheduled') {
       recalcScheduledTotal();
+    } else if (input.dataset.field === 'billed') {
+      recalcBilledTotal();
+    }
+    // 入金管理テーブル内の金額入力のみDBへ部分保存する（発注情報の外注費inputは対象外）。
+    const paymentTr = input.closest('tr');
+    if (paymentTr && paymentTr.parentElement && paymentTr.parentElement.id === 'payment-tbody') {
+      savePaymentRowPatch(paymentTr, { [input.dataset.field]: input.dataset.raw ? Number(input.dataset.raw) : null });
     }
   }
 
@@ -902,6 +1167,22 @@
     const badgeEl = document.getElementById('paymentSummaryScheduled');
     if (badgeEl) badgeEl.textContent = formatted;
     const footEl = document.getElementById('paymentTotalScheduled');
+    if (footEl) footEl.textContent = formatted;
+  }
+
+  // ===== 入金管理：請求金額合計の再計算 =====
+  // 請求金額（data-field="billed"）の入力値を合算し、上部サマリーバッジ「請求金額」と
+  // tfootの「請求 ¥xxx」表示に反映する。recalcScheduledTotal()と同じパターン。
+  function recalcBilledTotal() {
+    let total = 0;
+    document.querySelectorAll('#payment-tbody input[data-field="billed"]').forEach(inp => {
+      const raw = parseInt(inp.dataset.raw || '0', 10);
+      if (!isNaN(raw)) total += raw;
+    });
+    const formatted = '¥' + total.toLocaleString('ja-JP');
+    const badgeEl = document.getElementById('paymentSummaryBilled');
+    if (badgeEl) badgeEl.textContent = formatted;
+    const footEl = document.getElementById('paymentTotalBilled');
     if (footEl) footEl.textContent = formatted;
   }
 
@@ -945,6 +1226,10 @@
       badge.classList.add(state.cls);
       badge.dataset.status = String(idx);
       badge.textContent = state.text;
+      const tr = badge.closest('tr');
+      if (tr && tr.parentElement && tr.parentElement.id === 'payment-tbody') {
+        savePaymentRowPatch(tr, { status: idx });
+      }
     }
     menu.remove();
   }
@@ -958,37 +1243,196 @@
   // ===== 入金管理：行追加 =====
   // 注意: 請求金額・実績金額の合計は今回のスコープ外のため自動再計算されない
   // （予定金額のみ recalcScheduledTotal() で再計算対象）。
+  // property_id が有効かつ payment_rows テーブルが利用可能な場合、追加と同時にDBへも
+  // 即座にPOSTする（削除・各項目の編集も同様に都度DB反映する設計。estimate-edit-demo.html等
+  // 他画面の「操作は都度Supabaseへ直接反映する」パターンを踏襲）。
   let rowCount = 0;
-  function addPaymentRow() {
+  async function addPaymentRow() {
     rowCount++;
-    const id = 'pay-row-' + rowCount;
     const tbody = document.getElementById('payment-tbody');
     const tr = document.createElement('tr');
-    tr.id = id;
+    tr.dataset.rowKey = 'row-' + Date.now() + '-' + rowCount;
     tr.innerHTML = `
-      <td style="padding-left:20px;"><input class="new-row-input" placeholder="名目" style="width:90px;"></td>
-      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td style="padding-left:20px;"><input class="new-row-input" placeholder="名目" style="width:90px;" onblur="paymentNameBlur(this)"></td>
+      <td><input class="new-row-input" data-field="scheduled_date" placeholder="yyyy/mm/dd" style="width:100px;" onblur="paymentDateBlur(this)"></td>
       <td class="r"><input class="new-row-input" data-field="scheduled" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td><input class="new-row-input" data-field="billed_date" placeholder="yyyy/mm/dd" style="width:100px;" onblur="paymentDateBlur(this)"></td>
       <td class="r"><input class="new-row-input" data-field="billed" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
-      <td><input class="new-row-input" placeholder="yyyy/mm/dd" style="width:100px;"></td>
+      <td><input class="new-row-input" data-field="paid_date" placeholder="yyyy/mm/dd" style="width:100px;" onblur="paymentDateBlur(this)"></td>
       <td class="r"><input class="new-row-input" data-field="actual" placeholder="¥0" style="text-align:right;width:100%;" onfocus="editYen(this)" onblur="formatYen(this)"></td>
       <td class="status-cell"><span class="badge badge-clickable badge-unpaid" data-status="0" onclick="toggleStatusMenu(this, event)">未入金</span></td>
-      <td style="text-align:right;padding-right:20px;"><button class="delete-link" onclick="deleteRow('${id}')">削除</button></td>
+      <td style="text-align:right;padding-right:20px;white-space:nowrap;">
+        <button class="invoice-link" onclick="openInvoiceForRow(this)">請求書発行</button>
+        <button class="delete-link" style="margin-left:6px;" onclick="deleteRow(this)">削除</button>
+      </td>
     `;
     tbody.appendChild(tr);
-  }
 
-  function deleteRow(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.remove();
-      recalcScheduledTotal();
+    if (propertyId && paymentRowsReady) {
+      try {
+        const sortOrder = document.querySelectorAll('#payment-tbody tr').length - 1;
+        const r = await fetch(`${SB_API}/payment_rows`, {
+          method: 'POST', headers: SB_HEADERS,
+          body: JSON.stringify([{ property_id: propertyId, row_key: tr.dataset.rowKey, name: '', status: 0, sort_order: sortOrder }])
+        });
+        if (r.ok) {
+          const inserted = await r.json();
+          if (inserted[0]) tr.dataset.dbId = inserted[0].id;
+        } else {
+          console.error('addPaymentRow: Supabase保存に失敗', r.status);
+        }
+      } catch (e) {
+        console.error('addPaymentRow:', e);
+      }
     }
   }
 
-  // 初期表示時点でも予定金額の合計を計算し直し、静的に埋め込んだサマリー表示とズレないようにする。
+  async function deleteRow(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    const dbId = tr.dataset.dbId;
+    tr.remove();
+    recalcScheduledTotal();
+    recalcBilledTotal();
+    if (dbId && paymentRowsReady) {
+      try {
+        const r = await fetch(`${SB_API}/payment_rows?id=eq.${dbId}`, { method: 'DELETE', headers: SB_HEADERS });
+        if (!r.ok) console.error('deleteRow: Supabase削除に失敗', r.status);
+      } catch (e) {
+        console.error('deleteRow:', e);
+      }
+    }
+  }
+
+  // ===== 入金管理：請求書発行（invoice_form.htmlへ遷移） =====
+  // クリックした行の名目・物件名・金額（請求金額があればそれを優先、無ければ予定金額）を
+  // URLパラメータ（item, amount）で渡し、同一タブでinvoice_form.htmlへ遷移する
+  // （btnEstimate/btnShodan等、本ファイル内の他の画面遷移ボタンと同じlocation.href方式に統一。
+  // window.open方式はポップアップブロックの影響を受けうるため不採用）。
+  // invoice_form.html側は未対応でも画面遷移自体は必ず成立するよう、パラメータは無ければ付けないだけに留める。
+  function openInvoiceForRow(btn) {
+    const tr = btn.closest('tr');
+    const nameCell = tr.children[0];
+    const nameInput = nameCell.querySelector('input');
+    const itemLabel = (nameInput ? nameInput.value : nameCell.textContent).trim();
+    const billedInput = tr.querySelector('input[data-field="billed"]');
+    const scheduledInput = tr.querySelector('input[data-field="scheduled"]');
+    const rawAmount = (billedInput && billedInput.dataset.raw) || (scheduledInput && scheduledInput.dataset.raw) || '';
+    const fullItem = (propName && propName !== '物件') ? (propName + ' ' + itemLabel).trim() : itemLabel;
+
+    const qs = new URLSearchParams();
+    if (fullItem) qs.set('item', fullItem);
+    if (rawAmount) qs.set('amount', rawAmount);
+    // row_id（payment_rows.id）: invoice_form.html側で「請求書保存」実行時にこの行へ
+    // 請求日・請求金額を書き戻すための一意な行識別子。同名の行が複数あっても迷わない。
+    // DB未連携（property_id無し・テーブル未作成）の場合はdbIdが無いため付与しない
+    // （その場合invoice_form.html側は保存はできるが行への書き戻しは行わない）。
+    if (tr.dataset.dbId) qs.set('row_id', tr.dataset.dbId);
+    if (propertyId) qs.set('property_id', propertyId);
+    const url = 'invoice_form.html' + (qs.toString() ? ('?' + qs.toString()) : '');
+    location.href = url;
+  }
+
+  // ===== 入金管理：発行済み行の「請求書」表示切替＋過去の請求書一覧モーダル =====
+  // 一度でも請求書を発行した行（＝その payment_row_id に紐づく invoices レコードが1件以上ある行）は、
+  // ボタン表示を「請求書発行」から「請求書」に変え、クリックで過去発行済みの請求書一覧を確認できる
+  // ようにする。「新規に請求書発行したい場合はどうするか」（発行済みでも再度新規発行できるか）は
+  // 坂東さんの意図が明示されていなかったため、両方の選択肢を残す設計にした（「請求書」＝履歴確認、
+  // モーダル内の「＋ 新規に請求書を発行」＝別途の再発行導線）。判断根拠は
+  // secretary/notes/2026-08-21-decisions.md 参照。
+  async function markIssuedRows() {
+    if (!paymentRowsReady) return;
+    const trs = Array.from(document.querySelectorAll('#payment-tbody tr[data-db-id]'));
+    if (trs.length === 0) return;
+    const rowIds = trs.map(tr => tr.dataset.dbId);
+    try {
+      const r = await fetch(`${SB_API}/invoices?payment_row_id=in.(${rowIds.join(',')})&select=payment_row_id`, { headers: SB_HEADERS });
+      if (!r.ok) {
+        if (r.status !== 404) console.error('markIssuedRows: 取得に失敗', r.status);
+        return;
+      }
+      const rows = await r.json();
+      const issuedIds = new Set(rows.map(row => row.payment_row_id));
+      trs.forEach(tr => {
+        const btn = tr.querySelector('button.invoice-link');
+        if (!btn) return;
+        if (issuedIds.has(tr.dataset.dbId)) {
+          btn.textContent = '請求書';
+          btn.onclick = () => openInvoiceHistory(btn);
+        } else {
+          btn.textContent = '請求書発行';
+          btn.onclick = () => openInvoiceForRow(btn);
+        }
+      });
+    } catch (e) {
+      console.error('markIssuedRows:', e);
+    }
+  }
+
+  let invoiceHistoryCurrentBtn = null;
+  async function openInvoiceHistory(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    invoiceHistoryCurrentBtn = btn;
+    const overlay = document.getElementById('invoiceHistoryOverlay');
+    const body = document.getElementById('invoiceHistoryBody');
+    const title = document.getElementById('invoiceHistoryTitle');
+    const nameCell = tr.children[0];
+    const nameInput = nameCell.querySelector('input');
+    const itemLabel = (nameInput ? nameInput.value : nameCell.textContent).trim();
+    title.textContent = '請求書履歴' + (itemLabel ? '（' + itemLabel + '）' : '');
+    body.innerHTML = '<div class="invoice-history-empty">読み込み中...</div>';
+    overlay.classList.add('active');
+    const rowId = tr.dataset.dbId;
+    try {
+      const r = await fetch(`${SB_API}/invoices?payment_row_id=eq.${rowId}&select=id,invoice_no,issue_date,total&order=created_at.desc`, { headers: SB_HEADERS });
+      if (!r.ok) { body.innerHTML = '<div class="invoice-history-empty">取得に失敗しました。</div>'; return; }
+      const list = await r.json();
+      if (list.length === 0) {
+        body.innerHTML = '<div class="invoice-history-empty">発行済みの請求書はありません。</div>';
+        return;
+      }
+      const rowsHtml = list.map(inv => `
+        <tr>
+          <td>${escHtmlK(inv.invoice_no || '（請求No未設定）')}</td>
+          <td>${escHtmlK(inv.issue_date || '—')}</td>
+          <td class="r">¥${Math.round(inv.total || 0).toLocaleString('ja-JP')}</td>
+          <td><button class="invoice-history-open-btn" onclick="location.href='invoice_form.html?invoice_id=${encodeURIComponent(inv.id)}'">開く</button></td>
+        </tr>
+      `).join('');
+      body.innerHTML = `
+        <table class="invoice-history-table">
+          <thead><tr><th>請求No</th><th>発行日</th><th class="r">金額（税込）</th><th></th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    } catch (e) {
+      console.error('openInvoiceHistory:', e);
+      body.innerHTML = '<div class="invoice-history-empty">取得に失敗しました。</div>';
+    }
+  }
+
+  function closeInvoiceHistory() {
+    document.getElementById('invoiceHistoryOverlay').classList.remove('active');
+    invoiceHistoryCurrentBtn = null;
+  }
+  document.getElementById('invoiceHistoryOverlay').addEventListener('click', function (e) {
+    if (e.target.id === 'invoiceHistoryOverlay') closeInvoiceHistory();
+  });
+  document.getElementById('invoiceHistoryReissueBtn').addEventListener('click', function () {
+    if (invoiceHistoryCurrentBtn) {
+      const btn = invoiceHistoryCurrentBtn;
+      closeInvoiceHistory();
+      openInvoiceForRow(btn);
+    }
+  });
+
+  // 初期表示時点でも予定金額・請求金額の合計を計算し直し、静的に埋め込んだサマリー表示とズレないようにする。
   recalcScheduledTotal();
+  recalcBilledTotal();
+  // property_id が有効な場合、DBの入金管理データを取得して画面に反映する
+  // （0件なら現在の静的3行をそのままDBへ複製＝初回アクセス時の自動シーディング）。
+  loadPaymentRows();
 </script>
 </body>
 </html>

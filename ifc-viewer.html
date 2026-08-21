@@ -300,6 +300,18 @@
   table.qty-table tr.qty-row { cursor: pointer; }
   table.qty-table tr.qty-row:hover td { background: #eef4ff; }
   table.qty-table tr.qty-row.active td { background: #cfe0ff; }
+  /* 2026-08-21追加（坂東さん指示）: 転記対象チェック(input.qty-select)がONの行は、3D側の
+     checkMaterial（0xffdd00、黄）と揃えて一覧表の行背景も黄色にする。JS側でクラスを都度
+     付け外しする実装だとcheckedIds操作箇所（通常チェック・合算行の非対称連動・複数選択ミラー
+     同期・タスクB状態復元restoreQtyState()の計4箇所以上）すべてに同期処理を追加する必要があり
+     漏れのリスクがあるため、:has()でチェックボックスの実際のON/OFFに常に追従させるCSS単独実装
+     にした（JSの分岐は一切変更していない）。qty-row-aggregate（合算行、既存の淡いオレンジ
+     #fff7e8）・active（3D選択中、既存の青#cfe0ff）と共存する場合の見た目もあわせて定義。 */
+  table.qty-table tr.qty-row:has(input.qty-select:checked) td { background: #fff3b0; }
+  table.qty-table tr.qty-row:has(input.qty-select:checked):hover td { background: #ffe98c; }
+  table.qty-table tr.qty-row:has(input.qty-select:checked).active td { background: #ffdb70; }
+  table.qty-table tr.qty-row-aggregate:has(input.qty-select:checked) td { background: #ffe9a8; }
+  table.qty-table tr.qty-row-aggregate:has(input.qty-select:checked):hover td { background: #ffdd85; }
   /* 2026-08-03削除（タスクA詳細化、pptxスライド3指示）: 一覧表(#qtyBody)の列を材質・名称/項目/
      数量/単位＋転記チェックのみに簡素化したのに伴い、qty-merge（合算チェック列）・qty-price
      （参考価格列）・qty-maker（メーカー名列）・qty-hikidashi（引出線名称列）・qty-merge-result
@@ -788,13 +800,13 @@ let currentModel = null;
 // depthTest:falseで常に手前に描画する（元の壁面などと同一平面上でのZファイティングによる
 // 「ハイライトが作成されているのに見えない」問題を防ぐ）
 let highlightMaterial = new THREE.MeshBasicMaterial({
-  color: 0x2266ff, transparent: true, opacity: 0.75, depthTest: false,
+  color: 0x2266ff, transparent: true, opacity: 0.75, depthTest: false, side: THREE.DoubleSide,
 });
 // 一覧表チェック（拾い出しチェック用）で黄色にする要素。クリック選択(青)とは別のsubsetで管理し、
 // 選択状態が変わってもチェック色は消えないようにする
 let checkedIds = new Set();
 const checkMaterial = new THREE.MeshBasicMaterial({
-  color: 0xffdd00, transparent: true, opacity: 0.6, depthTest: false,
+  color: 0xffdd00, transparent: true, opacity: 0.6, depthTest: false, side: THREE.DoubleSide,
 });
 
 // ── ファイル読み込み ─────────────────────────────────────
